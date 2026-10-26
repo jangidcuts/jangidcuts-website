@@ -81,6 +81,15 @@ export async function handleAdmin(req, env, ctx, url, s) {
   if ((mm = p.match(/^\/api\/admin\/content\/([a-z_]+)$/)) && m === 'PUT') {
     const key = mm[1]; if (!(key in DEFAULTS) || key.startsWith('_')) fail('Unknown section');
     const b = await readJson(req, 500000); if (b.value === undefined) fail('Missing value');
+    if (key === 'socials') {
+      if (!Array.isArray(b.value) || b.value.length > 60) fail('Social list is invalid');
+      const s2 = v => String(v == null ? '' : v).trim().slice(0, 300);
+      b.value = b.value.map(x => {
+        const url = s2(x && x.url);
+        if (url && !/^(https?:\/\/|mailto:)/i.test(url)) fail(`${s2(x.name) || 'A platform'}: the link must start with https://`);
+        return { name: s2(x && x.name).slice(0, 60), icon: s2(x && x.icon).replace(/[^a-z0-9-]/gi, '').slice(0, 30) || 'other', url, handle: s2(x && x.handle).slice(0, 80), show: !(x && x.show === false) };
+      });
+    }
     await setKey(env, key, b.value); await logEvent(env, 'admin', `${s.user.email} edited ${key}`);
     return J({ ok: true });
   }

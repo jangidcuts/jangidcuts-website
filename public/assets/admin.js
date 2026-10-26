@@ -64,6 +64,33 @@ function listEditor(root,items,fields,opts){opts=opts||{};items=(items||[]).slic
    $$('[data-mv]',el).forEach(function(b){b.onclick=function(){var j=i+(+b.dataset.mv);if(j<0||j>=items.length)return;var t=items[i];items[i]=items[j];items[j]=t;draw()}})});
   $('[data-add]',root).onclick=function(){var n={};fields.forEach(function(f){n[f.k]=f.type==='bool'?false:f.type==='number'?0:''});Object.assign(n,opts.blank||{});items.push(n);draw()}}
  draw();return{get:function(){return items}}}
+/* ---------- social platforms editor + brand icon picker ---------- */
+function BT(k,url){return window.JCB?JCB.tile(k,url):I('globe')}
+function brandName(k){var b=window.JCB&&JCB.get(k);return b?b.n.replace(/ \/ Link$/,'').replace(/ \(generic\)$/,''):''}
+function iconPicker(cur,onPick){var L=(window.JCB&&JCB.list)||[];
+ openDlg('Choose an icon','<div class="ip-search"><span class="ip-si">'+I('search')+'</span><input class="in" id="ipq" type="search" placeholder="Search icons (e.g. insta, discord, coffee)" autocomplete="off" aria-label="Search icons"></div><p class="small muted ip-count" id="ipn"></p><div class="ip-grid" id="ipg"></div>',function(db){
+  var q=$('#ipq',db),g=$('#ipg',db),n=$('#ipn',db);
+  function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+  function draw(){var t=norm(q.value),hits=L.filter(function(b){return !t||norm(b.n+' '+b.k+' '+b.kw).indexOf(t)>=0||String(b.kw).split(' ').some(function(w){return norm(w).indexOf(t)===0})});
+   n.textContent=hits.length+' of '+L.length+' icons';
+   g.innerHTML=hits.map(function(b){return '<button type="button" class="ip-it'+(b.k===cur?' on':'')+'" data-k="'+esc(b.k)+'" title="'+esc(b.n)+'">'+JCB.tile(b.k)+'<span>'+esc(b.n)+'</span></button>'}).join('')||'<p class="muted small">No icon matches. Pick "Other (generic)" or "Website / Link".</p>'}
+  g.onclick=function(e){var b=e.target.closest('[data-k]');if(!b)return;closeDlg();onPick(b.dataset.k)};
+  q.oninput=draw;draw();setTimeout(function(){try{q.focus({preventScroll:true})}catch(e){}},60)})}
+function socialEditor(root,items){items=(items||[]).map(function(x){var o=Object.assign({},x);if(window.JCB)o.icon=JCB.get(o.icon,o.url).k;if(o.show===undefined)o.show=true;return o});
+ function state(x){var u=String(x.url||'').trim();return !u?['Hidden: add a link','warn']:x.show===false?['Hidden','']:['Live on site','ok']}
+ function draw(){root.innerHTML='<div class="so-ed">'+items.map(function(x,i){var st=state(x);return '<div class="item-ed so-row" data-i="'+i+'"><div class="hdr"><div class="so-hd"><button type="button" class="so-ic" data-ic title="Change icon" aria-label="Change icon">'+BT(x.icon,x.url)+'</button><div class="so-ti"><b>'+esc(x.name||brandName(x.icon)||'Platform')+'</b><span class="pill so-st '+st[1]+'">'+esc(st[0])+'</span></div></div><div class="acts row"><button class="ib" data-mv="-1" title="Move up">'+I('left')+'</button><button class="ib" data-mv="1" title="Move down">'+I('right')+'</button><button class="ib" data-del title="Remove">'+I('trash')+'</button></div></div>'+
+  '<div class="so-fs"><div class="f"><label>Platform name</label><input class="in" data-k="name" value="'+esc(x.name)+'"></div><div class="f"><label>Link</label><input class="in" data-k="url" type="url" inputmode="url" placeholder="https://" value="'+esc(x.url)+'"></div><div class="f"><label>Handle shown</label><input class="in" data-k="handle" value="'+esc(x.handle)+'"></div></div>'+
+  '<div class="so-ft"><label class="chk"><input type="checkbox" data-k="show"'+(x.show!==false?' checked':'')+'> Show on site</label>'+(x.url?'<a class="small so-open" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">Open link ↗</a>':'')+'</div></div>'}).join('')+'</div><button class="btn g s" type="button" data-add>'+I('plus')+' Add platform</button>';
+  $$('.so-row',root).forEach(function(el){var i=+el.dataset.i,x=items[i];
+   function sync(){x.name=$('[data-k=name]',el).value;x.url=$('[data-k=url]',el).value.trim();x.handle=$('[data-k=handle]',el).value;x.show=$('[data-k=show]',el).checked;
+    var st=state(x),p=$('.so-st',el);p.textContent=st[0];p.className='pill so-st '+st[1];$('.so-ti b',el).textContent=x.name||brandName(x.icon)||'Platform'}
+   el.addEventListener('input',sync);el.addEventListener('change',function(e){sync();
+    if(e.target.dataset.k==='url'&&window.JCB){var k=JCB.fromUrl(x.url);if(k&&(x.icon==='other'||x.icon==='website')&&k!==x.icon){x.icon=k;if(!x.name)x.name=brandName(k);draw()}}});
+   $('[data-ic]',el).onclick=function(){iconPicker(x.icon,function(k){var old=brandName(x.icon);x.icon=k;if(!x.name||x.name===old)x.name=brandName(k);draw()})};
+   $('[data-del]',el).onclick=function(){if(confirm('Remove '+(x.name||'this platform')+'? (Press Save to apply)')){items.splice(i,1);draw()}};
+   $$('[data-mv]',el).forEach(function(b){b.onclick=function(){var j=i+(+b.dataset.mv);if(j<0||j>=items.length)return;var t=items[i];items[i]=items[j];items[j]=t;draw()}})});
+  $('[data-add]',root).onclick=function(){iconPicker('',function(k){items.push({name:brandName(k),icon:k,url:'',handle:'',show:true});draw();var rows=$$('.so-row',root),last=rows[rows.length-1];if(last){last.scrollIntoView({block:'center'});var u=$('[data-k=url]',last);setTimeout(function(){try{u.focus({preventScroll:true})}catch(e){}},80)}})}}
+ draw();return{get:function(){return items.map(function(x){return{name:String(x.name||'').trim(),icon:x.icon||'other',url:String(x.url||'').trim(),handle:String(x.handle||'').trim(),show:x.show!==false}})},redraw:draw}}
 function saveContent(key,value){return req('/api/admin/content/'+key,{method:'PUT',body:{value:value}}).then(function(){ST.content[key]=value;toast('Saved — live on the site now ✓')})}
 
 /* ---------- login ---------- */
@@ -272,10 +299,10 @@ VIEWS.pages=function(v,q){withContent(function(c){var tab=q.get('t')||'faq';
 
 VIEWS.contact=function(v){withContent(function(c){
  var cf=[{k:'title',label:'Page title'},{k:'intro',label:'Intro',type:'textarea',rows:2},{k:'whatsapp',label:'WhatsApp number (with country code)'},{k:'call',label:'Call number'},{k:'email',label:'Email'},{k:'instagram_dm',label:'Instagram DM link'},{k:'telegram',label:'Telegram link'},{k:'hours',label:'Working hours'}];
- v.innerHTML=top('Contact & Social')+objCard('Contact page','contact',cf)+'<div class="card"><h2>Social platforms (Social page + footer icons)<button class="btn p s" id="svs">Save</button></h2><div id="le"></div></div>';
+ v.innerHTML=top('Contact & Social')+objCard('Contact page','contact',cf)+'<div class="card"><h2>Social platforms (Social page + footer icons)<button class="btn p s" id="svs">Save</button></h2><p class="small muted mb">Shown on the Social page and in the footer, in this order. A platform without a link, or with "Show on site" off, stays hidden. Press Save after changes.</p><div id="le"></div></div>';
  objCardBind(v,'contact',cf);bindObjCards(v);
- var le=listEditor($('#le'),c.socials,[{k:'name',label:'Platform name'},{k:'url',label:'Link'},{k:'handle',label:'Handle shown'},{k:'icon',label:'Icon',type:'select',options:[['ig','Instagram'],['yt','YouTube'],['tg','Telegram'],['pin','Pinterest'],['wa','WhatsApp'],['fb','Facebook'],['globe','Website / other'],['mail','Email']]}],{label:'Platform'});
- $('#svs').onclick=function(){saveContent('socials',le.get())}})};
+ var le=socialEditor($('#le'),c.socials);
+ $('#svs').onclick=function(){var l=le.get(),bad=l.filter(function(x){return String(x.url||'').trim()&&!/^(https:\/\/|http:\/\/|mailto:)/i.test(String(x.url).trim())})[0];if(bad){toast((bad.name||'A platform')+': the link must start with https://',true);return}saveContent('socials',l).then(function(){le.redraw()})}})};
 
 /* ---------- reviews ---------- */
 VIEWS.reviews=function(v){req('/api/admin/reviews').then(function(r){var items=r.items;

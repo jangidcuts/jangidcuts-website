@@ -137,3 +137,32 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .sto-n{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--faint)}.sto-n b{color:var(--text);font-weight:600}
 .sto-x{margin-top:6px;line-height:1.45}
 .card p,.card dd,.card .small{overflow-wrap:anywhere}
+
+/* social editor + icon picker (v9) */
+.so-hd{display:flex;align-items:center;gap:12px;min-width:0}
+.so-ic{padding:0;border:0;background:none;border-radius:12px;cursor:pointer;position:relative;flex:0 0 auto}
+.so-ic .bt{--bs:42px}
+.so-ic:after{content:'';position:absolute;inset:-3px;border-radius:14px;border:1px dashed var(--line);opacity:.9}
+.so-ic:hover:after,.so-ic:focus-visible:after{border-color:var(--mint)}
+.so-ti{display:flex;flex-direction:column;gap:4px;min-width:0}
+.so-ti b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.so-st.ok{background:rgba(13,188,148,.16);color:var(--mint)}
+.so-st.warn{background:rgba(255,176,32,.14);color:var(--amber)}
+.so-fs{display:grid;grid-template-columns:1fr 2fr 1fr;gap:0 12px}
+.so-ft{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.so-ft .chk{margin-bottom:0}
+.so-open{color:var(--mint)}
+@media (max-width:760px){.so-fs{grid-template-columns:1fr}}
+.ip-search{position:relative;margin-bottom:8px}
+.ip-search .in{padding-left:40px;width:100%}
+.ip-si{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);display:grid}
+.ip-si svg{width:18px;height:18px}
+.ip-count{margin:0 0 10px}
+.ip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.ip-it{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 6px 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg2);color:var(--text);cursor:pointer;font:inherit;font-size:12px;line-height:1.25;text-align:center;min-height:92px}
+.ip-it:hover,.ip-it:focus-visible{border-color:var(--mint)}
+.ip-it.on{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
+.ip-it .bt{--bs:38px}
+.ip-it span:last-child{overflow-wrap:anywhere}
+.so-row .hdr{align-items:center}.so-row .acts{flex-wrap:nowrap;flex:0 0 auto;gap:6px}.so-st{white-space:nowrap;align-self:flex-start}
+@media (max-width:420px){.so-row .acts .ib{width:32px;height:32px}.so-hd{gap:10px}}

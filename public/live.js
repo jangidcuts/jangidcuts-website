@@ -7,6 +7,7 @@
 var D=document,$=function(s,r){return (r||D).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||D).querySelectorAll(s))};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ICON(n){return '<svg class="icon" aria-hidden="true"><use href="#i-'+n+'"/></svg>'}
+function socList(c){var l=(c&&c.socials)||[];return window.JCB?JCB.visible(l):l.filter(function(x){return x&&x.show!==false&&x.url})}
 function api(path,body,method){return fetch(path,{method:method||(body?'POST':'GET'),credentials:'same-origin',headers:body?{'content-type':'application/json','x-jc':'1'}:{'x-jc':'1'},body:body?JSON.stringify(body):undefined})
  .then(function(r){return r.json().catch(function(){return{ok:false,error:'Network error'}})}).catch(function(){return{ok:false,error:'You seem to be offline. Please try again.'}})}
 function md(t){var out=[],list=false;String(t||'').split(/\n/).forEach(function(l){var s=l.trim();
@@ -60,7 +61,7 @@ function applyHome(c,s){var h=c.hero;
  if(c.seo&&c.seo.title&&/index|^\/$/.test(location.pathname+'')){D.title=c.seo.title}}
 
 function applyFooter(c){var f=$('.footer');if(!f)return;var p=$('.foot-grid > div:first-child p',f);if(p)p.textContent=c.footer.about;
- var so=$('.socials',f);if(so)so.innerHTML=(c.socials||[]).map(function(x){return '<a href="'+esc(x.url)+'" aria-label="'+esc(x.name)+'" rel="noopener" target="_blank">'+ICON(x.icon||'globe')+'</a>'}).join('');
+ var so=$('.socials',f);if(so)so.innerHTML=socList(c).map(function(x){return '<a class="so-b" href="'+esc(x.url)+'" aria-label="'+esc(x.name)+'" title="'+esc(x.name)+'" rel="noopener noreferrer" target="_blank">'+(window.JCB?JCB.tile(x.icon,x.url):ICON(x.icon||'globe'))+'</a>'}).join('');
  var cp=$('.copy span',f);if(cp)cp.textContent=String(c.footer.copyright||'').replace('{year}',new Date().getFullYear());var mi=$$('.copy span',f)[1];if(mi){mi.textContent=c.footer.made_in;mi.hidden=!c.footer.show_location}
  }
 
@@ -125,7 +126,7 @@ function applySoon(c,s){var t=$('#soonTitle');if(!t)return;var key=((location.pa
  if(key==='contact'){var k=c.contact;t.textContent=k.title;var wa=String(k.whatsapp||'').replace(/\D/g,'');
   var cards=[[k.whatsapp,'wa','WhatsApp','https://wa.me/'+wa],[k.call,'phone','Call','tel:'+String(k.call).replace(/\s/g,'')],[k.instagram_dm,'ig','Instagram DM',k.instagram_dm],[k.email,'mail','Email','mailto:'+k.email],[k.telegram,'tg','Telegram',k.telegram]].filter(function(x){return x[0]});
   prose(md(k.intro)+'<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-top:18px">'+cards.map(function(x){return '<a class="panel" style="display:flex;gap:12px;align-items:center;padding:16px" href="'+esc(x[3])+'" target="_blank" rel="noopener">'+ICON(x[1])+'<span><b style="color:var(--text)">'+esc(x[2])+'</b><br><small>'+esc(x[1]==='wa'||x[1]==='phone'?String(x[0]).replace(/^\+?91\s*(\d{5})\s*(\d{5})$/,'+91 $1 $2'):x[2]==='Email'?x[0]:'Open')+'</small></span></a>'}).join('')+'</div><p style="margin-top:14px"><small>'+esc(k.hours||'')+'</small></p>');return}
- if(key==='social'){t.textContent='Social';prose('<p>Find Jangid Cuts here too:</p><div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-top:14px">'+(c.socials||[]).map(function(x){return '<a class="panel" style="display:flex;gap:12px;align-items:center;padding:16px" href="'+esc(x.url)+'" target="_blank" rel="noopener">'+ICON(x.icon||'globe')+'<span><b style="color:var(--text)">'+esc(x.name)+'</b><br><small>'+esc(x.handle||'')+'</small></span></a>'}).join('')+'</div>');return}
+ if(key==='social'){t.textContent='Social';prose('<p>Follow us on other social media platforms:</p><div class="so-grid">'+socList(c).map(function(x){var b=window.JCB?JCB.get(x.icon,x.url):{c:'var(--mint)'};return '<a class="so-card" style="--bc:'+esc(b.c)+'" href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+(window.JCB?JCB.tile(x.icon,x.url):ICON(x.icon||'globe'))+'<span class="so-tx"><b>'+esc(x.name)+'</b><small>'+esc(x.handle||'')+'</small></span><span class="so-go" aria-hidden="true">&#8599;</span></a>'}).join('')+'</div>');return}
  var nm={store:'Store',orders:'My Orders',tickets:'My Tickets',profile:'My Profile'}[key]||'Information';t.textContent=nm;lead.textContent='Please return to the home page to continue.';}
 
 function applyHireForm(c){var cl=$('#catList');if(!cl)return;cl.innerHTML=(c.hire_form.categories||[]).map(function(x){return '<button type="button" class="chip" aria-pressed="false">'+esc(x)+'</button>'}).join('')}
