@@ -1,8 +1,8 @@
 (function(){try{var d=document.documentElement;var t=localStorage.getItem('jc-theme');if(t)d.setAttribute('data-theme',t);
 var a=localStorage.getItem('jc-anim');if(!a){a=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)?'low':'high';}
 d.classList.remove('anim-high','anim-moderate','anim-low');d.classList.add('anim-'+a);}catch(e){}})();
-/* first visit, signed out: paint only loader -> welcome/login; the page underneath stays hidden until the visitor signs in or taps "Start without sign in" */
-(function(){try{var d=document.documentElement;if(localStorage.getItem('jc-welcomed')||/^\/(admin|v|u|api)\b/.test(location.pathname))return;
+/* every new visit (new tab/session), signed out — skipped once per tab session via sessionStorage: paint only loader -> welcome/login; the page underneath stays hidden until the visitor signs in or taps "Start without sign in" */
+(function(){try{var d=document.documentElement;try{localStorage.removeItem('jc-welcomed')}catch(e){}if(sessionStorage.getItem('jc-welcomed')||/^\/(admin|v|u|api)\b/.test(location.pathname))return;
 d.classList.add('jc-gate');
 /* entry screen follows the device theme; inside the site the default stays dark (or the visitor's own choice) */
 var dev=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';d.setAttribute('data-entry',dev);d.setAttribute('data-theme',dev);

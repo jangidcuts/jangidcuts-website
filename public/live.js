@@ -137,8 +137,8 @@ function ads(c){var a=c.ads||{};if(!a.enabled||!a.publisher_id)return;var slots=
  if(!any)return;var s=D.createElement('script');s.async=true;s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(a.publisher_id);s.crossOrigin='anonymous';
  s.onload=function(){$$('ins.adsbygoogle').forEach(function(){try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){}})};D.head.appendChild(s)}
 function ungate(){try{window.JC_UNGATE&&JC_UNGATE()}catch(e){}}
-function endEntry(){ungate();try{window.JC_ENDENTRY&&JC_ENDENTRY()}catch(e){}}
-function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user){endEntry();return}try{if(localStorage.getItem('jc-welcomed')){endEntry();return}localStorage.setItem('jc-welcomed','1')}catch(e){endEntry();return}
+function endEntry(){ungate();try{sessionStorage.setItem('jc-welcomed','1')}catch(e){}try{window.JC_ENDENTRY&&JC_ENDENTRY()}catch(e){}}
+function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user){endEntry();return}try{if(sessionStorage.getItem('jc-welcomed')){endEntry();return}}catch(e){endEntry();return}
  var ldr=D.getElementById('loader'),wait=ldr&&!ldr.classList.contains('done')?650:0;
  setTimeout(function(){var m=$('#loginModal');if(!m)return;var b=$('.modal-body',m);b.dataset.stage='welcome';authify(m,'Jangid Cuts');
   b.innerHTML=authTop(noEmoji(w.title).replace(/!+$/,'')||'Welcome')+'<p class="lg-sub" data-rv>'+esc(w.sub)+'</p><div class="lg-rest" data-rv style="display:grid;gap:10px"><button class="btn btn-primary" id="wIn">'+esc(w.signin)+'</button><button class="btn btn-ghost" id="wSkip">'+esc(w.skip)+'</button></div>';
@@ -210,7 +210,7 @@ function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-bo
 JCL.account=function(){var u=JCL.user,m=$('#loginModal'),body=$('.modal-body',m);unauth(m);body.dataset.stage='account';
  body.innerHTML='<div class="lg-brand grad-text shine">JANGID CUTS</div><p style="margin:10px 0 4px;font-weight:700">'+esc(u.name||'')+'</p><p style="color:var(--muted);font-size:14px">'+esc(u.email)+'</p><div style="display:grid;gap:10px;margin-top:18px">'+
  (u.isAdmin?'<a class="btn btn-primary" href="/admin">'+ICON('shield')+' Admin panel</a>':'')+'<a class="btn btn-ghost" href="/soon.html#orders">'+ICON('bag')+' My orders &amp; downloads</a><a class="btn btn-ghost" href="/soon.html#tickets">'+ICON('doc')+' My tickets</a><button class="btn btn-ghost" id="lo">'+ICON('logout')+' Sign out</button></div>';
- $('#lo',body).onclick=function(){api('/api/auth/logout',{}).then(function(){location.reload()})};JC_UI.open(m)};
+ $('#lo',body).onclick=function(){try{sessionStorage.removeItem('jc-welcomed')}catch(e){}api('/api/auth/logout',{}).then(function(){location.reload()})};JC_UI.open(m)};
 JCL.setPref=function(k,v){try{localStorage.setItem('jc-'+k,String(v))}catch(e){}if(JCL.user){var o={};o[k]=v;api('/api/me/profile',o)}};
 
 function syncSettings(){try{var l=localStorage.getItem('jc-lang'),cu=localStorage.getItem('jc-currency'),n=localStorage.getItem('jc-email_notif');var u=JCL.user;
