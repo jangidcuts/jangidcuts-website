@@ -94,31 +94,45 @@ function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user)return;try{if(local
  if(location.pathname!=='/'&&location.pathname!=='/index.html')return;
  setTimeout(function(){var m=$('#loginModal');if(!m)return;var b=$('.modal-body',m);var keep=b.innerHTML;
   b.innerHTML='<div class="lg-brand grad-text shine">JANGID CUTS</div><h3 class="h-md" style="margin:10px 0 6px">'+esc(w.title)+'</h3><p class="lead" style="font-size:14.5px;margin:0 auto 18px">'+esc(w.sub)+'</p><div style="display:grid;gap:10px"><button class="btn btn-primary" id="wIn">'+esc(w.signin)+'</button><button class="btn btn-ghost" id="wSkip">'+esc(w.skip)+'</button></div>';
-  $('#wIn',b).onclick=function(){b.innerHTML=keep;buildLogin(JCL.site)};$('#wSkip',b).onclick=function(){JC_UI.close();setTimeout(function(){b.innerHTML=keep;buildLogin(JCL.site)},400)};JC_UI.open(m)},900)}
+  $('#wIn',b).onclick=function(){buildLogin(JCL.site)};$('#wSkip',b).onclick=function(){JC_UI.close();setTimeout(function(){buildLogin(JCL.site)},400)};JC_UI.open(m)},900)}
 
 /* ---------- login modal ---------- */
-function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-body',m);var email='',stage='email';
- function draw(){var h='<div class="lg-brand grad-text shine" id="loginTitle">JANGID CUTS</div><p class="lead" style="margin:0 auto;font-size:14.5px">Sign in to buy packs, download your purchases and track your tickets.</p>';
-  if(stage==='email'){h+=(s.cfg.google?'<button class="g-btn" type="button" id="gBtn">'+ICON('g')+' Continue with Google</button><div class="or">OR</div>':'<div style="height:16px"></div>')+
-   '<form id="lgForm" novalidate><div class="field" style="text-align:left"><label for="lgEmail">Email</label><input class="input" id="lgEmail" type="email" placeholder="you@example.com" autocomplete="email" required value="'+esc(email)+'"></div>'+
-   '<div class="field hidden" id="pwWrap" style="text-align:left"><label for="lgPw">Password</label><input class="input" id="lgPw" type="password" autocomplete="current-password"></div>'+
-   '<label class="check" style="text-align:left"><input type="checkbox" id="lgTc"> <span>I have read the <a class="tc-link" href="/terms" target="_blank">Terms &amp; Conditions</a></span></label>'+
-   '<button class="btn btn-primary" style="width:100%" type="submit" id="lgGo">Send login code</button></form><p style="margin-top:12px;font-size:13.5px"><button class="tc-link" type="button" id="usePw">Use password instead</button> · <button class="tc-link" type="button" id="forgot">Forgot password?</button></p>'}
-  else if(stage==='code'||stage==='reset'){h+='<form id="codeForm" novalidate style="margin-top:16px"><p style="font-size:14px;color:var(--muted)">We sent a 6-digit code to <b>'+esc(email)+'</b></p><div class="field" style="text-align:left"><label for="lgCode">Code</label><input class="input" id="lgCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required></div>'+
-   (stage==='code'?'<div class="field" style="text-align:left"><label for="lgName">Your name <span class="opt">(new accounts)</span></label><input class="input" id="lgName" autocomplete="name"></div>':'<div class="field" style="text-align:left"><label for="np1">New password</label><input class="input" id="np1" type="password" autocomplete="new-password"></div><div class="field" style="text-align:left"><label for="np2">Confirm new password</label><input class="input" id="np2" type="password" autocomplete="new-password"></div>')+
-   '<button class="btn btn-primary" style="width:100%" type="submit">'+(stage==='code'?'Sign in':'Set password &amp; sign in')+'</button></form><p style="margin-top:12px;font-size:13.5px"><button class="tc-link" type="button" id="back">Use a different email</button></p>'}
-  body.innerHTML=h;
-  var gb=$('#gBtn',body);if(gb)gb.onclick=function(){if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}location.href='/auth/google/start?tc=1&next='+encodeURIComponent(location.pathname+location.hash)};
-  var usePw=$('#usePw',body);if(usePw)usePw.onclick=function(){var w=$('#pwWrap',body);w.classList.toggle('hidden');$('#lgGo',body).textContent=w.classList.contains('hidden')?'Send login code':'Sign in';usePw.textContent=w.classList.contains('hidden')?'Use password instead':'Email me a code instead'};
-  var fg=$('#forgot',body);if(fg)fg.onclick=function(){email=$('#lgEmail',body).value.trim();if(!email){toast('Enter your email first');return}api('/api/auth/otp',{email:email,purpose:'reset'}).then(function(r){if(r.ok===false){toast(r.error);return}stage='reset';draw()})};
-  var lf=$('#lgForm',body);if(lf)lf.onsubmit=function(e){e.preventDefault();email=$('#lgEmail',body).value.trim();if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');return}
-   if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}var pw=$('#lgPw',body).value;var usingPw=!$('#pwWrap',body).classList.contains('hidden');
-   if(usingPw){api('/api/auth/login',{email:email,password:pw}).then(function(r){if(r.ok===false){toast(r.error);return}location.reload()});return}
-   $('#lgGo',body).disabled=true;api('/api/auth/otp',{email:email,purpose:'login',tc:true}).then(function(r){$('#lgGo',body)&&($('#lgGo',body).disabled=false);if(r.ok===false){toast(r.error);return}stage='code';draw();toast('Code sent — check your email')})};
-  var cf=$('#codeForm',body);if(cf)cf.onsubmit=function(e){e.preventDefault();var code=$('#lgCode',body).value;
-   if(stage==='code')api('/api/auth/verify',{email:email,code:code,name:$('#lgName',body).value,tc:true}).then(function(r){if(r.ok===false){toast(r.error);return}location.reload()});
+function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-body',m);var email='',name='',stage='signin',from='signin',usePw=false,cd=0,timer=null;
+ var head=$('.modal-head .eyebrow',m);
+ function tabs(){return '<div class="lg-tabs" role="tablist"><button type="button" role="tab" data-tab="signin" aria-selected="'+(stage==='signin')+'">Sign in</button><button type="button" role="tab" data-tab="signup" aria-selected="'+(stage==='signup')+'">Sign up</button></div>'}
+ function gbtn(t){return s.cfg.google?'<button class="g-btn" type="button" id="gBtn">'+ICON('g')+' '+t+'</button><div class="or">OR</div>':''}
+ function tc(){return '<label class="check lg-tc"><input type="checkbox" id="lgTc"> <span>I agree to the <a class="tc-link" href="/terms" target="_blank">Terms &amp; Conditions</a></span></label>'}
+ function draw(){if(head)head.textContent=stage==='signup'?'Create account':stage==='code'?'Check your email':stage==='reset'?'Reset password':'Welcome back';
+  var h='<div class="lg-brand grad-text shine" id="loginTitle">JANGID CUTS</div>';
+  if(stage==='signin'){h+=tabs()+'<p class="lg-sub">Sign in to buy packs, download your purchases and track your tickets.</p>'+gbtn('Continue with Google')+
+   '<form id="lgForm" novalidate><div class="field"><label for="lgEmail">Email</label><input class="input" id="lgEmail" type="email" placeholder="you@example.com" autocomplete="email" required value="'+esc(email)+'"></div>'+
+   '<div class="field'+(usePw?'':' hidden')+'" id="pwWrap"><label for="lgPw">Password</label><input class="input" id="lgPw" type="password" autocomplete="current-password"></div>'+tc()+
+   '<button class="btn btn-primary lg-go" type="submit" id="lgGo">'+(usePw?'Sign in':'Email me a sign-in code')+'</button></form><p class="lg-links"><button class="tc-link" type="button" id="usePw">'+(usePw?'Email me a code instead':'Use password instead')+'</button> · <button class="tc-link" type="button" id="forgot">Forgot password?</button></p>'+
+   '<p class="lg-alt">New here? <button class="tc-link" type="button" data-tab="signup">Create a free account</button></p>'}
+  else if(stage==='signup'){h+=tabs()+'<p class="lg-sub">Free account. Lifetime access to everything you buy, on your email.</p>'+gbtn('Sign up with Google')+
+   '<form id="suForm" novalidate><div class="field"><label for="suName">Your name</label><input class="input" id="suName" autocomplete="name" required value="'+esc(name)+'"></div><div class="field"><label for="suEmail">Email</label><input class="input" id="suEmail" type="email" placeholder="you@example.com" autocomplete="email" required value="'+esc(email)+'"></div>'+tc()+
+   '<button class="btn btn-primary lg-go" type="submit" id="suGo">Create account</button></form><p class="lg-note">We email you a 6-digit code to confirm it’s you. No password needed.</p>'+
+   '<p class="lg-alt">Already have an account? <button class="tc-link" type="button" data-tab="signin">Sign in</button></p>'}
+  else if(stage==='code'||stage==='reset'){h+='<div class="lg-mail">'+ICON('mail')+'</div><p class="lg-sub" style="margin-top:6px">We sent a 6-digit code to<br><b>'+esc(email)+'</b></p><form id="codeForm" novalidate><input class="input lg-code" id="lgCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required aria-label="6-digit code">'+
+   (stage==='reset'?'<div class="field"><label for="np1">New password</label><input class="input" id="np1" type="password" autocomplete="new-password"></div><div class="field"><label for="np2">Confirm new password</label><input class="input" id="np2" type="password" autocomplete="new-password"></div>':'')+
+   '<button class="btn btn-primary lg-go" type="submit">'+(stage==='reset'?'Set password &amp; sign in':'Verify &amp; continue')+'</button></form><p class="lg-links"><button class="tc-link" type="button" id="resend"'+(cd>0?' disabled':'')+'>'+(cd>0?'Resend code in '+cd+'s':'Resend code')+'</button> · <button class="tc-link" type="button" id="back">Change email</button></p><p class="lg-note">Can’t find it? Check Spam or Promotions.</p>'}
+  body.innerHTML=h;bind()}
+ function startCd(){cd=30;clearInterval(timer);timer=setInterval(function(){cd--;var r=$('#resend',body);if(r){r.disabled=cd>0;r.textContent=cd>0?'Resend code in '+cd+'s':'Resend code'}if(cd<=0)clearInterval(timer)},1000)}
+ function sendCode(purpose,goStage,btn){btn&&(btn.disabled=true);return api('/api/auth/otp',{email:email,purpose:purpose,tc:true,name:name}).then(function(r){btn&&(btn.disabled=false);if(r.ok===false){toast(r.error);return}stage=goStage;startCd();draw();toast('Code sent — check your email');setTimeout(function(){var c=$('#lgCode',body);c&&c.focus()},100)})}
+ function bind(){$$('[data-tab]',body).forEach(function(b){b.onclick=function(){stage=b.dataset.tab;draw()}});
+  var gb=$('#gBtn',body);if(gb)gb.onclick=function(){if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}location.href='/auth/google/start?tc=1&next='+encodeURIComponent(location.pathname+location.search)};
+  var up=$('#usePw',body);if(up)up.onclick=function(){email=$('#lgEmail',body).value.trim();usePw=!usePw;draw()};
+  var fg=$('#forgot',body);if(fg)fg.onclick=function(){email=$('#lgEmail',body).value.trim();if(!email){toast('Enter your email first');return}from='signin';sendCode('reset','reset')};
+  var lf=$('#lgForm',body);if(lf)lf.onsubmit=function(e){e.preventDefault();email=$('#lgEmail',body).value.trim();if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}
+   if(usePw){api('/api/auth/login',{email:email,password:$('#lgPw',body).value}).then(function(r){if(r.ok===false){toast(r.error);return}location.reload()});return}from='signin';sendCode('login','code',$('#lgGo',body))};
+  var sf=$('#suForm',body);if(sf)sf.onsubmit=function(e){e.preventDefault();name=$('#suName',body).value.trim();email=$('#suEmail',body).value.trim();if(!name){toast('Please enter your name');return}if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}from='signup';sendCode('login','code',$('#suGo',body))};
+  var cf=$('#codeForm',body);if(cf)cf.onsubmit=function(e){e.preventDefault();var code=$('#lgCode',body).value.replace(/\D/g,'');if(code.length!==6){toast('Enter the 6-digit code');return}
+   if(stage==='code')api('/api/auth/verify',{email:email,code:code,name:name,tc:true}).then(function(r){if(r.ok===false){toast(r.error);return}toast(r.isNew?'Account created ✓':'Signed in ✓');setTimeout(function(){location.reload()},500)});
    else api('/api/auth/reset',{email:email,code:code,password:$('#np1',body).value,confirm:$('#np2',body).value}).then(function(r){if(r.ok===false){toast(r.error);return}toast('Password changed ✓');setTimeout(function(){location.reload()},800)})};
-  var bk=$('#back',body);if(bk)bk.onclick=function(){stage='email';draw()}}
+  var lc=$('#lgCode',body);if(lc)lc.addEventListener('input',function(){lc.value=lc.value.replace(/\D/g,'').slice(0,6);if(lc.value.length===6&&stage==='code')cf.requestSubmit&&cf.requestSubmit()});
+  var rs=$('#resend',body);if(rs)rs.onclick=function(){sendCode(stage==='reset'?'reset':'login',stage)};
+  var bk=$('#back',body);if(bk)bk.onclick=function(){stage=from;draw()}}
+ JCL.openLogin=function(tab){stage=tab||'signin';draw();JC_UI.open(m)};
  draw()}
 JCL.account=function(){var u=JCL.user,m=$('#loginModal'),body=$('.modal-body',m);
  body.innerHTML='<div class="lg-brand grad-text shine">JANGID CUTS</div><p style="margin:10px 0 4px;font-weight:700">'+esc(u.name||'')+'</p><p style="color:var(--muted);font-size:14px">'+esc(u.email)+'</p><div style="display:grid;gap:10px;margin-top:18px">'+
