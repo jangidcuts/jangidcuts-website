@@ -4,7 +4,7 @@ import { handleAdmin, handleGoogle } from './admin.js';
 import { retryOutbox, alertOwner } from './mail.js';
 import { SEED_CATEGORIES, SEED_PORTFOLIO, SEED_PRODUCTS, SEED_REVIEWS } from './defaults.js';
 
-const CSP = "default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; object-src 'none'";
+const CSP = "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://*.googletagservices.com https://*.adtrafficquality.google; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google; frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.google.com https://*.adtrafficquality.google https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; object-src 'none'";
 
 async function seed(env) {
   const have = await env.DB.prepare('SELECT COUNT(*) n FROM categories').first();
@@ -47,6 +47,11 @@ async function setup(req, env, url) {
   return err('unknown action');
 }
 
+async function notFound(req, env, url) {
+  const r = await env.ASSETS.fetch(new Request(url.origin + '/404', { headers: req.headers }));
+  const out = new Response(r.ok ? r.body : 'Not found', { status: 404, headers: r.ok ? r.headers : { 'content-type': 'text/plain' } });
+  const o2 = withSec(out); o2.headers.set('cache-control', 'no-store'); return o2;
+}
 function withSec(res, extra = {}) {
   const r = new Response(res.body, res);
   for (const [k, v] of Object.entries({ ...SEC_HEADERS, 'content-security-policy': CSP, 'strict-transport-security': 'max-age=31536000; includeSubDomains', ...extra })) if (!r.headers.has(k)) r.headers.set(k, v);
@@ -69,18 +74,21 @@ export default {
       if (p.startsWith('/api/') || p.startsWith('/u/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
       if (p.startsWith('/auth/google/') || p === '/admin/mail/connect' || p === '/admin/mail/callback') { const r = await handleGoogle(req, env, url, s, { newSession, findOrCreateUser, cookie }); if (r) return r; }
       if (p === '/admin' || p.startsWith('/admin/')) {
+        if (!s || !s.isAdmin) return notFound(req, env, url);
         const res = await env.ASSETS.fetch(new Request(url.origin + '/admin', { headers: req.headers }));
         const r2 = withSec(res); r2.headers.set('cache-control', 'no-store'); r2.headers.set('x-robots-tag', 'noindex'); return r2;
       }
-      const PAGES = ['/privacy', '/terms', '/about', '/contact', '/social', '/support', '/licence', '/shipping', '/how-i-work'];
+      const PAGES = ['/privacy', '/terms', '/contact', '/social', '/support', '/licence', '/shipping', '/how-i-work'];
+      if (p === '/portfolio.html') return Response.redirect(url.origin + '/portfolio' + url.search, 301);
+      if (/^\/(portfolio|services|about)(\/[\w-]+)?\/?$/.test(p) || /^\/watch\/\d+\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/page', { headers: req.headers })); return withSec(res); }
       const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile'];
       if (APPP.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers })); return withSec(res); }
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
-        const pages = ['/', '/portfolio', '/services', '/store', '/about', '/contact', '/social', '/help', '/faq', '/support', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
-        const { results } = await env.DB.prepare('SELECT slug, updated FROM products WHERE visible = 1').all();
-        const urls = pages.map(x => `<url><loc>${url.origin}${x}</loc></url>`).concat(results.map(r => `<url><loc>${url.origin}/product/${r.slug}</loc></url>`));
+        const pages = ['/', '/portfolio', '/services', '/store', '/about', '/contact', '/social', '/help', '/support', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
+        const { results } = await env.DB.prepare('SELECT id FROM products WHERE visible = 1').all();
+        const urls = pages.map(x => `<url><loc>${url.origin}${x}</loc></url>`).concat(results.map(r => `<url><loc>${url.origin}/store?p=${r.id}</loc></url>`));
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } });
       }
       const res = await env.ASSETS.fetch(req);

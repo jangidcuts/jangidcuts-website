@@ -518,3 +518,40 @@ html[data-theme="light"] .drawer{background:var(--bg2)}
 .loader .l-brand{font-family:'Anton','Bebas Neue',Impact,sans-serif;font-weight:400;font-size:min(18.5vw,190px);line-height:.95;letter-spacing:.005em;white-space:nowrap;filter:drop-shadow(0 0 22px rgba(43,245,192,.3))}
 .loader .l-brand span{background:var(--bw-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .loader .l-role{margin-top:14px}
+
+/* loader v2: smaller, shorter, skipped on repeat visits */
+.l-brand{font-size:min(12vw,104px)!important}
+.loader.go .l-brand span,.l-brand span{animation-duration:.45s!important}
+.loader.go .l-bar i,.l-bar i{animation:fill .55s .05s ease-out forwards!important}
+.l-bar{margin-top:18px!important;width:120px!important}
+.loader{transition:opacity .3s ease,visibility .3s!important}
+.l-role{display:none!important}
+
+/* ===== v4 header (option A): premium bar ===== */
+:root{--bar:64px}
+.topbar{background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 88%,transparent),color-mix(in srgb,var(--bg) 70%,transparent))!important;border-bottom:0!important;box-shadow:0 10px 30px -18px rgba(0,0,0,.7)}
+.topbar:after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(43,245,192,.55) 30%,rgba(45,212,191,.55) 70%,transparent)}
+.topbar .brand{font-family:'Anton','Bebas Neue',Impact,sans-serif!important;font-weight:400!important;font-size:22px!important;letter-spacing:.06em!important;text-transform:uppercase;background:var(--grad-x);-webkit-background-clip:text;background-clip:text;color:transparent!important;text-shadow:none!important;filter:drop-shadow(0 0 14px rgba(43,245,192,.25))}
+.mainnav a{position:relative;letter-spacing:.02em}
+.mainnav a[aria-current="page"]{background:transparent!important;color:var(--text)!important}
+.mainnav a[aria-current="page"]:after{content:"";position:absolute;left:14px;right:14px;bottom:2px;height:2px;border-radius:2px;background:var(--grad-x);box-shadow:0 0 10px rgba(43,245,192,.6)}
+.tools .tool{border:1px solid color-mix(in srgb,var(--line) 80%,transparent);background:color-mix(in srgb,var(--panel) 55%,transparent)}
+.tools .tool:hover{border-color:rgba(43,245,192,.5)}
+.d-profile{display:flex;align-items:center;gap:14px;padding:16px;margin:0 0 14px;border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--mint) 14%,var(--panel)),var(--panel));border:1px solid rgba(43,245,192,.25)}
+.dp-av{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:var(--bg2);border:2px solid rgba(43,245,192,.5);color:var(--mint);font:400 24px 'Anton',sans-serif}
+.dp-av img{width:100%;height:100%;object-fit:cover}
+.dp-tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.dp-tx b{font-size:16px;color:var(--text)}.dp-tx small{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.d-admin{border:1px dashed rgba(43,245,192,.45)!important}
+@media (min-width:1024px){.topbar .brand{font-size:26px!important}.mainnav a{font-size:15px;padding:10px 16px}}
+
+/* home portfolio entrance */
+.pf-banner{position:relative;display:block;border-radius:24px;overflow:hidden;min-height:260px;aspect-ratio:21/8;border:1px solid rgba(43,245,192,.25);box-shadow:0 30px 80px -40px rgba(43,245,192,.35)}
+.pf-banner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1.2s}
+.pf-banner:hover img{transform:scale(1.04)}
+.pfb-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.85),rgba(0,0,0,.35) 60%,rgba(0,0,0,.1))}
+.pfb-tx{position:relative;z-index:2;padding:clamp(22px,4vw,48px);max-width:560px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;color:#fff}
+.pfb-tx p{color:rgba(255,255,255,.8)}
+.pf-banner-sec{padding-top:10px!important;padding-bottom:0!important}
+.ad-wrap{margin:20px auto}
+@media (max-width:560px){.pf-banner{aspect-ratio:auto;min-height:300px}.pfb-shade{background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.88))}.pfb-tx{position:absolute;bottom:0}}

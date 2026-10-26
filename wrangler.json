@@ -7,7 +7,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
+    "not_found_handling": "404-page",
     "run_worker_first": [
       "/api/*",
       "/admin",
@@ -30,7 +30,13 @@
       "/tickets",
       "/profile",
       "/cart",
-      "/wishlist"
+      "/wishlist",
+      "/portfolio",
+      "/portfolio/*",
+      "/portfolio.html",
+      "/watch/*",
+      "/services",
+      "/services/*"
     ]
   },
   "d1_databases": [

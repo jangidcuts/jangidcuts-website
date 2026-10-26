@@ -78,3 +78,5 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .hidden{display:none!important}
 .gbtn svg,.login-box svg{width:20px;height:20px;flex:none}
 .li.acc{flex-wrap:wrap}.li.acc .t{flex:1 1 100%;min-width:0}.li.acc .t b{word-break:break-all}.li.acc .acts{flex-wrap:wrap}
+.multi{display:flex;flex-wrap:wrap;gap:8px}.mchip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
+@media (max-width:600px){.li{flex-wrap:wrap}.li .t{min-width:calc(100% - 90px)}.li .acts{width:100%;justify-content:flex-end}}

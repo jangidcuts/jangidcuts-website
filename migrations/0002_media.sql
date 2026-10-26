@@ -1,0 +1,3 @@
+ALTER TABLE portfolio ADD COLUMN services TEXT DEFAULT '[]';
+ALTER TABLE portfolio ADD COLUMN source TEXT DEFAULT '';
+ALTER TABLE reviews ADD COLUMN photo TEXT;

@@ -118,8 +118,10 @@ export async function sessionOf(req, env) {
   const r = await env.DB.prepare('SELECT s.token_hash, s.exp, s.mfa, u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?1').bind(th).first();
   if (!r || r.exp < now() || r.disabled) return null;
   const admins = String(env.ADMIN_EMAILS || '').toLowerCase().split(/[,\s]+/).filter(Boolean);
-  const isAdmin = r.role === 'admin' || admins.includes(String(r.email).toLowerCase());
-  return { th, mfa: !!r.mfa, user: r, isAdmin, adminReady: isAdmin && (!r.totp_on || !!r.mfa) };
+  const isAdmin = admins.includes(String(r.email).toLowerCase());
+  let need2fa = false;
+  if (isAdmin && !r.mfa) { const sec = await getKey(env, '_security'); need2fa = sec?.admin_2fa !== false; }
+  return { th, mfa: !!r.mfa, user: r, isAdmin, need2fa, adminReady: isAdmin && !need2fa };
 }
 export function publicUser(u, isAdmin) {
   return { id: u.id, email: u.email, name: u.name || '', avatar: u.avatar || '', hasPassword: !!u.pass_hash, google: !!u.google_sub, email_notif: !!u.email_notif, lang: u.lang || 'en', currency: u.currency || 'INR', isAdmin: !!isAdmin, totp_on: !!u.totp_on, created: u.created };

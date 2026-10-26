@@ -6,10 +6,10 @@ import { fulfil, money } from './shop.js';
 
 const TABLES = {
   products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort'],
-  portfolio: ['kind', 'title', 'description', 'category_id', 'subcategory_id', 'image', 'video', 'url', 'orient', 'featured', 'home', 'sort', 'visible'],
+  portfolio: ['kind', 'title', 'description', 'category_id', 'subcategory_id', 'image', 'video', 'url', 'orient', 'featured', 'home', 'sort', 'visible', 'services', 'source'],
   categories: ['section', 'name', 'parent_id', 'sort', 'thumb'],
   coupons: ['code', 'type', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'note'],
-  reviews: ['product_id', 'name', 'role', 'rating', 'text', 'status', 'featured', 'source']
+  reviews: ['product_id', 'name', 'role', 'rating', 'text', 'status', 'featured', 'source', 'photo']
 };
 const NUM = new Set(['price', 'mrp', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating']);
 const slugify = (s) => clean(s, 80).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
@@ -89,6 +89,12 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (b.telegram_bot_token) a.telegram_bot_token_enc = await encrypt(env, clean(b.telegram_bot_token, 200));
     if (b.telegram_clear) a.telegram_bot_token_enc = '';
     await setKey(env, '_alerts', a); return J({ ok: true });
+  }
+  if (p === '/api/admin/security' && m === 'PUT') {
+    const b = await readJson(req); const sec = await getKey(env, '_security');
+    sec.admin_2fa = b.admin_2fa !== false;
+    await setKey(env, '_security', sec); await logEvent(env, 'security', 'admin 2-step ' + (sec.admin_2fa ? 'ON' : 'OFF') + ' by ' + s.user.email);
+    return J({ ok: true, admin_2fa: sec.admin_2fa });
   }
   if (p === '/api/admin/payments' && m === 'PUT') {
     const b = await readJson(req); const pay = await getKey(env, '_payments');

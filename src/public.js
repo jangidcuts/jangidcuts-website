@@ -12,13 +12,13 @@ export async function siteData(env) {
   const [content, cats, pf, prods, revs, revStats] = await Promise.all([
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
+    env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, category_id, image, gallery, delivery, size_text, badge, sort, sales, created FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
-    env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created FROM reviews r WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
+    env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created, r.photo FROM reviews r WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
     env.DB.prepare("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible' AND product_id IS NULL").first()
   ]);
   const pay = await paymentsConfig(env);
-  return { content, categories: cats.results, portfolio: pf.results, products: prods.results, reviews: revs.results,
+  return { content, categories: cats.results, portfolio: pf.results.map(x => { let sv = []; try { sv = JSON.parse(x.services || '[]'); } catch { } return { ...x, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results, reviews: revs.results,
     reviewStats: { count: revStats?.n || 0, avg: revStats?.avg ? Math.round(revStats.avg * 10) / 10 : 0 },
     cfg: { google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), payments: pay.provider, storage: storageInfo(env).backend } };
 }
@@ -32,7 +32,7 @@ async function meData(env, s) {
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all()
   ]);
-  return { user: publicUser(s.user, s.isAdmin), needMfa: s.isAdmin && s.user.totp_on && !s.mfa,
+  return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
     owned: owned.results, orders: orders.results.map(o => ({ ...o, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') })), tickets: tickets.results };
 }
@@ -75,10 +75,11 @@ export async function handlePublic(req, env, ctx, url, s) {
 
   /* ----- auth ----- */
   if (p === '/api/auth/otp' && m === 'POST') {
-    const b = await readJson(req); const email = clean(b.email, 200).toLowerCase(); const purpose = ['login', 'reset', 'change', 'delete'].includes(b.purpose) ? b.purpose : 'login';
+    const b = await readJson(req); const email = clean(b.email, 200).toLowerCase(); const purpose = ['login', 'reset', 'change', 'delete', 'admin2fa'].includes(b.purpose) ? b.purpose : 'login';
     if (!isEmail(email)) fail('Please enter a valid email');
     if (purpose === 'login') needTc(b);
-    if ((purpose === 'change' || purpose === 'delete') && (!s || s.user.email !== email)) fail('Please sign in first', 401);
+    if ((purpose === 'change' || purpose === 'delete' || purpose === 'admin2fa') && (!s || s.user.email !== email)) fail('Please sign in first', 401);
+    if (purpose === 'admin2fa' && !s.isAdmin) fail('Not allowed', 403);
     await limitOrFail(env, 'otp:' + email, 4, 15 * 60e3, 'Too many codes requested. Please wait 15 minutes.');
     await limitOrFail(env, 'otpip:' + ip(req), 12, 15 * 60e3);
     const u = await env.DB.prepare('SELECT name FROM users WHERE email = ?1').bind(email).first();
@@ -92,7 +93,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     await checkOtp(env, email, 'login', b.code);
     const u = await findOrCreateUser(env, email, b.name, { tc: !!b.tc });
     if (u.disabled) fail('This account is disabled', 403);
-    const ck = await newSession(env, req, u.id, 0);
+    const ck = await newSession(env, req, u.id, u.totp_on ? 0 : 1); // the email code itself is the 2nd step (unless an authenticator is set up)
     return J({ ok: true, isNew: !!u._new }, 200, { 'set-cookie': ck });
   }
   if (p === '/api/auth/login' && m === 'POST') {
@@ -121,7 +122,8 @@ export async function handlePublic(req, env, ctx, url, s) {
   if (p === '/api/auth/mfa' && m === 'POST') {
     needUser(s); const b = await readJson(req);
     await limitOrFail(env, 'mfa:' + s.user.id, 6, 10 * 60e3);
-    if (!(await totpOk(s.user.totp_secret, b.code))) fail('Wrong code', 401);
+    if (b.method === 'email') await checkOtp(env, s.user.email, 'admin2fa', b.code);
+    else if (!s.user.totp_on || !(await totpOk(s.user.totp_secret, b.code))) fail('Wrong code', 401);
     await env.DB.prepare('UPDATE sessions SET mfa = 1 WHERE token_hash = ?1').bind(s.th).run();
     return J({ ok: true });
   }

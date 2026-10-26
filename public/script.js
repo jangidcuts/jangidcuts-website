@@ -48,9 +48,9 @@ $$('[data-demo]').forEach(function(b){b.addEventListener('click',function(){toas
 /* ---------- loader + entrance ---------- */
 var loader=$('#loader');
 function ready(){D.body.classList.add('ready')}
-if(loader){var lv=anim();
- if(lv==='low'){loader.classList.add('done');ready()}
- else{loader.classList.add('go');var dur=lv==='high'?2100:1300;setTimeout(function(){loader.classList.add('done');ready()},dur)}
+if(loader){var lv=anim(),seen=false;try{seen=sessionStorage.getItem('jc-seen')==='1';sessionStorage.setItem('jc-seen','1')}catch(e){}
+ if(lv==='low'||seen){loader.classList.add('done');ready()}
+ else{loader.classList.add('go');setTimeout(function(){loader.classList.add('done');ready()},lv==='high'?750:600)}
 }else ready();
 
 /* ---------- reveal on scroll ---------- */
@@ -69,7 +69,7 @@ function card(it,kind,idx,dup){
  b.innerHTML='<img src="'+it.img+'" alt="" loading="lazy">'+(kind==='video'?'<span class="play">'+ICON('play')+'</span>':'')+'<span class="meta"><b>'+esc(it.t)+'</b><span>'+esc(it.c)+'</span></span>';
  b.setAttribute('aria-label',(kind==='video'?'Play ':'View ')+it.t);
  b.addEventListener('click',function(){openItem(it,kind)});return b}
-function openItem(it,kind){var m=$('#lbMedia');
+function openItem(it,kind){if(it.id&&kind==='video'&&window.JC_WATCH){location.href='/watch/'+it.id+'?from='+(window.JC_FROM||'home');return}var m=$('#lbMedia');
  if(kind==='video'&&it.clip){m.innerHTML='<video src="'+it.clip+'" poster="'+it.img+'" controls playsinline autoplay></video>'}
  else{m.innerHTML='<img src="'+it.img+'" alt="'+esc(it.t)+'">'}
  $('#lbTitle').textContent=it.t;$('#lbCat').textContent=it.c+(it.s?' · '+it.s:'');
@@ -142,15 +142,16 @@ if(rowsEl){
 var sIn=$('#searchInput'),sRes=$('#searchResults');
 function renderSearch(q){if(!sRes)return;q=(q||'').trim().toLowerCase();var list=(JC.services||[]).filter(function(s){return !q||(s.t+' '+s.d).toLowerCase().indexOf(q)>-1});
  if(!list.length){sRes.innerHTML='<div class="s-empty">No service found for “'+esc(q)+'”. Try “reels”, “wedding” or “thumbnail”.</div>';return}
- sRes.innerHTML=list.map(function(s){return '<a class="s-item" href="index.html#services"><img src="'+s.img+'" alt=""><div><b>'+esc(s.t)+'</b><span>'+esc(s.d)+'</span></div></a>'}).join('');
+ var rel=q?(JC.services||[]).filter(function(s){return list.indexOf(s)<0}).slice(0,3):[];
+ sRes.innerHTML=list.map(function(s){return '<a class="s-item" href="/services/'+esc(s.slug||'')+'"><img src="'+s.img+'" alt=""><div><b>'+esc(s.t)+'</b><span>'+esc(s.d)+'</span></div></a>'}).join('')+(rel.length?'<div class="s-empty" style="text-align:left;padding:10px 4px 4px">Related services</div>'+rel.map(function(s){return '<a class="s-item" href="/services/'+esc(s.slug||'')+'"><img src="'+s.img+'" alt=""><div><b>'+esc(s.t)+'</b><span>'+esc(s.d)+'</span></div></a>'}).join(''):'')+'<a class="s-item" href="/services" style="justify-content:center"><div><b>See all services →</b></div></a>';
  $$('.s-item',sRes).forEach(function(a){a.addEventListener('click',function(){closeLayer(true)})})}
 sIn&&sIn.addEventListener('input',function(){renderSearch(sIn.value)});
 
 /* ---------- hire form ---------- */
 var hf=$('#hireForm');
-function openHire(){openLayer($('#hireModal'))}
+function openHire(){if(window.JCL&&JCL.site&&!JCL.user){toast('Please sign in to send a hire request');openLayer($('#loginModal'));return}openLayer($('#hireModal'))}
 $('#hireBtn')&&$('#hireBtn').addEventListener('click',openHire);
-$$('[data-hire]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();if(hf)openHire();else location.href='index.html#services'})});
+$$('[data-hire]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();if(hf)openHire();else location.href='/?hire=1'})});
 if(hf){
  $$('[data-single]',hf).forEach(function(g){$$('.chip',g).forEach(function(c){c.addEventListener('click',function(){$$('.chip',g).forEach(function(x){x.setAttribute('aria-pressed',x===c?'true':'false')});
   if(g.dataset.single==='agency')$('#agencyFields').classList.toggle('hidden',c.dataset.v!=='yes');

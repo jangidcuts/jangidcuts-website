@@ -1,9 +1,19 @@
 // Default site content. Every key here is editable from the admin panel (stored in D1 `kv`).
 // Keys starting with "_" are private (never sent to the public site).
 export const DEFAULTS = {
+  _security: { admin_2fa: true },
   brand: { name: 'Jangid Cuts', bigword: 'JANGID CUTS', loader_role: 'Video Editor & Graphic Designer' },
   seo: { title: 'Jangid Cuts | Prashant Jangid · Video Editor & Graphic Designer', description: 'Prashant Jangid (Jangid Cuts), video editor and graphic designer from Jaipur. Reels, YouTube, wedding films, ads, colour grading and thumbnails.' },
   hero: { hello: 'Hello, I am', name: 'Prashant Jangid', role: 'Video Editor & Graphic Designer', cta: 'Hire Me', photo: '/img/hero.webp', photo_alt: 'Prashant Jangid, video editor and graphic designer', bw: true, zoom: 100, shift_y: 0 },
+  about: {
+    editor_title: 'About the editor', editor_photo: '/img/hero.webp',
+    editor_body: "I'm Prashant Jangid, a video editor and graphic designer. For 5+ years I have been editing reels and shorts, YouTube videos, wedding films, ads and promos, plus colour grading, motion graphics and thumbnails.\n\nI work in DaVinci Resolve and care about the small things: pacing, sound and colour.",
+    brand_title: 'About Jangid Cuts', brand_photo: '/img/f2_0.jpg',
+    brand_body: "Jangid Cuts is a video editing and design studio for creators, brands and wedding filmmakers, in India and worldwide.\n\nWe also make editing packs, LUTs and SFX you can download from the store."
+  },
+  welcome: { show: true, title: 'Welcome! 👋', sub: 'Sign in to buy packs, hire us and download freebies, or just look around.', signin: 'Sign in / Sign up', skip: 'Start without sign in' },
+  ads: { enabled: false, publisher_id: '', slots: { home_mid: '', portfolio: '', services: '', store: '' } },
+  app: { version: '1.0.0' },
   stats: [
     { icon: 'users', num: 50, suffix: '+', label: 'Happy Clients' },
     { icon: 'clock', num: 5, suffix: '+', label: 'Years Experience' },
@@ -11,20 +21,21 @@ export const DEFAULTS = {
     { icon: 'bolt', num: 24, suffix: 'h', label: 'Fast Delivery' }
   ],
   home: {
-    work_eyebrow: 'Portfolio', work_title: 'Selected Work', work_btn: 'View My Work',
-    svc_eyebrow: 'Services', svc_title: 'What I Do', svc_link: 'Get a quote',
+    work_eyebrow: 'Portfolio', work_title: 'Featured Work', work_btn: 'View Portfolio',
+    svc_eyebrow: 'Services', svc_title: 'What We Do', svc_link: 'View details', svc_more: 'More services', svc_count: 6,
+    pf_banner: { show: true, eyebrow: 'Portfolio', title: 'Step into the full portfolio', sub: 'Video edits and thumbnails, sorted by category.', btn: 'Open Portfolio', image: '/img/f2_0.jpg' },
     rev_eyebrow: 'Reviews', rev_title: 'What Clients Say', rev_note: 'Average from client reviews',
     show_stats: true, show_work: true, show_services: true, show_reviews: true
   },
   services: [
-    { title: 'Colour Grading', desc: 'Cinematic looks from Log footage. Skin tones that pop, moods that match your story.', image: '/img/f8_0.jpg', tag: 'Service' },
-    { title: 'Reels & Shorts', desc: 'Scroll-stopping vertical edits with beat-sync, captions, transitions and SFX.', image: '/img/f0_1.jpg', tag: 'Service' },
-    { title: 'YouTube Videos', desc: 'Long-form edits with pacing, B-roll, music and retention-focused cuts.', image: '/img/f2_0.jpg', tag: 'Service' },
-    { title: 'Wedding Films', desc: 'Highlight films and teasers that feel like a movie, graded to perfection.', image: '/img/f8_1.jpg', tag: 'Service' },
-    { title: 'Ads & Promos', desc: 'Product and brand promos with motion graphics that sell.', image: '/img/f3_0.jpg', tag: 'Service' },
-    { title: 'Thumbnails & Graphics', desc: 'Click-worthy YouTube thumbnails, posters and social graphics.', image: '/img/t1.jpg', tag: 'Service' },
-    { title: 'Motion Graphics', desc: 'Titles, logo animation, lower thirds and animated text.', image: '/img/f3_1.jpg', tag: 'Service' },
-    { title: 'Podcast Editing', desc: 'Multi-cam podcast cuts and short clips for social.', image: '/img/f4_1.jpg', tag: 'Service' }
+    { slug: 'colour-grading', title: 'Colour Grading', desc: 'Cinematic looks from Log footage. Skin tones that pop, moods that match your story.', full: 'Cinematic colour grading in DaVinci Resolve. I balance your shots, fix skin tones and build a look that matches the mood of your story, from Log or phone footage.\n\nWhat you get:\n- Shot matching and correction\n- A custom cinematic look\n- Before/after preview', image: '/img/f8_0.jpg', tag: 'Service', main: true },
+    { slug: 'reels-shorts', title: 'Reels & Shorts', desc: 'Scroll-stopping vertical edits with beat-sync, captions, transitions and SFX.', full: 'Vertical edits built to stop the scroll: fast hooks, beat-synced cuts, captions, transitions and sound design for Instagram Reels and YouTube Shorts.', image: '/img/f0_1.jpg', tag: 'Service', main: true },
+    { slug: 'youtube-videos', title: 'YouTube Videos', desc: 'Long-form edits with pacing, B-roll, music and retention-focused cuts.', full: 'Long-form YouTube edits with tight pacing, B-roll, music, zooms, text and retention-focused cuts, so people keep watching.', image: '/img/f2_0.jpg', tag: 'Service', main: true },
+    { slug: 'wedding-films', title: 'Wedding Films', desc: 'Highlight films and teasers that feel like a movie, graded to perfection.', full: 'Wedding highlight films, teasers and pre-wedding edits that feel like a movie, with music, story and a cinematic grade.', image: '/img/f8_1.jpg', tag: 'Service', main: true },
+    { slug: 'ads-promos', title: 'Ads & Promos', desc: 'Product and brand promos with motion graphics that sell.', full: 'Product ads and brand promos with motion graphics, clean typography and sound design, made to sell.', image: '/img/f3_0.jpg', tag: 'Service', main: true },
+    { slug: 'thumbnails-graphics', title: 'Thumbnails & Graphics', desc: 'Click-worthy YouTube thumbnails, posters and social graphics.', full: 'Click-worthy YouTube thumbnails, posters and social media graphics designed to get attention.', image: '/img/t1.jpg', tag: 'Service', main: true },
+    { slug: 'motion-graphics', title: 'Motion Graphics', desc: 'Titles, logo animation, lower thirds and animated text.', full: 'Animated titles, logo reveals, lower thirds and kinetic text for videos and brands.', image: '/img/f3_1.jpg', tag: 'Service', main: false },
+    { slug: 'podcast-editing', title: 'Podcast Editing', desc: 'Multi-cam podcast cuts and short clips for social.', full: 'Multi-cam podcast editing plus short highlight clips for social media.', image: '/img/f4_1.jpg', tag: 'Service', main: false }
   ],
   faq: [
     { q: 'How do I send my raw footage?', a: 'Share a Google Drive (or any cloud) link in the Hire Me form. Large files are totally fine.' },
@@ -34,7 +45,7 @@ export const DEFAULTS = {
     { q: 'Where do I find my downloads?', a: 'In your profile under My Orders & Downloads. Everything you buy stays on your account email for lifetime.' },
     { q: 'Can I get a refund?', a: 'Refunds are only possible if the product was not delivered. Once the download is enabled, the purchase cannot be refunded. See the Privacy & Refund policy.' }
   ],
-  footer: { about: 'Video editing & graphic design by Prashant Jangid. Reels, YouTube, weddings, ads, colour grading & thumbnails.', copyright: '© {year} Jangid Cuts. All rights reserved.', made_in: 'Made in Jaipur, India' },
+  footer: { about: 'Video editing & graphic design by Prashant Jangid. Reels, YouTube, weddings, ads, colour grading, thumbnails & much more.', copyright: '© {year} Jangid Cuts. All rights reserved.', made_in: 'Made in Jaipur, India', show_location: false },
   socials: [
     { name: 'Instagram', icon: 'ig', url: 'https://instagram.com/jangidcuts', handle: '@jangidcuts' },
     { name: 'YouTube', icon: 'yt', url: 'https://www.youtube.com/@jangidcutsofficial', handle: '@jangidcutsofficial' },

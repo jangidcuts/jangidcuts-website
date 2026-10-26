@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS cat_section ON categories(section, sort);
 CREATE TABLE IF NOT EXISTS portfolio (
   id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, title TEXT, description TEXT,
   category_id INTEGER, subcategory_id INTEGER, image TEXT, video TEXT, url TEXT, orient TEXT DEFAULT 'v',
-  featured INTEGER DEFAULT 0, home INTEGER DEFAULT 0, row_name TEXT, sort INTEGER DEFAULT 0, visible INTEGER DEFAULT 1, created INTEGER);
+  featured INTEGER DEFAULT 0, home INTEGER DEFAULT 0, row_name TEXT, sort INTEGER DEFAULT 0, visible INTEGER DEFAULT 1, created INTEGER, services TEXT DEFAULT '[]', source TEXT DEFAULT '');
 CREATE INDEX IF NOT EXISTS pf_kind ON portfolio(kind, sort);
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT NOT NULL, short TEXT, description TEXT,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created);
 CREATE TABLE IF NOT EXISTS owned (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, order_id INTEGER, created INTEGER, downloads INTEGER DEFAULT 0, first_dl INTEGER, last_dl INTEGER, PRIMARY KEY (user_id, product_id));
-CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, name TEXT, role TEXT, rating INTEGER NOT NULL, text TEXT, status TEXT DEFAULT 'visible', featured INTEGER DEFAULT 0, source TEXT DEFAULT 'user', created INTEGER);
+CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, name TEXT, role TEXT, rating INTEGER NOT NULL, text TEXT, status TEXT DEFAULT 'visible', featured INTEGER DEFAULT 0, source TEXT DEFAULT 'user', created INTEGER, photo TEXT);
 CREATE INDEX IF NOT EXISTS reviews_prod ON reviews(product_id, status);
 CREATE TABLE IF NOT EXISTS hire (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT, user_id INTEGER, name TEXT, email TEXT, data TEXT, status TEXT DEFAULT 'new', note TEXT, created INTEGER, approved_at INTEGER, ip TEXT);
 CREATE INDEX IF NOT EXISTS hire_status ON hire(status, created);
