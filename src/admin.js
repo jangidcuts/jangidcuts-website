@@ -1,7 +1,7 @@
 import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef } from './lib.js';
 import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
-import { putFile, deleteFile, storageInfo, driveId, driveMeta, streamDrivePublic } from './storage.js';
+import { putFile, deleteFile, storageInfo, storageMeter, driveId, driveMeta, streamDrivePublic } from './storage.js';
 import { fulfil, money } from './shop.js';
 import { handleAssistant } from './assistant.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
@@ -39,6 +39,8 @@ export async function handleAdmin(req, env, ctx, url, s) {
 
   if (p === '/api/admin/assistant' || p.startsWith('/api/admin/assistant/')) return handleAssistant(req, env, url, s);
   if (p === '/api/admin/whoami') return J({ ok: true, email: s.user.email, mfa_needed: !s.adminReady, totp_on: !!s.user.totp_on });
+
+  if (p === '/api/admin/storage' && m === 'GET') return J({ ok: true, ...(await storageMeter(env, url.searchParams.get('fresh') === '1')) });
 
   /* ----- overview / analytics ----- */
   if (p === '/api/admin/overview' && m === 'GET') {

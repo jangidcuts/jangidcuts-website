@@ -1,4 +1,4 @@
-import { now, rand, clean, fail } from './lib.js';
+import { now, rand, clean, fail, getContent } from './lib.js';
 
 // Storage interface. R2 (env.MEDIA) is used automatically once it is bound; until then Workers KV (env.MEDIA_KV, 25 MB per file).
 export function storageInfo(env) {
@@ -132,4 +132,39 @@ export async function streamVideoSource(req, env, { url = '', video = '' }, goog
   }
   if (video) return Response.redirect(new URL(video, new URL(req.url).origin).toString(), 302);
   return new Response('Not found', { status: 404 });
+}
+
+// Storage meter for the admin (dashboard + Settings). Admin-only route, cached ~3 min in the CACHE kv.
+const MB = 1024 * 1024, GB = 1024 * MB;
+export const STORAGE_LIMITS = { kv: 1 * GB, r2: 10 * GB, d1: 500 * MB, d1Account: 5 * GB };
+export async function storageMeter(env, fresh = false) {
+  const ck = 'storage_meter_v1';
+  if (!fresh && env.CACHE) { try { const c = await env.CACHE.get(ck, 'json'); if (c) return { ...c, cached: true }; } catch { } }
+  const q = (sql) => env.DB.prepare(sql);
+  const [byStore, pfLinked, prLinked, rows] = await env.DB.batch([
+    q('SELECT store, COUNT(*) n, COALESCE(SUM(size),0) b FROM media GROUP BY store'),
+    q("SELECT COUNT(*) n FROM portfolio WHERE source IN ('drive','youtube','link') OR (COALESCE(source,'') <> 'upload' AND (COALESCE(url,'') LIKE 'http%' OR COALESCE(video,'') LIKE 'http%'))"),
+    q("SELECT COUNT(*) n FROM products WHERE delivery IN ('drive','link') OR COALESCE(video,'') LIKE 'http%'"),
+    q('SELECT (SELECT COUNT(*) FROM users) users, (SELECT COUNT(*) FROM orders) orders, (SELECT COUNT(*) FROM tickets) tickets, (SELECT COUNT(*) FROM hire) hires, (SELECT COUNT(*) FROM ai_chat) chats, (SELECT COUNT(*) FROM reviews) reviews')
+  ]);
+  const st = {}; for (const r of byStore.results || []) st[r.store] = { n: r.n, b: r.b };
+  let reel = 0; try { const c = await getContent(env); if (/^https?:/i.test(c.hero?.showreel || '')) reel = 1; } catch { }
+  const linked = (pfLinked.results?.[0]?.n || 0) + (prLinked.results?.[0]?.n || 0) + reel;
+  let dbBytes = byStore.meta?.size_after || rows.meta?.size_after || 0;
+  if (!dbBytes) { try { const a = await q('PRAGMA page_count').first(); const b = await q('PRAGMA page_size').first(); dbBytes = (Object.values(a || {})[0] || 0) * (Object.values(b || {})[0] || 0); } catch { } }
+  let r2 = { enabled: false, limit: STORAGE_LIMITS.r2 };
+  if (env.MEDIA) {
+    let used = 0, files = 0, cursor, pages = 0, exact = true;
+    try { do { const l = await env.MEDIA.list({ cursor, limit: 1000 }); for (const o of l.objects) { used += o.size; files++; } cursor = l.truncated ? l.cursor : null; pages++; } while (cursor && pages < 30); if (cursor) exact = false; }
+    catch { used = st.r2?.b || 0; files = st.r2?.n || 0; exact = false; }
+    r2 = { enabled: true, used, files, limit: STORAGE_LIMITS.r2, exact };
+  }
+  const out = {
+    at: Date.now(),
+    files: { used: st.kv?.b || 0, files: st.kv?.n || 0, limit: STORAGE_LIMITS.kv, perFile: 25 * MB, linked, uploadsTo: env.MEDIA ? 'r2' : 'kv' },
+    r2,
+    db: { used: dbBytes, limit: STORAGE_LIMITS.d1, accountLimit: STORAGE_LIMITS.d1Account, rows: rows.results?.[0] || {} }
+  };
+  if (env.CACHE) { try { await env.CACHE.put(ck, JSON.stringify(out), { expirationTtl: 180 }); } catch { } }
+  return out;
 }

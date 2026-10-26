@@ -126,3 +126,14 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 @keyframes aicd{50%{opacity:1;transform:translateY(-2px)}}
 @media (max-width:600px){.aic{height:calc(100vh - 230px);min-height:380px;border-radius:12px}.aic-in .btn span{display:none}.aic-b{max-width:92%}}
 [data-theme=light] .aic-b pre{background:rgba(0,0,0,.04)}
+
+/* storage meter */
+.sto-card h2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sto{padding:12px 0;border-top:1px solid var(--line)}.sto:first-of-type{border-top:0;padding-top:4px}
+.sto-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+.sto-bar{height:10px;border-radius:99px;background:rgba(127,127,127,.18);overflow:hidden;margin:9px 0 7px}
+.sto-bar i{display:block;height:100%;border-radius:99px;background:var(--mint);transition:width .5s}
+.sto-bar.warn i{background:var(--amber)}.sto-bar.bad i{background:var(--red)}
+.sto-n{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--faint)}.sto-n b{color:var(--text);font-weight:600}
+.sto-x{margin-top:6px;line-height:1.45}
+.card p,.card dd,.card .small{overflow-wrap:anywhere}
