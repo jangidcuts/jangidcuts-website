@@ -77,3 +77,4 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .mobnav b{font-family:var(--head);font-size:22px;font-weight:400}.g2,.g3{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.main{padding-top:14px}}
 .hidden{display:none!important}
 .gbtn svg,.login-box svg{width:20px;height:20px;flex:none}
+.li.acc{flex-wrap:wrap}.li.acc .t{flex:1 1 100%;min-width:0}.li.acc .t b{word-break:break-all}.li.acc .acts{flex-wrap:wrap}
