@@ -23,11 +23,11 @@ function title(t){D.title=t+' | Jangid Cuts'}
 /* ----- /portfolio ----- */
 function vPortfolio(){var k=kindQ();var P=C.portfolio_page||{};title('Portfolio');
  var rs=roots(k).filter(function(c){return itemsOf(k,c.id).length});
- app.innerHTML='<div class="wrap pg-top">'+back('/','Back to home')+'<div class="pg-h"><span class="eyebrow">Jangid Cuts</span><h1 class="h-xl" style="margin-top:8px"><span class="shine">'+esc(P.title||'Portfolio')+'</span></h1><p class="lead">'+esc(P.intro||'Edits and thumbnails, sorted by category.')+'</p></div>'+
+ app.innerHTML='<div class="wrap pg-top">'+back('/','Back to home')+'<div class="pg-h"><span class="eyebrow">Jangid Cuts</span><h1 class="h-xl" style="margin-top:8px"><span class="shine">'+esc(P.title||'Portfolio')+'</span></h1><p class="lead">'+esc(P.lead||P.intro||'Edits and thumbnails, sorted by category.')+'</p><a class="pf-mail" href="mailto:'+esc(P.email||'jangidcuts@gmail.com')+'">'+I('mail')+'<span>'+esc(P.email||'jangidcuts@gmail.com')+'</span></a></div>'+
  '<div class="tabs" role="tablist"><a class="tab" role="tab" href="/portfolio" aria-selected="'+(k==='video')+'">'+I('play')+' Video Portfolio</a><a class="tab" role="tab" href="/portfolio?k=thumb" aria-selected="'+(k==='thumb')+'">Thumbnail Portfolio</a></div>'+
  '<div class="cat-tiles">'+rs.map(function(c){var it=itemsOf(k,c.id);return '<a class="ctile" href="/portfolio/'+slug(c.name)+(k==='thumb'?'?k=thumb':'')+'"><img src="'+esc(c.thumb||it[0].image)+'" alt="" loading="lazy"><b>'+esc(c.name)+'</b><span>'+it.length+'</span></a>'}).join('')+'</div>'+
  rs.map(function(c,i){var it=itemsOf(k,c.id);return (i===2?adSlot('portfolio'):'')+'<section class="sec-row"><div class="sec-row-h"><h2>'+esc(c.name)+'</h2><a href="/portfolio/'+slug(c.name)+(k==='thumb'?'?k=thumb':'')+'">See all '+it.length+' →</a></div><div class="mrow">'+it.slice(0,10).map(function(p){return card(p,'cat')}).join('')+'</div></section>'}).join('')+
- (rs.length?'':'<div class="st-empty">New work is coming soon.</div>')+'<div style="height:60px"></div></div>';bindImgs(app)}
+ (rs.length?'':'<div class="st-empty">New work is coming soon.</div>')+'<div class="pf-contact"><div><b>Like this work? Let’s make yours.</b><span>Projects, collaborations &amp; business enquiries</span></div><div class="pf-cta"><a class="btn btn-primary" href="mailto:'+esc(P.email||'jangidcuts@gmail.com')+'">'+I('mail')+' '+esc(P.email||'jangidcuts@gmail.com')+'</a><a class="btn btn-ghost" href="/?hire=1">Hire me</a></div></div><div style="height:60px"></div></div>';bindImgs(app)}
 
 /* ----- /portfolio/<cat> ----- */
 function vCat(s){var k=kindQ();var c=catBySlug(s,k);if(!c){app.innerHTML='<div class="wrap pg-top">'+back('/portfolio','Back to portfolio')+'<div class="st-empty">This category does not exist.</div></div>';return}
@@ -43,8 +43,9 @@ function vCat(s){var k=kindQ();var c=catBySlug(s,k);if(!c){app.innerHTML='<div c
 function ytId(u){var m=String(u||'').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/))([\w-]{11})/);return m?m[1]:''}
 function isDrive(u){return /drive\.google\.com/.test(u||'')}
 function fmt(t){t=Math.max(0,Math.floor(t||0));var m=Math.floor(t/60),s=t%60;return m+':'+(s<10?'0':'')+s}
-function embed(p){return '<div class="jp" id="jp"><div class="jp-media" id="jpMedia"></div><div class="jp-shield" id="jpShield"></div><div class="jp-poster" id="jpPoster" style="background-image:url(\''+esc(p.image||'')+'\')"><button class="jp-big" aria-label="Play">'+I('play')+'</button></div>'+
- '<div class="jp-bar"><button class="jp-b" id="jpPlay" aria-label="Play/pause">'+I('play')+'</button><span class="jp-t" id="jpT">0:00</span><input class="jp-seek" id="jpSeek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="jp-t" id="jpD">0:00</span><button class="jp-b" id="jpMute" aria-label="Mute">🔊</button><button class="jp-b" id="jpFs" aria-label="Fullscreen">⛶</button></div></div>'}
+function SK(d){return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="'+(d<0?'M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z':'M12 5V2l5 4-5 4V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z')+'" fill="currentColor"/><text x="12" y="16.2" text-anchor="middle" font-size="6.6" font-weight="800" font-family="Inter,Arial" fill="currentColor">10</text></svg>'}
+function embed(p){return '<div class="jp" id="jp"><div class="jp-media" id="jpMedia"></div><div class="jp-shield" id="jpShield"></div><div class="jp-flash l" id="jpFlL">'+SK(-1)+'<span>10s</span></div><div class="jp-flash r" id="jpFlR">'+SK(1)+'<span>10s</span></div><div class="jp-poster" id="jpPoster" style="background-image:url(\''+esc(p.image||'')+'\')"><button class="jp-big" aria-label="Play">'+I('play')+'</button></div>'+
+ '<div class="jp-bar"><button class="jp-b" id="jpPlay" aria-label="Play/pause">'+I('play')+'</button><button class="jp-b jp-sk" id="jpBk" aria-label="Back 10 seconds" title="Back 10s (←)">'+SK(-1)+'</button><button class="jp-b jp-sk" id="jpFw" aria-label="Forward 10 seconds" title="Forward 10s (→)">'+SK(1)+'</button><span class="jp-t" id="jpT">0:00</span><input class="jp-seek" id="jpSeek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="jp-t" id="jpD">0:00</span><button class="jp-b" id="jpMute" aria-label="Mute">🔊</button><button class="jp-b" id="jpFs" aria-label="Fullscreen">⛶</button></div></div>'}
 function mountPlayer(p){var root=$('#jp');if(!root)return;var media=$('#jpMedia'),poster=$('#jpPoster'),seek=$('#jpSeek'),api=null,dragging=false;
  var yid=ytId(p.url),src=null;if(!yid){if(isDrive(p.url)||(p.video&&p.video.indexOf('/u/')===0))src='/v/'+p.id;else if(p.video)src=p.video;else if(p.url)src=null}
  function setPlaying(on){root.classList.toggle('playing',on);$('#jpPlay').innerHTML=on?'❚❚':I('play')}
@@ -59,7 +60,14 @@ function mountPlayer(p){var root=$('#jp');if(!root)return;var media=$('#jpMedia'
   v.addEventListener('error',function(){poster.innerHTML='<p class="jp-err">This video could not be loaded. Please try again later.</p>'})}
  else{if(p.url){poster.innerHTML='<a class="btn btn-primary" href="'+esc(p.url)+'" target="_blank" rel="noopener">'+I('play')+' Watch video</a>'}else{root.querySelector('.jp-bar').hidden=true;poster.querySelector('.jp-big').hidden=true}return}
  function toggle(){if(!api)return;if(api.paused()){poster.hidden=true;root.classList.add('started');api.play();if(yid&&!api.ready)setTimeout(function(){api.play()},800)}else api.pause()}
- poster.onclick=toggle;$('#jpShield').onclick=toggle;$('#jpPlay').onclick=toggle;
+  function skip(d){if(!api)return;var dur=api.dur()||0,t=(api.cur()||0)+d;if(dur)t=Math.min(Math.max(0,t),Math.max(0,dur-0.3));else t=Math.max(0,t);api.seekTo(t);tick();var f=$(d<0?'#jpFlL':'#jpFlR');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}
+  poster.onclick=toggle;$('#jpPlay').onclick=toggle;$('#jpBk').onclick=function(){skip(-10)};$('#jpFw').onclick=function(){skip(10)};
+  var sh=$('#jpShield'),lastTap=0,tapT=null;
+  sh.addEventListener('pointerup',function(e){if(e.pointerType==='mouse'){toggle();return}var now=Date.now(),r=sh.getBoundingClientRect(),x=e.clientX-r.left;
+   if(now-lastTap<300){clearTimeout(tapT);lastTap=0;if(x<r.width*0.4)skip(-10);else if(x>r.width*0.6)skip(10);else toggle();return}
+   lastTap=now;tapT=setTimeout(function(){lastTap=0;toggle()},300)});
+  D.addEventListener('keydown',function(e){var t=e.target,tg=t&&t.tagName;if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT'||(t&&t.isContentEditable)||e.altKey||e.ctrlKey||e.metaKey)return;if(!root.classList.contains('started'))return;
+   if(e.key==='ArrowLeft'){e.preventDefault();skip(-10)}else if(e.key==='ArrowRight'){e.preventDefault();skip(10)}else if(e.key===' '||e.key==='k'){e.preventDefault();toggle()}});
  seek.addEventListener('input',function(){dragging=true});seek.addEventListener('change',function(){dragging=false;var d=api.dur();if(d)api.seekTo(seek.value/1000*d)});
  $('#jpMute').onclick=function(){var m=!api.muted();api.mute(m);this.textContent=m?'🔇':'🔊'};
  $('#jpFs').onclick=function(){if(D.fullscreenElement||D.webkitFullscreenElement){(D.exitFullscreen||D.webkitExitFullscreen).call(D)}else{(root.requestFullscreen||root.webkitRequestFullscreen||function(){var v=$('#jpv');v&&v.webkitEnterFullscreen&&v.webkitEnterFullscreen()}).call(root)}};

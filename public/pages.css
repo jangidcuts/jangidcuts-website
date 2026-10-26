@@ -81,3 +81,17 @@
 .jp:fullscreen{width:100vw;height:100vh}
 @media (hover:none){.jp.started .jp-bar{opacity:1}}
 .jp-poster[hidden],.jp-bar[hidden],.jp-big[hidden]{display:none!important}
+
+.jp-sk{width:38px}.jp-sk .icon{width:22px;height:22px}
+.jp-flash{position:absolute;top:50%;z-index:5;width:84px;height:84px;margin-top:-42px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);color:#fff;display:grid;place-items:center;align-content:center;gap:2px;opacity:0;pointer-events:none;font-size:12px;font-weight:700}
+.jp-flash .icon{width:30px;height:30px;color:#2BF5C0}.jp-flash.l{left:12%}.jp-flash.r{right:12%}
+.jp-flash.on{animation:jpFl .55s ease}
+@keyframes jpFl{0%{opacity:0;transform:scale(.8)}25%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.05)}}
+@media (max-width:480px){.jp-bar{gap:4px;padding:8px 8px}.jp-b{width:32px;height:32px}.jp-t{min-width:32px;font-size:11.5px}}
+
+.pf-mail{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--mint) 8%,transparent);color:var(--text);font-weight:600;font-size:14px}
+.pf-mail .icon{width:16px;height:16px;color:var(--mint)}
+.pf-contact{margin-top:40px;padding:22px;border-radius:20px;border:1px solid var(--line);background:linear-gradient(135deg,color-mix(in srgb,var(--mint) 10%,var(--panel)),var(--panel));display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+.pf-contact b{display:block;font-size:18px}.pf-contact span{color:var(--muted);font-size:14px}
+.pf-cta{display:flex;flex-wrap:wrap;gap:10px}.pf-cta .btn{white-space:nowrap}
+@media (max-width:560px){.pf-cta{width:100%}.pf-cta .btn{flex:1 1 100%;justify-content:center}}

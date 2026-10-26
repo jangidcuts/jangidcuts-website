@@ -1,4 +1,4 @@
-import { now, clean, fail, getKey, nextNumber, hex, enc, safeEq, decrypt, logEvent } from './lib.js';
+import { now, clean, fail, getKey, nextNumber, newRef, hex, enc, safeEq, decrypt, logEvent } from './lib.js';
 import { sendTemplate, sendMail, alertOwner, googleToken } from './mail.js';
 
 export const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -60,8 +60,7 @@ export async function createOrder(env, req, sess, { items, coupon }) {
   const q = await quote(env, { items, coupon, userId: sess.user.id });
   if (!q.items.length) fail(q.skipped.length ? 'You already own these items' : 'Your cart is empty');
   if (coupon && q.couponError) fail(q.couponError);
-  const n = await nextNumber(env, 'order', 1001);
-  const number = 'JC-' + n;
+  const number = await newRef(env, q.total === 0 ? 'DL' : 'ORD');
   const pay = await paymentsConfig(env);
   const events = ev([], 'Order confirmed');
   const row = await env.DB.prepare('INSERT INTO orders (number, user_id, email, items, subtotal, discount, total, coupon, status, provider, events, created) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12) RETURNING id')
@@ -112,7 +111,7 @@ export async function fulfil(env, orderId, { paymentId, origin }) {
   // Big-file delivery (Drive share / private link by email)
   const prods = await loadProductsAny(env, items.map(i => i.id));
   for (const p of prods) {
-    if (p.delivery === 'drive' || p.delivery === 'link') await deliverBig(env, p, user, origin);
+    if (p.delivery === 'drive' || p.delivery === 'link') await deliverBig(env, p, user, origin, o.number);
   }
   ev(events, 'Delivered');
   await env.DB.prepare("UPDATE orders SET status = 'delivered', payment_id = ?1, paid_at = ?2, delivered_at = ?2, events = ?3 WHERE id = ?4").bind(paymentId || '', now(), JSON.stringify(events), o.id).run();
@@ -126,8 +125,9 @@ async function loadProductsAny(env, ids) {
   const { results } = await env.DB.prepare(`SELECT * FROM products WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all();
   return results;
 }
-export async function deliverBig(env, p, user, origin) {
+export async function deliverBig(env, p, user, origin, number) {
   let link = p.link_url;
+  if (!number) { const r = await env.DB.prepare('SELECT o.number FROM owned w JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(user.id, p.id).first(); number = r?.number || ''; }
   if (p.delivery === 'drive' && p.drive_id) {
     const tok = await googleToken(env, 'main');
     if (tok) {
@@ -136,5 +136,5 @@ export async function deliverBig(env, p, user, origin) {
     }
     link = `https://drive.google.com/file/d/${p.drive_id}/view`;
   }
-  if (link) await sendTemplate(env, 'download_link', user.email, { name: user.name || 'there', product: p.title, link }, { ref: 'p' + p.id });
+  if (link) await sendTemplate(env, 'download_link', user.email, { name: user.name || 'there', product: p.title, link, number: number || '' }, { ref: number || '' });
 }

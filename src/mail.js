@@ -2,6 +2,9 @@ import { enc, now, b64url, b64std, clean, decrypt, encrypt, getKey, setKey, logE
 
 // Mail accounts: "main" = jangidcuts@gmail.com (OTP, orders, downloads, hire), "support" = supportjangidcuts@gmail.com (tickets only).
 export const ACCOUNTS = { main: { label: 'Jangid Cuts', key: '_mail_main' }, support: { label: 'Jangid Cuts Support', key: '_mail_support' } };
+// Which mailbox sends which template. Support/ticket mail -> support; everything else (OTP, orders, downloads, hire, business) -> main.
+export const TEMPLATE_ACCOUNT = { ticket_received: 'support', ticket_solved: 'support', ticket_reply: 'support' };
+export function accountFor(kind) { return TEMPLATE_ACCOUNT[kind] || (/^ticket/.test(kind || '') ? 'support' : 'main'); }
 export function expectedEmail(env, account) { return account === 'support' ? (env.SUPPORT_EMAIL || 'supportjangidcuts@gmail.com') : (env.MAIN_EMAIL || 'jangidcuts@gmail.com'); }
 
 export async function googleToken(env, account) {
@@ -54,10 +57,15 @@ function buildRaw({ from, fromName, to, subject, text, replyTo }) {
 async function deliver(env, row) {
   let account = row.account;
   let token = await googleToken(env, account);
-  if (!token && account === 'support') { account = 'main'; token = await googleToken(env, 'main'); }
+  let replyTo = null, label = ACCOUNTS[account].label;
+  if (!token && account === 'support') {
+    // Support mailbox not connected: still reach the client, but replies go to the support address.
+    await logEvent(env, 'mail', 'support mailbox unavailable, sent ' + (row.kind || 'mail') + ' via main with Reply-To support');
+    account = 'main'; token = await googleToken(env, 'main'); replyTo = expectedEmail(env, 'support');
+  }
   if (!token) throw new Error('Mail account not connected yet');
   const acc = await getKey(env, ACCOUNTS[account].key);
-  const raw = buildRaw({ from: acc.email, fromName: ACCOUNTS[account].label, to: row.to_addr, subject: row.subject, text: row.body });
+  const raw = buildRaw({ from: acc.email, fromName: label, to: row.to_addr, subject: row.subject, text: row.body, replyTo });
   const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ raw: b64url(enc.encode(raw)) }) });
   if (!r.ok) { const t = await r.text(); if (r.status === 401 && env.CACHE) await env.CACHE.delete('gtok:' + account); throw new Error('Gmail ' + r.status + ': ' + t.slice(0, 200)); }
   return true;
@@ -68,10 +76,15 @@ export function fill(tpl, vars) { return String(tpl || '').replace(/\{(\w+)\}/g,
 // Queue + try to send now. Returns {ok, error}
 export async function sendMail(env, { account = 'main', to, subject, body, kind = 'mail', ref = '' }) {
   if (!isEmail(to)) return { ok: false, error: 'bad address' };
+  // Every client mail carries its reference number (JC-ORD-…, JC-TKT-…) in the subject and the body.
+  if (/^JC-[A-Z]+-/.test(ref)) {
+    if (!String(subject).includes(ref)) subject = subject + ' [' + ref + ']';
+    if (!String(body).includes(ref)) body = body + '\n\nReference: ' + ref;
+  }
   const ins = await env.DB.prepare('INSERT INTO outbox (account, to_addr, subject, body, kind, ref, status, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING id')
     .bind(account, to, clean(subject, 300), clean(body, 20000), kind, String(ref), 'pending', now()).first();
   try {
-    await deliver(env, { account, to_addr: to, subject, body });
+    await deliver(env, { account, to_addr: to, subject, body, kind });
     await env.DB.prepare("UPDATE outbox SET status = 'sent', sent_at = ?1, tries = tries + 1 WHERE id = ?2").bind(now(), ins.id).run();
     return { ok: true };
   } catch (e) {
@@ -82,7 +95,7 @@ export async function sendMail(env, { account = 'main', to, subject, body, kind 
 export async function sendTemplate(env, name, to, vars, opts = {}) {
   const tpls = await getKey(env, 'mail_templates');
   const t = tpls[name]; if (!t) return { ok: false, error: 'no template ' + name };
-  return sendMail(env, { account: opts.account || 'main', to, subject: fill(t.subject, vars), body: fill(t.body, vars), kind: name, ref: opts.ref || '' });
+  return sendMail(env, { account: opts.account || accountFor(name), to, subject: fill(t.subject, vars), body: fill(t.body, vars), kind: name, ref: opts.ref || '' });
 }
 export async function retryOutbox(env) {
   const { results } = await env.DB.prepare("SELECT * FROM outbox WHERE status = 'failed' AND tries < 6 AND created > ?1 ORDER BY id LIMIT 20").bind(now() - 3 * 864e5).all();

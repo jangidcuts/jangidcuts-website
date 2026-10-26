@@ -1,4 +1,4 @@
-import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, limitOrFail, rateLimit,
+import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, newRef, limitOrFail, rateLimit,
   newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt } from './lib.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive } from './storage.js';
@@ -293,7 +293,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     if (!name || !isEmail(email)) fail('Please enter your name and a valid email');
     const words = clean(b.project, 6000).split(/\s+/).filter(Boolean).length; if (words > 500) fail('Project description is over 500 words');
     await limitOrFail(env, 'hire:' + ip(req), 5, 3600e3);
-    const n = await nextNumber(env, 'hire', 1001); const number = 'H-' + n;
+    const number = await newRef(env, 'HIRE');
     const data = {}; for (const k of ['whatsapp', 'country', 'agency', 'agency_name', 'agency_address', 'categories', 'category_other', 'perday', 'format', 'plan', 'budget', 'deadline', 'raw_link', 'reference', 'project']) data[k] = Array.isArray(b[k]) ? b[k].map(x => clean(x, 80)).slice(0, 40) : clean(b[k], k === 'project' ? 6000 : 300);
     await env.DB.prepare('INSERT INTO hire (number, user_id, name, email, data, status, created, ip) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)').bind(number, s?.user.id || null, name, email, JSON.stringify(data), 'new', now(), ip(req)).run();
     ctx.waitUntil((async () => {
@@ -308,7 +308,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     const email = clean(b.email || s?.user.email, 200).toLowerCase(); const message = clean(b.message, 4000);
     if (!isEmail(email)) fail('Please enter a valid email'); if (message.length < 5) fail('Please describe the problem');
     await limitOrFail(env, 'ticket:' + ip(req), 6, 3600e3);
-    const n = await nextNumber(env, 'ticket', 1042); const number = 'JC-' + n;
+    const number = await newRef(env, 'TKT');
     const name = clean(b.name || s?.user.name || email.split('@')[0], 100);
     await env.DB.prepare('INSERT INTO tickets (number, user_id, email, name, topic, message, status, created, ip) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)').bind(number, s?.user.id || null, email, name, clean(b.topic, 80) || 'General', message, 'pending', now(), ip(req)).run();
     ctx.waitUntil((async () => {

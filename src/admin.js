@@ -1,4 +1,4 @@
-import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie } from './lib.js';
+import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef } from './lib.js';
 import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
 import { putFile, deleteFile, storageInfo, driveId, driveMeta } from './storage.js';
@@ -179,11 +179,13 @@ export async function handleAdmin(req, env, ctx, url, s) {
     const b = await readJson(req); const o = await env.DB.prepare('SELECT * FROM orders WHERE id = ?1').bind(+mm[1]).first(); if (!o) fail('Not found', 404);
     if (b.action === 'mark_paid') { await fulfil(env, o.id, { paymentId: 'MANUAL', origin }); return J({ ok: true }); }
     if (b.action === 'refund' || b.action === 'cancel') {
-      const ev = JSON.parse(o.events || '[]'); ev.push({ s: b.action === 'refund' ? 'Refunded' : 'Cancelled', at: now() });
+      const refundRef = b.action === 'refund' ? await newRef(env, 'REF') : null;
+      const ev = JSON.parse(o.events || '[]'); ev.push(refundRef ? { s: 'Refunded', at: now(), ref: refundRef } : { s: 'Cancelled', at: now() });
       await env.DB.prepare('UPDATE orders SET status = ?1, events = ?2 WHERE id = ?3').bind(b.action === 'refund' ? 'refunded' : 'cancelled', JSON.stringify(ev), o.id).run();
       if (b.action === 'refund' && o.user_id) await env.DB.prepare('DELETE FROM owned WHERE order_id = ?1').bind(o.id).run();
-      await sendTemplate(env, 'order_status', o.email, { name: 'there', number: o.number, status: b.action === 'refund' ? 'Refunded' : 'Cancelled', link: origin + '/orders' }, { ref: o.number });
-      return J({ ok: true });
+      await sendTemplate(env, 'order_status', o.email, { name: 'there', number: o.number, status: b.action === 'refund' ? 'Refunded' : 'Cancelled', refund: refundRef ? '\nRefund reference: ' + refundRef : '', link: origin + '/orders' }, { ref: refundRef || o.number });
+      if (refundRef) await env.DB.prepare('UPDATE orders SET note = trim(COALESCE(note, \'\') || ?1) WHERE id = ?2').bind(' Refund ' + refundRef, o.id).run();
+      return J({ ok: true, refund: refundRef });
     }
     if (b.action === 'note') { await env.DB.prepare('UPDATE orders SET note = ?1 WHERE id = ?2').bind(clean(b.note, 1000), o.id).run(); return J({ ok: true }); }
     fail('Unknown action');

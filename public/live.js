@@ -59,9 +59,11 @@ function applyFooter(c){var f=$('.footer');if(!f)return;var p=$('.foot-grid > di
  var cp=$('.copy span',f);if(cp)cp.textContent=String(c.footer.copyright||'').replace('{year}',new Date().getFullYear());var mi=$$('.copy span',f)[1];if(mi){mi.textContent=c.footer.made_in;mi.hidden=!c.footer.show_location}
  }
 
+function supMail(c){var h=c.help||{},se=h.support_email||'supportjangidcuts@gmail.com',be=h.business_email||'jangidcuts@gmail.com';
+ return '<div class="sup-mail"><span class="sup-ic">'+ICON('mail')+'</span><div class="sup-tx"><small>Email support</small><a href="mailto:'+esc(se)+'">'+esc(se)+'</a><p>'+esc(h.support_note||'Only support-related emails here (orders, downloads, account, tickets).')+'</p><a class="sup-biz" href="mailto:'+esc(be)+'">For business →</a></div></div>'}
 function applyHelp(c){var fq=$('#faq');if(fq)fq.innerHTML=(c.faq||[]).map(function(x,i){return '<details'+(i===0?' open':'')+'><summary>'+esc(x.q)+'</summary><p>'+esc(x.a)+'</p></details>'}).join('');
  var t=$('#helpTitle');if(t)t.textContent=c.help.title;var it=$('#issue h3');if(it)it.textContent=c.help.issue_title;var inote=$('#issue p');if(inote)inote.textContent=c.help.issue_note;
- var f=$('#issue form');if(f){f.removeAttribute('data-demo-form');
+ var f=$('#issue form');if(f&&!$('#issue .sup-mail'))f.insertAdjacentHTML('afterend',supMail(c));if(f){f.removeAttribute('data-demo-form');
   f.addEventListener('submit',function(e){e.preventDefault();if(!f.checkValidity()){f.reportValidity();return}var b=f.querySelector('button');b.disabled=true;
    api('/api/tickets',{email:$('#isEmail').value,message:$('#isMsg').value,tc:f.querySelector('input[type=checkbox]').checked,website:''}).then(function(r){b.disabled=false;
     if(!r.ok){toast(r.error||'Could not send');return}toast(String(c.help.thanks||'Ticket {number} created').replace('{number}',r.number));f.reset()})})}}
@@ -70,7 +72,7 @@ function applySoon(c,s){var t=$('#soonTitle');if(!t)return;var key=((location.pa
  var pages=c.pages||{};eb.textContent='Jangid Cuts';
  function prose(html){lead.outerHTML='<div class="prose" style="text-align:left;max-width:72ch;margin:22px auto 26px;color:var(--muted);font-size:16px;line-height:1.7">'+html+'</div>'}
  if(key==='terms'){var tt=pages.terms;t.textContent=tt.title;prose(tt.sections.map(function(x){return '<h3 class="h-md grad-text" id="'+esc(x.id)+'" style="margin:26px 0 10px">'+esc(x.title)+'</h3>'+md(x.body)}).join(''));return}
- if(pages[key]){t.textContent=pages[key].title;prose(md(pages[key].body)+(key==='support'?'<p><a class="btn btn-primary" href="help.html#issue">'+esc(c.help.issue_title)+'</a></p>':''));return}
+ if(pages[key]){t.textContent=pages[key].title;prose(md(pages[key].body)+(key==='support'?'<p><a class="btn btn-primary" href="help.html#issue">'+esc(c.help.issue_title)+'</a></p>'+supMail(c):''));return}
  if(key==='contact'){var k=c.contact;t.textContent=k.title;var wa=String(k.whatsapp||'').replace(/\D/g,'');
   var cards=[[k.whatsapp,'wa','WhatsApp','https://wa.me/'+wa],[k.call,'phone','Call','tel:'+String(k.call).replace(/\s/g,'')],[k.instagram_dm,'ig','Instagram DM',k.instagram_dm],[k.email,'mail','Email','mailto:'+k.email],[k.telegram,'tg','Telegram',k.telegram]].filter(function(x){return x[0]});
   prose(md(k.intro)+'<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-top:18px">'+cards.map(function(x){return '<a class="panel" style="display:flex;gap:12px;align-items:center;padding:16px" href="'+esc(x[3])+'" target="_blank" rel="noopener">'+ICON(x[1])+'<span><b style="color:var(--text)">'+esc(x[2])+'</b><br><small>'+esc(x[1]==='wa'||x[1]==='phone'?x[0]:x[2]==='Email'?x[0]:'Open')+'</small></span></a>'}).join('')+'</div><p style="margin-top:14px"><small>'+esc(k.hours||'')+'</small></p>');return}
@@ -92,9 +94,28 @@ function ads(c){var a=c.ads||{};if(!a.enabled||!a.publisher_id)return;var slots=
  s.onload=function(){$$('ins.adsbygoogle').forEach(function(){try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){}})};D.head.appendChild(s)}
 function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user)return;try{if(localStorage.getItem('jc-welcomed'))return;localStorage.setItem('jc-welcomed','1')}catch(e){return}
  if(location.pathname!=='/'&&location.pathname!=='/index.html')return;
- setTimeout(function(){var m=$('#loginModal');if(!m)return;var b=$('.modal-body',m);var keep=b.innerHTML;
-  b.innerHTML='<div class="lg-brand grad-text shine">JANGID CUTS</div><h3 class="h-md" style="margin:10px 0 6px">'+esc(w.title)+'</h3><p class="lead" style="font-size:14.5px;margin:0 auto 18px">'+esc(w.sub)+'</p><div style="display:grid;gap:10px"><button class="btn btn-primary" id="wIn">'+esc(w.signin)+'</button><button class="btn btn-ghost" id="wSkip">'+esc(w.skip)+'</button></div>';
-  $('#wIn',b).onclick=function(){buildLogin(JCL.site)};$('#wSkip',b).onclick=function(){JC_UI.close();setTimeout(function(){buildLogin(JCL.site)},400)};JC_UI.open(m)},900)}
+ setTimeout(function(){var m=$('#loginModal');if(!m)return;var b=$('.modal-body',m);authify(m,'Jangid Cuts');
+  b.innerHTML=authTop(noEmoji(w.title)||'Welcome')+'<p class="lg-sub" data-rv>'+esc(w.sub)+'</p><div class="lg-rest" data-rv style="display:grid;gap:10px"><button class="btn btn-primary" id="wIn">'+esc(w.signin)+'</button><button class="btn btn-ghost" id="wSkip">'+esc(w.skip)+'</button></div>';
+  $('#wIn',b).onclick=function(){JCL.openLogin?JCL.openLogin('signin',true):buildLogin(JCL.site)};$('#wSkip',b).onclick=function(){JC_UI.close();setTimeout(function(){buildLogin(JCL.site)},400)};JC_UI.open(m)},900)}
+
+/* ---------- auth screens (full-screen, own background, staggered reveal) ---------- */
+function noEmoji(t){return String(t||'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,'').replace(/\s+([!.,])/g,'$1').trim()}
+function heroThumb(){var h=(JCL.c&&JCL.c.hero)||{};var p=h.photo||'/img/hero-n354.webp';if(/^\/img\/hero-n\d+\.webp$/.test(p))p='/img/hero-n354.webp';return {src:p,bw:h.bw!==false,name:h.name||'Prashant Jangid',role:h.role||'Video Editor & Graphic Designer'}}
+function authTop(title){var h=heroThumb();return '<div class="au-photo" data-rv><img src="'+esc(h.src)+'" alt="'+esc(h.name)+'"'+(h.bw?' style="filter:grayscale(1) contrast(1.1)"':'')+' decoding="async"></div>'+
+ '<div class="lg-brand grad-text shine" id="loginTitle" data-rv>JANGID CUTS</div><p class="au-name" data-rv>'+esc(h.name)+'<span>'+esc(h.role)+'</span></p><h2 class="au-h" data-rv>'+esc(title)+'</h2>'}
+var REDUCED=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function authify(m,eyebrow){if(!m.classList.contains('auth')){m.classList.add('auth');
+  if(!$('.auth-card',m)){var card=D.createElement('div');card.className='auth-card';while(m.firstChild)card.appendChild(m.firstChild);
+   var bg=D.createElement('div');bg.className='auth-bg';bg.setAttribute('aria-hidden','true');var sc=D.createElement('div');sc.className='auth-scene';sc.setAttribute('aria-hidden','true');sc.innerHTML='<div class="as-panel"><svg class="as-svg"></svg></div>';
+   var col=D.createElement('div');col.className='auth-col';col.appendChild(card);m.appendChild(bg);m.appendChild(sc);m.appendChild(col);
+   var ld=function(){if(innerWidth<1024||sc._ld)return;sc._ld=1;var x=D.createElement('script');x.src='/auth-scene.js?v=1';x.onload=function(){try{JCAuthScene(sc,m)}catch(e){console.error(e)}};D.head.appendChild(x)};ld();addEventListener('resize',ld);
+   new MutationObserver(function(){if(m.classList.contains('on')&&m.classList.contains('auth'))reveal($('.modal-body',m),false)}).observe(m,{attributes:true,attributeFilter:['class']})}}
+ var eb=$('.modal-head .eyebrow',m);if(eb&&eyebrow)eb.textContent=eyebrow;
+ var b=$('.modal-body',m);if(b&&m.classList.contains('on'))setTimeout(function(){reveal(b,true)},0)}
+function authDone(){var go=function(){location.reload()};try{if(window.JCAuthCelebrate){JCAuthCelebrate().then(go);return}}catch(e){}setTimeout(go,500)}
+function unauth(m){m.classList.remove('auth')}
+function reveal(b,quick){if(!b)return;var it=$$('[data-rv]',b);if(REDUCED){it.forEach(function(x){x.classList.add('rv-on')});return}
+ var step=quick?40:70;it.forEach(function(x,i){x.classList.remove('rv-on');x.style.animationDelay=(i*step)+'ms';void x.offsetWidth;x.classList.add('rv-on')})}
 
 /* ---------- login modal ---------- */
 function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-body',m);var email='',name='',stage='signin',from='signin',usePw=false,cd=0,timer=null;
@@ -102,20 +123,19 @@ function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-bo
  function tabs(){return '<div class="lg-tabs" role="tablist"><button type="button" role="tab" data-tab="signin" aria-selected="'+(stage==='signin')+'">Sign in</button><button type="button" role="tab" data-tab="signup" aria-selected="'+(stage==='signup')+'">Sign up</button></div>'}
  function gbtn(t){return s.cfg.google?'<button class="g-btn" type="button" id="gBtn">'+ICON('g')+' '+t+'</button><div class="or">OR</div>':''}
  function tc(){return '<label class="check lg-tc"><input type="checkbox" id="lgTc"> <span>I agree to the <a class="tc-link" href="/terms" target="_blank">Terms &amp; Conditions</a></span></label>'}
- function draw(){if(head)head.textContent=stage==='signup'?'Create account':stage==='code'?'Check your email':stage==='reset'?'Reset password':'Welcome back';
-  var h='<div class="lg-brand grad-text shine" id="loginTitle">JANGID CUTS</div>';
-  if(stage==='signin'){h+=tabs()+'<p class="lg-sub">Sign in to buy packs, download your purchases and track your tickets.</p>'+gbtn('Continue with Google')+
+ function draw(){authify(m,stage==='signup'?'Sign up':stage==='code'?'Check your email':stage==='reset'?'Reset password':'Sign in');var h='';
+  if(stage==='signin'){h+=authTop('Welcome back')+'<div data-rv>'+tabs()+'</div><div class="lg-rest" data-rv><p class="lg-sub">Sign in to buy packs, download your purchases and track your tickets.</p>'+gbtn('Continue with Google')+
    '<form id="lgForm" novalidate><div class="field"><label for="lgEmail">Email</label><input class="input" id="lgEmail" type="email" placeholder="you@example.com" autocomplete="email" required value="'+esc(email)+'"></div>'+
    '<div class="field'+(usePw?'':' hidden')+'" id="pwWrap"><label for="lgPw">Password</label><input class="input" id="lgPw" type="password" autocomplete="current-password"></div>'+tc()+
    '<button class="btn btn-primary lg-go" type="submit" id="lgGo">'+(usePw?'Sign in':'Email me a sign-in code')+'</button></form><p class="lg-links"><button class="tc-link" type="button" id="usePw">'+(usePw?'Email me a code instead':'Use password instead')+'</button> · <button class="tc-link" type="button" id="forgot">Forgot password?</button></p>'+
-   '<p class="lg-alt">New here? <button class="tc-link" type="button" data-tab="signup">Create a free account</button></p>'}
-  else if(stage==='signup'){h+=tabs()+'<p class="lg-sub">Free account. Lifetime access to everything you buy, on your email.</p>'+gbtn('Sign up with Google')+
+   '<p class="lg-alt">New here? <button class="tc-link" type="button" data-tab="signup">Create a free account</button></p></div>'}
+  else if(stage==='signup'){h+=authTop('Welcome to Jangid Cuts')+'<div data-rv>'+tabs()+'</div><div class="lg-rest" data-rv><p class="lg-sub">Free account. Lifetime access to everything you buy, on your email.</p>'+gbtn('Sign up with Google')+
    '<form id="suForm" novalidate><div class="field"><label for="suName">Your name</label><input class="input" id="suName" autocomplete="name" required value="'+esc(name)+'"></div><div class="field"><label for="suEmail">Email</label><input class="input" id="suEmail" type="email" placeholder="you@example.com" autocomplete="email" required value="'+esc(email)+'"></div>'+tc()+
    '<button class="btn btn-primary lg-go" type="submit" id="suGo">Create account</button></form><p class="lg-note">We email you a 6-digit code to confirm it’s you. No password needed.</p>'+
-   '<p class="lg-alt">Already have an account? <button class="tc-link" type="button" data-tab="signin">Sign in</button></p>'}
-  else if(stage==='code'||stage==='reset'){h+='<div class="lg-mail">'+ICON('mail')+'</div><p class="lg-sub" style="margin-top:6px">We sent a 6-digit code to<br><b>'+esc(email)+'</b></p><form id="codeForm" novalidate><input class="input lg-code" id="lgCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required aria-label="6-digit code">'+
+   '<p class="lg-alt">Already have an account? <button class="tc-link" type="button" data-tab="signin">Sign in</button></p></div>'}
+  else if(stage==='code'||stage==='reset'){h+='<div class="lg-brand grad-text shine" id="loginTitle" data-rv>JANGID CUTS</div><div class="lg-mail" data-rv>'+ICON('mail')+'</div><div class="lg-rest" data-rv><p class="lg-sub" style="margin-top:6px">We sent a 6-digit code to<br><b>'+esc(email)+'</b></p><form id="codeForm" novalidate><input class="input lg-code" id="lgCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required aria-label="6-digit code">'+
    (stage==='reset'?'<div class="field"><label for="np1">New password</label><input class="input" id="np1" type="password" autocomplete="new-password"></div><div class="field"><label for="np2">Confirm new password</label><input class="input" id="np2" type="password" autocomplete="new-password"></div>':'')+
-   '<button class="btn btn-primary lg-go" type="submit">'+(stage==='reset'?'Set password &amp; sign in':'Verify &amp; continue')+'</button></form><p class="lg-links"><button class="tc-link" type="button" id="resend"'+(cd>0?' disabled':'')+'>'+(cd>0?'Resend code in '+cd+'s':'Resend code')+'</button> · <button class="tc-link" type="button" id="back">Change email</button></p><p class="lg-note">Can’t find it? Check Spam or Promotions.</p>'}
+   '<button class="btn btn-primary lg-go" type="submit">'+(stage==='reset'?'Set password &amp; sign in':'Verify &amp; continue')+'</button></form><p class="lg-links"><button class="tc-link" type="button" id="resend"'+(cd>0?' disabled':'')+'>'+(cd>0?'Resend code in '+cd+'s':'Resend code')+'</button> · <button class="tc-link" type="button" id="back">Change email</button></p><p class="lg-note">Can’t find it? Check Spam or Promotions.</p></div>'}
   body.innerHTML=h;bind()}
  function startCd(){cd=30;clearInterval(timer);timer=setInterval(function(){cd--;var r=$('#resend',body);if(r){r.disabled=cd>0;r.textContent=cd>0?'Resend code in '+cd+'s':'Resend code'}if(cd<=0)clearInterval(timer)},1000)}
  function sendCode(purpose,goStage,btn){btn&&(btn.disabled=true);return api('/api/auth/otp',{email:email,purpose:purpose,tc:true,name:name}).then(function(r){btn&&(btn.disabled=false);if(r.ok===false){toast(r.error);return}stage=goStage;startCd();draw();toast('Code sent — check your email');setTimeout(function(){var c=$('#lgCode',body);c&&c.focus()},100)})}
@@ -124,17 +144,17 @@ function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-bo
   var up=$('#usePw',body);if(up)up.onclick=function(){email=$('#lgEmail',body).value.trim();usePw=!usePw;draw()};
   var fg=$('#forgot',body);if(fg)fg.onclick=function(){email=$('#lgEmail',body).value.trim();if(!email){toast('Enter your email first');return}from='signin';sendCode('reset','reset')};
   var lf=$('#lgForm',body);if(lf)lf.onsubmit=function(e){e.preventDefault();email=$('#lgEmail',body).value.trim();if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}
-   if(usePw){api('/api/auth/login',{email:email,password:$('#lgPw',body).value}).then(function(r){if(r.ok===false){toast(r.error);return}location.reload()});return}from='signin';sendCode('login','code',$('#lgGo',body))};
+   if(usePw){api('/api/auth/login',{email:email,password:$('#lgPw',body).value}).then(function(r){if(r.ok===false){toast(r.error);return}toast('Signed in ✓');authDone()});return}from='signin';sendCode('login','code',$('#lgGo',body))};
   var sf=$('#suForm',body);if(sf)sf.onsubmit=function(e){e.preventDefault();name=$('#suName',body).value.trim();email=$('#suEmail',body).value.trim();if(!name){toast('Please enter your name');return}if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}from='signup';sendCode('login','code',$('#suGo',body))};
   var cf=$('#codeForm',body);if(cf)cf.onsubmit=function(e){e.preventDefault();var code=$('#lgCode',body).value.replace(/\D/g,'');if(code.length!==6){toast('Enter the 6-digit code');return}
-   if(stage==='code')api('/api/auth/verify',{email:email,code:code,name:name,tc:true}).then(function(r){if(r.ok===false){toast(r.error);return}toast(r.isNew?'Account created ✓':'Signed in ✓');setTimeout(function(){location.reload()},500)});
-   else api('/api/auth/reset',{email:email,code:code,password:$('#np1',body).value,confirm:$('#np2',body).value}).then(function(r){if(r.ok===false){toast(r.error);return}toast('Password changed ✓');setTimeout(function(){location.reload()},800)})};
+   if(stage==='code')api('/api/auth/verify',{email:email,code:code,name:name,tc:true}).then(function(r){if(r.ok===false){toast(r.error);return}toast(r.isNew?'Account created ✓':'Signed in ✓');authDone()});
+   else api('/api/auth/reset',{email:email,code:code,password:$('#np1',body).value,confirm:$('#np2',body).value}).then(function(r){if(r.ok===false){toast(r.error);return}toast('Password changed ✓');authDone()})};
   var lc=$('#lgCode',body);if(lc)lc.addEventListener('input',function(){lc.value=lc.value.replace(/\D/g,'').slice(0,6);if(lc.value.length===6&&stage==='code')cf.requestSubmit&&cf.requestSubmit()});
   var rs=$('#resend',body);if(rs)rs.onclick=function(){sendCode(stage==='reset'?'reset':'login',stage)};
   var bk=$('#back',body);if(bk)bk.onclick=function(){stage=from;draw()}}
- JCL.openLogin=function(tab){stage=tab||'signin';draw();JC_UI.open(m)};
+ JCL.openLogin=function(tab,keep){stage=tab||'signin';draw();if(!m.classList.contains('on'))JC_UI.open(m)};
  draw()}
-JCL.account=function(){var u=JCL.user,m=$('#loginModal'),body=$('.modal-body',m);
+JCL.account=function(){var u=JCL.user,m=$('#loginModal'),body=$('.modal-body',m);unauth(m);
  body.innerHTML='<div class="lg-brand grad-text shine">JANGID CUTS</div><p style="margin:10px 0 4px;font-weight:700">'+esc(u.name||'')+'</p><p style="color:var(--muted);font-size:14px">'+esc(u.email)+'</p><div style="display:grid;gap:10px;margin-top:18px">'+
  (u.isAdmin?'<a class="btn btn-primary" href="/admin">'+ICON('shield')+' Admin panel</a>':'')+'<a class="btn btn-ghost" href="/soon.html#orders">'+ICON('bag')+' My orders &amp; downloads</a><a class="btn btn-ghost" href="/soon.html#tickets">'+ICON('doc')+' My tickets</a><button class="btn btn-ghost" id="lo">'+ICON('logout')+' Sign out</button></div>';
  $('#lo',body).onclick=function(){api('/api/auth/logout',{}).then(function(){location.reload()})};JC_UI.open(m)};

@@ -11,7 +11,7 @@ export const DEFAULTS = {
     brand_title: 'About Jangid Cuts', brand_photo: '/img/f2_0.jpg',
     brand_body: "Jangid Cuts is a video editing and design studio for creators, brands and wedding filmmakers, in India and worldwide.\n\nWe also make editing packs, LUTs and SFX you can download from the store."
   },
-  welcome: { show: true, title: 'Welcome! 👋', sub: 'Sign in to buy packs, hire us and download freebies, or just look around.', signin: 'Sign in / Sign up', skip: 'Start without sign in' },
+  welcome: { show: true, title: 'Welcome!', sub: 'Sign in to buy packs, hire us and download freebies, or just look around.', signin: 'Sign in / Sign up', skip: 'Start without sign in' },
   ads: { enabled: false, publisher_id: '', slots: { home_mid: '', portfolio: '', services: '', store: '' } },
   app: { version: '1.0.0' },
   stats: [
@@ -94,20 +94,20 @@ export const DEFAULTS = {
     budgets: ['Under ₹2,000','₹2,000 – ₹5,000','₹5,000 – ₹15,000','₹15,000+','$100 – $500','$500+','Not sure yet'],
     word_limit: 500, thanks: "Thanks! Your request is in. You'll get a reply on your email soon."
   },
-  help: { title: 'Questions & Help', issue_title: 'Facing any issue? Let us know', issue_note: "We'll reply by email with a ticket number.", thanks: 'Thanks! Your ticket {number} is created. A confirmation is on its way to your email.' },
+  help: { title: 'Questions & Help', issue_title: 'Facing any issue? Let us know', issue_note: "We'll reply by email with a ticket number.", thanks: 'Thanks! Your ticket {number} is created. A confirmation is on its way to your email.', support_email: 'supportjangidcuts@gmail.com', support_note: 'Only support-related emails here (orders, downloads, account, tickets).', business_email: 'jangidcuts@gmail.com' },
   languages: ['en','hi','es','fr','de','ar','pt','ja'],
   mail_templates: {
     otp: { subject: 'Your Jangid Cuts code: {code}', body: 'Hi {name},\n\nYour verification code is {code}. It expires in 10 minutes.\n\nIf you did not ask for this, you can ignore this email.\n\nJangid Cuts' },
     hire_received: { subject: 'We received your project request ({number})', body: 'Hi {name},\n\nThank you for reaching out to Jangid Cuts. Your project request {number} has been received. I will review it and get back to you shortly.\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts' },
-    hire_approved: { subject: 'Ready to work with you — Jangid Cuts', body: "Hi {name},\n\nThank you for your project request ({number}). I have reviewed your brief and I'm ready to work with you.\n\nPlease reply to this email with your raw footage link and any references, and we will get started.\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts\njangidcuts@gmail.com · Instagram @jangidcuts" },
+    hire_approved: { subject: 'Ready to work with you — Jangid Cuts [{number}]', body: "Hi {name},\n\nThank you for your project request ({number}). I have reviewed your brief and I'm ready to work with you.\n\nPlease reply to this email with your raw footage link and any references, and we will get started.\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts\njangidcuts@gmail.com · Instagram @jangidcuts" },
     ticket_received: { subject: 'Ticket {number} received — Jangid Cuts Support', body: 'Hi {name},\n\nThank you for contacting Jangid Cuts Support. Your ticket {number} has been created and we are looking into it.\n\nYour message:\n{message}\n\nJangid Cuts Support' },
     ticket_solved: { subject: 'Your ticket {number} has been resolved', body: 'Hi {name},\n\nYour ticket {number} has been resolved. Here is the solution:\n\n{solution}\n\nIf you still need help, reply to this email.\n\nJangid Cuts Support' },
     order_paid: { subject: 'Thank you for your purchase — Order {number}', body: 'Hi {name},\n\nThank you for purchasing from Jangid Cuts! Your order {number} is confirmed.\n\n{items}\n\nTotal: {total}\n\nYour downloads are available any time in My Orders: {link}\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts' },
-    download_link: { subject: 'Your download link — {product}', body: 'Hi {name},\n\nHere is your private download link for {product}:\n{link}\n\nThis link is only for your account email. Please do not share it.\n\nJangid Cuts' },
-    order_status: { subject: 'Order {number}: {status}', body: 'Hi {name},\n\nYour order {number} is now: {status}.\n\nTrack it here: {link}\n\nJangid Cuts' }
+    download_link: { subject: 'Your download link — {product} [{number}]', body: 'Hi {name},\n\nHere is your private download link for {product} (order {number}):\n{link}\n\nThis link is only for your account email. Please do not share it.\n\nJangid Cuts' },
+    order_status: { subject: 'Order {number}: {status}', body: 'Hi {name},\n\nYour order {number} is now: {status}.{refund}\n\nTrack it here: {link}\n\nJangid Cuts' }
   },
   payments_public: { currency: 'INR', note: 'Secure payments by UPI (GPay, PhonePe, Paytm), cards, net banking and wallets.' },
-  portfolio_page: { eyebrow: 'Jangid Cuts', title: 'My Work', lead: 'Edits and thumbnails, sorted by category. Tap anything to watch or zoom in.', video_label: 'Video Portfolio', thumb_label: 'Thumbnail Portfolio' },
+  portfolio_page: { eyebrow: 'Jangid Cuts', title: 'My Work', lead: 'Edits and thumbnails, sorted by category. Tap anything to watch or zoom in.', video_label: 'Video Portfolio', thumb_label: 'Thumbnail Portfolio', email: 'jangidcuts@gmail.com' },
   portfolio_rows: {
     video: [ { title: 'Trending Now', auto: true, source: 'featured' }, { title: 'Colour Grading', source: 'cat:Colour Grading' }, { title: 'Song Edits', source: 'cat:Song Edits' }, { title: 'YouTube & Cinematic', source: 'cat:YouTube & Cinematic' } ],
     thumb: [ { title: 'Most Clicked', auto: true, source: 'featured' }, { title: 'YouTube Thumbnails', source: 'cat:YouTube' } ]
