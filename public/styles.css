@@ -645,7 +645,6 @@ html[data-theme="light"] .drawer{background:var(--bg2)}
 .auth-card{overflow:visible}
 @media (min-width:1024px){
  .as-svg{width:min(96%,880px);max-height:84%}
- .as-panel:before{content:"JANGID CUTS";position:absolute;left:0;right:0;top:7%;text-align:center;font-family:var(--head);font-size:clamp(64px,8.4vw,150px);line-height:1;letter-spacing:.02em;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(43,245,192,.13);pointer-events:none}
 }
 .sup-tx>a:first-of-type{font-size:15px;word-break:normal;overflow-wrap:anywhere;letter-spacing:-.005em}
 
@@ -658,7 +657,6 @@ html[data-theme="light"] .auth-card{background:rgba(255,255,255,.9);border-color
 html[data-theme="light"] .au-h{color:#061212}
 html[data-theme="light"] .as-panel{background:radial-gradient(80% 60% at 30% 20%,rgba(7,122,92,.10),transparent 70%),radial-gradient(70% 50% at 80% 100%,rgba(14,79,65,.10),transparent 70%),#E3EFEC;border-color:rgba(7,122,92,.16)}
 html[data-theme="light"] .as-panel:after{background:#D3E6E0;border-top-color:rgba(7,122,92,.22)}
-html[data-theme="light"] .as-panel:before{-webkit-text-stroke-color:rgba(7,122,92,.16)}
 html[data-theme="light"] .as-svg .jwg-mint stop:nth-child(1){stop-color:#12B08A}
 html[data-theme="light"] .as-svg .jwg-mint stop:nth-child(2){stop-color:#077A5C}
 html[data-theme="light"] .as-svg .jwg-mint stop:nth-child(3){stop-color:#0E4F41}
@@ -681,3 +679,14 @@ html[data-theme="light"] .as-svg .jw-white .jw-body>path{stroke:rgba(14,79,65,.2
 @keyframes jwShake{0%,100%{transform:none}15%{transform:translateX(-7px) rotate(-2deg) scaleY(.97)}35%{transform:translateX(6px) rotate(2deg) scaleY(.96)}55%{transform:translateX(-4px) rotate(-1deg) scaleY(.96)}75%{transform:translateX(2px) scaleY(.97)}}
 @keyframes jwDrop{0%{transform:translateY(0);opacity:1}80%{opacity:1}100%{transform:translateY(16px);opacity:0}}
 .as-svg .jw-drop{transform-box:fill-box}
+
+/* big outline wordmark: animates in first, then the card items */
+.auth-mark{position:absolute;left:0;right:0;text-align:center;font-family:var(--head);line-height:1;letter-spacing:.02em;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(43,245,192,.16);pointer-events:none;opacity:0}
+.auth-mark.rv-on{animation:auMark .42s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes auMark{0%{opacity:0;clip-path:inset(0 100% 0 0);transform:scale(1.04)}100%{opacity:1;clip-path:inset(0 0 0 0);transform:none}}
+.am-m{top:max(14px,3.2vh);font-size:clamp(46px,17vw,150px)}
+.am-d{display:none}
+@media (min-width:1024px){.am-m{display:none}.am-d{display:block;top:7%;font-size:clamp(64px,8.4vw,150px);-webkit-text-stroke-color:rgba(43,245,192,.13)}}
+html[data-theme="light"] .auth-mark{-webkit-text-stroke-color:rgba(7,122,92,.18)}
+@media (prefers-reduced-motion:reduce){.auth-mark{opacity:1!important;animation:none!important}}
+.modal.login.auth{transition:none!important}

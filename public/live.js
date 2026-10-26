@@ -107,7 +107,7 @@ function authTop(title){return '<div class="lg-brand grad-text shine" id="loginT
 var REDUCED=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 function authify(m,eyebrow,still){if(!m.classList.contains('auth')){m.classList.add('auth');
   if(!$('.auth-card',m)){var card=D.createElement('div');card.className='auth-card';while(m.firstChild)card.appendChild(m.firstChild);
-   var bg=D.createElement('div');bg.className='auth-bg';bg.setAttribute('aria-hidden','true');var sc=D.createElement('div');sc.className='auth-scene';sc.setAttribute('aria-hidden','true');sc.innerHTML='<div class="as-panel"><svg class="as-svg"></svg></div>';
+   var bg=D.createElement('div');bg.className='auth-bg';bg.setAttribute('aria-hidden','true');var sc=D.createElement('div');sc.className='auth-scene';sc.setAttribute('aria-hidden','true');sc.innerHTML='<div class="as-panel"><div class="auth-mark am-d">JANGID CUTS</div><svg class="as-svg"></svg></div>';bg.innerHTML='<div class="auth-mark am-m">JANGID CUTS</div>';
    var col=D.createElement('div');col.className='auth-col';col.appendChild(card);m.appendChild(bg);m.appendChild(sc);m.appendChild(col);
    var ld=function(){if(innerWidth<1024||sc._ld)return;sc._ld=1;var x=D.createElement('script');x.src='/auth-scene.js?v=4';x.onload=function(){try{JCAuthScene(sc,m)}catch(e){console.error(e)}};D.head.appendChild(x)};ld();addEventListener('resize',ld);
    var wasOn=false;new MutationObserver(function(){if(!m.classList.contains('on')){if(wasOn){wasOn=false;endEntry()}return}if(wasOn)return;wasOn=true;if(m.classList.contains('auth'))reveal($('.modal-body',m),false)}).observe(m,{attributes:true,attributeFilter:['class']})}}
@@ -116,8 +116,9 @@ function authify(m,eyebrow,still){if(!m.classList.contains('auth')){m.classList.
 function authDone(){var go=function(){location.reload()};try{if(window.JCAuthCelebrate){JCAuthCelebrate().then(go);return}}catch(e){}setTimeout(go,500)}
 function authFail(){try{window.JCAuthSad&&JCAuthSad()}catch(e){}}
 function unauth(m){m.classList.remove('auth')}
-function reveal(b,quick){if(!b)return;var it=$$('[data-rv]',b);it.forEach(function(x){x.classList.remove('rv-still')});if(REDUCED){it.forEach(function(x){x.classList.add('rv-on')});return}
- var step=quick?40:70;it.forEach(function(x,i){x.classList.remove('rv-on');x.style.animationDelay=(i*step)+'ms';void x.offsetWidth;x.classList.add('rv-on')})}
+function reveal(b,quick){if(!b)return;var it=$$('[data-rv]',b),mk=$$('#loginModal .auth-mark');it.forEach(function(x){x.classList.remove('rv-still')});if(REDUCED){it.concat(mk).forEach(function(x){x.classList.add('rv-on')});return}
+ var step=quick?40:60,off=0;if(!quick){off=170;mk.forEach(function(x){x.classList.remove('rv-on');void x.offsetWidth;x.classList.add('rv-on')})}
+ it.forEach(function(x,i){x.classList.remove('rv-on');x.style.animationDelay=(off+i*step)+'ms';void x.offsetWidth;x.classList.add('rv-on')})}
 
 /* ---------- login modal ---------- */
 function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-body',m);var email='',name='',stage='signin',from='signin',usePw=false,cd=0,timer=null;
