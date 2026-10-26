@@ -63,17 +63,19 @@ function supMail(c){var h=c.help||{},se=h.support_email||'supportjangidcuts@gmai
  return '<div class="sup-mail"><span class="sup-ic">'+ICON('mail')+'</span><div class="sup-tx"><small>Email support</small><a href="mailto:'+esc(se)+'">'+esc(se)+'</a><p>'+esc(h.support_note||'Only support-related emails here (orders, downloads, account, tickets).')+'</p><a class="sup-biz" href="mailto:'+esc(be)+'">For business →</a></div></div>'}
 var TK_LABEL={received:'Received',read:'Read',processing:'Processing',solved:'Solution delivered',closed:'Closed'};
 function fdt(t){if(!t)return '';var d=new Date(t);try{return d.toLocaleDateString(JCL.locale||'en-IN',{day:'numeric',month:'short',year:'numeric'})+', '+d.toLocaleTimeString(JCL.locale||'en-IN',{hour:'numeric',minute:'2-digit'})}catch(e){return d.toLocaleString()}}
-function tkTimeline(t){return '<div class="tk-card"><div class="tk-head"><div><small>Ticket</small><b>'+esc(t.number)+'</b></div><span class="tk-pill tk-'+esc(t.status)+'">'+esc(TK_LABEL[t.status]||t.label||t.status)+'</span></div>'+
- '<ol class="tk-steps">'+(t.steps||[]).map(function(s){return '<li class="'+(s.done?'done':'')+(s.current?' cur':'')+'"><span class="tk-dot">'+(s.done?ICON('check'):'')+'</span><div><b>'+esc(TK_LABEL[s.s]||s.label)+'</b><small>'+(s.at?esc(fdt(s.at)):(s.done?'':'Waiting'))+'</small></div></li>'}).join('')+'</ol>'+
- '<div class="tk-meta"><span><small>Category</small>'+esc(t.topic||'General')+'</span><span><small>Raised</small>'+esc(fdt(t.created))+'</span></div>'+
+function tkTimeline(t){return '<div class="tk-card"><div class="tk-head"><div><small>'+(t.items?'Order':/HIRE/.test(t.number)?'Request':'Ticket')+'</small><b>'+esc(t.number)+'</b></div><span class="tk-pill tk-'+esc(t.status)+'">'+esc(t.items?t.label:(TK_LABEL[t.status]||t.label||t.status))+'</span></div>'+
+ '<ol class="tk-steps">'+(t.steps||[]).map(function(s){return '<li class="'+(s.done?'done':'')+(s.current?' cur':'')+'"><span class="tk-dot">'+(s.done?ICON('check'):'')+'</span><div><b>'+esc(s.label||TK_LABEL[s.s])+'</b><small>'+(s.at?esc(fdt(s.at)):(s.done?'':'Waiting'))+'</small></div></li>'}).join('')+'</ol>'+
+ '<div class="tk-meta"><span><small>'+(t.items?'Items':'Category')+'</small>'+esc(t.items?t.items.join(', '):(t.topic||'General'))+'</span><span><small>'+(t.items?'Placed':'Raised')+'</small>'+esc(fdt(t.created))+'</span>'+(t.email?'<span><small>Email</small>'+esc(t.email)+'</span>':'')+'</div>'+
  (t.message?'<details class="tk-msg"><summary>Your message</summary><p>'+esc(t.message)+'</p></details>':'')+
  (t.solution?'<div class="tk-sol"><b>Solution</b><p>'+esc(t.solution)+'</p></div>':'')+'</div>'}
 JCL.tkTimeline=tkTimeline;
-function helpView(){var p=location.pathname.replace(/\/$/,'');if(p==='/support')return 'support';if(p==='/track')return 'track';if(/^\/help(\.html)?$/.test(p)&&location.hash==='#issue')return 'support';return 'faq'}
+function normRef(type,s){var t=String(s||'').toUpperCase().replace(/\s+/g,'').replace(/_/g,'-');if(/^\d{4,9}$/.test(t))return 'JC-'+type+'-'+t;var m=t.match(/^(?:JC-?)?([A-Z]{2,4})-?([A-Z0-9]{4,9})$/);return m?'JC-'+m[1]+'-'+m[2]:t}
+JCL.normRef=normRef;
+function helpView(){var p=location.pathname.replace(/\/$/,'');if(p==='/support')return 'support';if(p==='/track')return 'track';if(p==='/track-order')return 'order';if(/^\/help(\.html)?$/.test(p)&&location.hash==='#issue')return 'support';return 'faq'}
 function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView();
  if(view==='support'&&location.pathname.indexOf('/support')!==0){history.replaceState(null,'','/support')}
  $$('.hp-view',page).forEach(function(v){v.hidden=v.getAttribute('data-view')!==view});
- D.title=({faq:'FAQ',support:'Support',track:'Track request'})[view]+' | Jangid Cuts';
+ D.title=({faq:'FAQ',support:'Support',track:'Track request',order:'Track order'})[view]+' | Jangid Cuts';
  var h=c.help||{};
  var fq=$('#faq');if(fq&&c.faq)fq.innerHTML=(c.faq||[]).map(function(x,i){return '<details'+(i===0?' open':'')+'><summary>'+esc(x.q)+'</summary><p>'+esc(x.a)+'</p></details>'}).join('');
  var t=$('#helpTitle');if(t&&h.title)t.textContent=h.title;
@@ -86,19 +88,28 @@ function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView
    if(ms.value.trim().length<5){fieldErr(ms,'Please describe the problem');return}
    if(!tc.checked){toast('Please accept the Terms & Conditions');return}
    var b=f.querySelector('button[type=submit]');b.disabled=true;
-   api('/api/tickets',{email:em.value.trim(),topic:$('#isTopic').value,message:ms.value,tc:true,website:''}).then(function(r){b.disabled=false;
+   api('/api/tickets',{email:em.value.trim(),topic:$('#isTopic').value,message:(($('#isOrd')&&$('#isOrd').value.trim())?'Order: '+normRef('ORD',$('#isOrd').value)+'\n\n':'')+ms.value,tc:true,website:''}).then(function(r){b.disabled=false;
     if(!r.ok){toast(r.error||'Could not send');return}
     var dn=$('#isDone');f.hidden=true;dn.hidden=false;dn.innerHTML='<div class="ok-ic">'+ICON('check')+'</div><h3>Ticket created</h3><p>Your ticket number is</p><div class="tk-num">'+esc(r.number)+'</div><p class="small">A confirmation is on its way to <b>'+esc(em.value.trim())+'</b> from supportjangidcuts@gmail.com. Keep this number to track your request.</p><div class="row-btns"><a class="btn btn-primary" href="/track?n='+encodeURIComponent(r.number)+'&e='+encodeURIComponent(em.value.trim())+'">Track request</a><button class="btn btn-ghost" type="button" id="isAgain">Raise another ticket</button></div>';
     $('#isAgain').onclick=function(){f.reset();if(JCL.user)em.value=JCL.user.email;dn.hidden=true;f.hidden=false};
     try{dn.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}})})}
  var tf=$('#trkForm');if(tf&&!tf._b){tf._b=1;var q=new URLSearchParams(location.search);if(q.get('n'))$('#trkNum').value=q.get('n');if(q.get('e'))$('#trkEmail').value=q.get('e').replace(/ /g,'+');else if(JCL.user)$('#trkEmail').value=JCL.user.email;
-  var run=function(){var n=$('#trkNum').value.trim().toUpperCase(),em=$('#trkEmail').value.trim(),er=$('#trkErr');er.hidden=true;$('#trkNum').classList.remove('is-err');$('#trkEmail').classList.remove('is-err');
-   if(!/^JC-TKT-[A-Z0-9]{4,8}$/.test(n.replace(/\s+/g,''))){$('#trkNum').classList.add('is-err');er.textContent='Enter your ticket number, like JC-TKT-AB12CD';er.hidden=false;return}
+  var run=function(){var n=normRef('TKT',$('#trkNum').value),em=$('#trkEmail').value.trim(),er=$('#trkErr');er.hidden=true;$('#trkNum').classList.remove('is-err');$('#trkEmail').classList.remove('is-err');
+   if(!/^JC-(TKT|HIRE)-[A-Z0-9]{4,9}$/.test(n)){$('#trkNum').classList.add('is-err');er.textContent='Enter your ticket number, like JC-TKT-100001 (or just 100001)';er.hidden=false;return}
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#trkEmail').classList.add('is-err');er.textContent='Enter the email you used for the ticket';er.hidden=false;return}
    var b=tf.querySelector('button');b.disabled=true;
    api('/api/tickets/track',{number:n,email:em}).then(function(r){b.disabled=false;if(!r.ok){er.textContent=r.error||'Could not find it';er.hidden=false;$('#trkOut').innerHTML='';return}
     $('#trkOut').innerHTML=tkTimeline(r.ticket);try{history.replaceState(null,'','/track?n='+encodeURIComponent(n))}catch(e){}})};
   tf.addEventListener('submit',function(e){e.preventDefault();run()});if(q.get('n')&&$('#trkEmail').value)run()}
+
+ var of=$('#trkOForm');if(of&&!of._b){of._b=1;var q2=new URLSearchParams(location.search);if(q2.get('n'))$('#trkONum').value=q2.get('n');if(q2.get('e'))$('#trkOEmail').value=q2.get('e').replace(/ /g,'+');else if(JCL.user)$('#trkOEmail').value=JCL.user.email;
+  var runO=function(){var raw=$('#trkONum').value.trim(),n=/^\d+$/.test(raw)?raw:normRef('ORD',raw),em=$('#trkOEmail').value.trim(),er=$('#trkOErr');er.hidden=true;$('#trkONum').classList.remove('is-err');$('#trkOEmail').classList.remove('is-err');
+   if(!/^(\d{4,9}|JC-(ORD|DL)-[A-Z0-9]{4,9})$/.test(n)){$('#trkONum').classList.add('is-err');er.textContent='Enter your order number, like JC-ORD-100001 (or just 100001)';er.hidden=false;return}
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#trkOEmail').classList.add('is-err');er.textContent='Enter the email used for the order';er.hidden=false;return}
+   var b=of.querySelector('button');b.disabled=true;
+   api('/api/orders/track',{number:n,email:em}).then(function(r){b.disabled=false;if(!r.ok){er.textContent=r.error||'Could not find it';er.hidden=false;$('#trkOOut').innerHTML='';return}
+    $('#trkOOut').innerHTML=tkTimeline(r.order);try{history.replaceState(null,'','/track-order?n='+encodeURIComponent(r.order.number))}catch(e){}})};
+  of.addEventListener('submit',function(e){e.preventDefault();runO()});if(q2.get('n')&&$('#trkOEmail').value)runO()}
  var mine=$('#trkMine');if(mine&&JCL.me&&JCL.me.tickets&&JCL.me.tickets.length){mine.innerHTML='<h3 class="h-md grad-text" style="margin:28px 0 12px">Your tickets</h3>'+JCL.me.tickets.map(tkTimeline).join('')}
 }
 function applySoon(c,s){var t=$('#soonTitle');if(!t)return;var key=((location.pathname.replace(/^\/|\/$/g,'')!=='soon'&&location.pathname.replace(/^\/|\/$/g,'').indexOf('.html')<0&&location.pathname.replace(/^\/|\/$/g,''))||(location.hash||'').slice(1)).replace(/-/g,'_');var sec=t.closest('section'),lead=$('.lead',sec),eb=$('.eyebrow',sec);

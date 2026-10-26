@@ -88,20 +88,27 @@ export async function getKey(env, k) {
   return DEFAULTS[k] !== undefined ? structuredClone(DEFAULTS[k]) : null;
 }
 export async function setKey(env, k, v) { await env.DB.prepare('INSERT INTO kv (k, v, updated) VALUES (?1, ?2, ?3) ON CONFLICT(k) DO UPDATE SET v = ?2, updated = ?3').bind(k, JSON.stringify(v), now()).run(); }
-// Reference numbers: JC-<TYPE>-<6 chars>, e.g. JC-ORD-7K3M9Q. Types: ORD (paid order), DL (free download / licence),
-// TKT (support ticket), HIRE (project request), REF (refund). 6 chars from an unambiguous alphabet (no 0/O/1/I/L), unique via the refs table.
+// Reference numbers: JC-<TYPE>-<number>, e.g. JC-ORD-100001. Types: ORD (paid order), DL (free download / licence),
+// TKT (support ticket), HIRE (project request), REF (refund). Numeric + sequential per type from 100001 (Prashant 8:29 PM Oct 26).
 export const REF_TYPES = { ORD: 'order', DL: 'free download', TKT: 'support ticket', HIRE: 'project request', REF: 'refund' };
 const REF_ABC = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 export async function newRef(env, type) {
+  // Purely numeric, sequential per type: JC-TKT-100001, JC-TKT-100002 … (atomic counter row per type in D1).
   if (!REF_TYPES[type]) throw new Error('bad ref type ' + type);
-  for (let i = 0; i < 8; i++) {
-    const b = crypto.getRandomValues(new Uint8Array(6)); let s = '';
-    for (const x of b) s += REF_ABC[x % REF_ABC.length];
-    const ref = `JC-${type}-${s}`;
+  for (let i = 0; i < 5; i++) {
+    const n = await nextNumber(env, 'ref_' + type, 100001);
+    const ref = `JC-${type}-${n}`;
     const r = await env.DB.prepare('INSERT OR IGNORE INTO refs (ref, kind, created) VALUES (?1, ?2, ?3)').bind(ref, type, Date.now()).run();
     if (r.meta?.changes) return ref;
   }
   throw new Error('could not allocate reference');
+}
+// "100001", "jc tkt 100001", "JC-TKT-100001" -> "JC-TKT-100001"
+export function normRef(type, s) {
+  const t = String(s || '').toUpperCase().replace(/\s+/g, '').replace(/_/g, '-');
+  if (/^\d{4,9}$/.test(t)) return `JC-${type}-${t}`;
+  const m = t.match(/^(?:JC-?)?([A-Z]{2,4})-?([A-Z0-9]{4,9})$/);
+  return m ? `JC-${m[1]}-${m[2]}` : t;
 }
 export async function nextNumber(env, name, start) {
   const r = await env.DB.prepare('INSERT INTO counters (name, n) VALUES (?1, ?2) ON CONFLICT(name) DO UPDATE SET n = n + 1 RETURNING n').bind(name, start).first();

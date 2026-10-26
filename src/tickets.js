@@ -25,10 +25,14 @@ export function timeline(t) {
   if (st === 'closed') steps.push({ s: 'closed', label: LABELS.closed, at: last.closed || null, done: true, current: true });
   return steps;
 }
-export function publicTicket(t) {
+export function maskEmail(e) { const [u, d] = String(e || '').split('@'); if (!d) return ''; return (u[0] || '') + '***@' + d; }
+// full=false (public Track page): status timeline, dates and category only. full=true (owner's own account list): also message + solution.
+export function publicTicket(t, { full = false } = {}) {
   const st = norm(t.status);
-  return { number: t.number, topic: t.topic, status: st, label: LABELS[st] || st, created: t.created, updated: (eventsOf(t).slice(-1)[0] || {}).at || t.created,
-    message: String(t.message || '').slice(0, 600), steps: timeline(t), solution: (st === 'solved' || st === 'closed') ? (t.solution || '') : '' };
+  const o = { number: t.number, topic: t.topic, status: st, label: LABELS[st] || st, created: t.created, steps: timeline(t) };
+  if (full) { o.message = String(t.message || '').slice(0, 600); o.solution = (st === 'solved' || st === 'closed') ? (t.solution || '') : ''; }
+  else o.email = maskEmail(t.email);
+  return o;
 }
 export function trackUrl(origin, number) { return (origin || '') + '/track?n=' + encodeURIComponent(number); }
 
@@ -121,7 +125,7 @@ export async function sendSolution(env, t, text, { origin = '', by = 'admin', mo
   if (body0.length < 20) throw new Error('The reply is empty. Nothing was sent.');
   let body = body0;
   if (!body.includes(t.number)) {
-    const tail = `\n\nTicket: ${t.number} (status: Solution delivered)\nTrack it any time: ${trackUrl(origin, t.number)}`;
+    const tail = `\n\nTicket: ${t.number} (status: Solution delivered)`;
     const k = body.lastIndexOf('\n\nRegards,');
     body = k > 0 ? body.slice(0, k) + tail + body.slice(k) : body + tail;
   }

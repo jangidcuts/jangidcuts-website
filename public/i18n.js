@@ -36,7 +36,7 @@ function observe(){if(obs||!window.MutationObserver)return;obs=new MutationObser
  var te=D.querySelector('title');te&&new MutationObserver(function(){if(!busy){busy=true;try{title()}finally{busy=false}}}).observe(te,{childList:true,characterData:true,subtree:true})}
 function done(){H.classList.remove('i18n-wait')}
 function load(l,cb){if(l==='en'){dict=null;cb();return}
- fetch('/i18n/'+l+'.json?v=2',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){dict=d;cb()}).catch(function(){dict=null;cb()})}
+ fetch('/i18n/'+l+'.json?v=3',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){dict=d;cb()}).catch(function(){dict=null;cb()})}
 function setSel(){var s=D.getElementById('langSel');if(!s)return;
  if(!s.__jcBuilt){s.__jcBuilt=1;s.innerHTML=LANGS.map(function(x){return '<option value="'+x[0]+'">'+x[1]+'</option>'}).join('');s.setAttribute('data-i18n-skip','')}
  s.value=lang}

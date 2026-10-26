@@ -75,9 +75,28 @@ async function deliver(env, row) {
 export function fill(tpl, vars) { return String(tpl || '').replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? String(vars[k]) : m); }
 
 // Queue + try to send now. Returns {ok, error}
+
+// Every client email that carries a reference gets the "track it" line (Prashant 8:29 PM Oct 26).
+let ORIGIN = '';
+export function setOrigin(o) { if (o) ORIGIN = o; }
+export function trackLine(body, ref) {
+  body = String(body || ''); ref = String(ref || '');
+  let num = ref, kind = (ref.match(/^JC-([A-Z]+)-/) || [])[1];
+  if (kind === 'REF') { const o = body.match(/JC-(ORD|DL)-[A-Z0-9]+/); if (!o) return body; num = o[0]; kind = o[1]; }
+  if (!kind || /\/track(-order)?\?n=/.test(body)) return body;
+  const base = ORIGIN || 'https://jangidcuts.jangidcuts.workers.dev';
+  let line;
+  if (kind === 'TKT') line = `You can track your request anytime using your ticket number ${num} in the Track Request section: ${base}/track?n=${num}`;
+  else if (kind === 'HIRE') line = `You can track your request anytime using your request number ${num} in the Track Request section: ${base}/track?n=${num}`;
+  else if (kind === 'ORD' || kind === 'DL') line = `You can track your order anytime using your order number ${num} in the Track Order section: ${base}/track-order?n=${num}`;
+  else return body;
+  const sig = body.search(/\n\n(Regards,|Best regards|Warm regards|Thanks,|Team Jangid Cuts|Jangid Cuts Support\s*$|Jangid Cuts\s*$|Prashant Jangid)/i);
+  return sig > 0 ? body.slice(0, sig) + '\n\n' + line + body.slice(sig) : body + '\n\n' + line;
+}
 export async function sendMail(env, { account = 'main', to, subject, body, kind = 'mail', ref = '' }) {
   if (!isEmail(to)) return { ok: false, error: 'bad address' };
   // Every client mail carries its reference number (JC-ORD-…, JC-TKT-…) in the subject and the body.
+  if (/^JC-[A-Z]+-/.test(ref) && !/^alert/.test(kind)) body = trackLine(body, ref);
   if (/^JC-[A-Z]+-/.test(ref)) {
     if (!String(subject).includes(ref)) subject = subject + ' [' + ref + ']';
     if (!String(body).includes(ref)) body = body + '\n\nReference: ' + ref;
