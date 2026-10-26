@@ -10,3 +10,5 @@ window.JC_ENDENTRY=function(){if(!d.hasAttribute('data-entry'))return;d.removeAt
 var s=document.createElement('style');s.id='jcGate';
 s.textContent='html.jc-gate body>*:not(#loginModal):not(#loader):not(#toast):not(#scrim){visibility:hidden!important}html.jc-gate,html.jc-gate body{background:#000101}html[data-theme="light"].jc-gate,html[data-theme="light"].jc-gate body{background:#EEF6F4}';
 document.head.appendChild(s);window.JC_UNGATE=function(){d.classList.remove('jc-gate')};setTimeout(window.JC_UNGATE,15000)}catch(e){}})();
+
+(function(){try{var l=localStorage.getItem('jc-lang');if(l&&l!=='en'&&l!=='0'){var d=document.documentElement;d.classList.add('i18n-wait');var s=document.createElement('style');s.textContent='html.i18n-wait body{visibility:hidden}';document.head.appendChild(s);setTimeout(function(){d.classList.remove('i18n-wait')},2500)}}catch(e){}})();

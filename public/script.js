@@ -37,7 +37,7 @@ syncTheme();window.JC_UI.syncTheme=syncTheme;
 function syncAnim(){var a=anim();$$('#animSeg button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.anim===a?'true':'false')})}
 $$('#animSeg button').forEach(function(b){b.addEventListener('click',function(){H.classList.remove('anim-high','anim-moderate','anim-low');H.classList.add('anim-'+b.dataset.anim);try{localStorage.setItem('jc-anim',b.dataset.anim)}catch(e){}syncAnim();toast('Animations: '+b.textContent)})});
 syncAnim();
-$('#langSel')&&$('#langSel').addEventListener('change',function(e){window.JCL&&JCL.setPref('lang',e.target.selectedIndex);toast(e.target.value.split(' (')[0]+' saved')});
+$('#langSel')&&$('#langSel').addEventListener('change',function(e){var v=e.target.value;window.JC_I18N&&JC_I18N.set(v);window.JCL&&JCL.setPref&&JCL.setPref('lang',v);var o=e.target.options[e.target.selectedIndex];setTimeout(function(){toast((o?o.text.split(' (')[0]:v)+' ✓')},150)});
 $('#curSel')&&$('#curSel').addEventListener('change',function(e){window.JCL&&JCL.setPref('currency',e.target.selectedIndex?'USD':'INR');toast('Prices will show in '+e.target.value)});
 var ns=$('#notifSwitch');ns&&ns.addEventListener('click',function(){var on=ns.getAttribute('aria-checked')!=='true';ns.setAttribute('aria-checked',on?'true':'false');window.JCL&&JCL.setPref('email_notif',on);toast(on?'Offer & new-product emails on':'Offer emails off. Order & security emails still arrive')});
 
@@ -64,7 +64,7 @@ var loader=$('#loader');
 function ready(){D.body.classList.add('ready')}
 /* hero entrance v2: starts only when the page is really visible (loader done, no entry gate) and the photo is decoded, so nothing blinks */
 (function(){var hero=D.querySelector('section.hero');if(!hero)return;var H=D.documentElement,ph=hero.querySelector('.hero-photo'),dec=!ph,fired=false;
- function go(){if(fired||!D.body.classList.contains('ready')||H.classList.contains('jc-gate')||!dec)return;fired=true;
+ function go(){if(fired||!D.body.classList.contains('ready')||H.classList.contains('jc-gate')||H.classList.contains('i18n-wait')||!dec)return;fired=true;
   requestAnimationFrame(function(){requestAnimationFrame(function(){D.body.classList.add('hero-go');
    setTimeout(function(){hero.querySelectorAll('.hx').forEach(function(e){e.style.transition='none';e.classList.remove('hx')})},2400)})})}
  window.JC_HERO_GO=go;
