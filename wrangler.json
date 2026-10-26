@@ -36,7 +36,8 @@
       "/portfolio.html",
       "/watch/*",
       "/services",
-      "/services/*"
+      "/services/*",
+      "/v/*"
     ]
   },
   "d1_databases": [

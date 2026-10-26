@@ -4,7 +4,7 @@ import { handleAdmin, handleGoogle } from './admin.js';
 import { retryOutbox, alertOwner } from './mail.js';
 import { SEED_CATEGORIES, SEED_PORTFOLIO, SEED_PRODUCTS, SEED_REVIEWS } from './defaults.js';
 
-const CSP = "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://*.googletagservices.com https://*.adtrafficquality.google; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google; frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.google.com https://*.adtrafficquality.google https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; object-src 'none'";
+const CSP = "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://*.googletagservices.com https://*.adtrafficquality.google; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google; frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.google.com https://*.adtrafficquality.google https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; object-src 'none'";
 
 async function seed(env) {
   const have = await env.DB.prepare('SELECT COUNT(*) n FROM categories').first();
@@ -71,7 +71,7 @@ export default {
       if (p === '/api/health') return J({ ok: true, at: now() });
       const s = await sessionOf(req, env);
       if (p.startsWith('/api/admin/')) { const r = await handleAdmin(req, env, ctx, url, s); return r || err('Not found', 404); }
-      if (p.startsWith('/api/') || p.startsWith('/u/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
+      if (p.startsWith('/api/') || p.startsWith('/u/') || p.startsWith('/v/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
       if (p.startsWith('/auth/google/') || p === '/admin/mail/connect' || p === '/admin/mail/callback') { const r = await handleGoogle(req, env, url, s, { newSession, findOrCreateUser, cookie }); if (r) return r; }
       if (p === '/admin' || p.startsWith('/admin/')) {
         if (!s || !s.isAdmin) return notFound(req, env, url);

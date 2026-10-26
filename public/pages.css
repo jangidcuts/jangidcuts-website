@@ -63,3 +63,21 @@
 @media (min-width:768px){.ab-sec{grid-template-columns:minmax(260px,420px) 1fr;gap:40px}.ab-sec.flip{grid-template-columns:1fr minmax(260px,420px)}.ab-sec.flip .ab-ph{order:2}.cat-tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}}
 @media (min-width:1280px){.mgrid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}.mrow{grid-auto-columns:minmax(240px,19%)}}
 @media (max-width:560px){.mgrid{grid-template-columns:1fr 1fr;gap:10px}.mgrid.thumbs{grid-template-columns:1fr}.mrow{grid-auto-columns:46%}.pf-banner{aspect-ratio:auto;min-height:300px}.pfb-shade{background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.88))}.pfb-tx{position:absolute;bottom:0}.svc-hero{aspect-ratio:4/3}}
+.jp{position:absolute;inset:0;background:#000;overflow:hidden}
+.jp-media,.jp-media iframe,.jp-media video,#ytp{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000}
+.jp-media iframe{pointer-events:none;transform:scale(1.02)}
+.jp-shield{position:absolute;inset:0 0 54px 0;z-index:2;cursor:pointer}
+.jp-poster{position:absolute;inset:0;z-index:3;background:#000 center/cover no-repeat;display:grid;place-items:center;cursor:pointer}
+.jp-poster:before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(0,0,0,.15),rgba(0,0,0,.6))}
+.jp-big{position:relative;width:78px;height:78px;border-radius:50%;display:grid;place-items:center;background:var(--grad-x);color:#fff;box-shadow:0 0 40px rgba(43,245,192,.45)}
+.jp-big .icon{width:30px;height:30px;margin-left:4px}
+.jp-err{position:relative;color:#fff;padding:20px;text-align:center}
+.jp-bar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .25s}
+.jp.started .jp-bar,.jp:hover .jp-bar,.jp:not(.playing).started .jp-bar{opacity:1}
+.jp-b{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:15px;flex:none}
+.jp-b .icon{width:18px;height:18px}
+.jp-t{color:#fff;font-size:12.5px;font-variant-numeric:tabular-nums;min-width:38px;text-align:center}
+.jp-seek{flex:1;accent-color:#2bf5c0;height:4px}
+.jp:fullscreen{width:100vw;height:100vh}
+@media (hover:none){.jp.started .jp-bar{opacity:1}}
+.jp-poster[hidden],.jp-bar[hidden],.jp-big[hidden]{display:none!important}

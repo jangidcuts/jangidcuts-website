@@ -1,7 +1,7 @@
 import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, limitOrFail, rateLimit,
   newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt } from './lib.js';
-import { sendTemplate, alertOwner } from './mail.js';
-import { storageInfo, serveFile, putFile } from './storage.js';
+import { sendTemplate, alertOwner, googleToken } from './mail.js';
+import { storageInfo, serveFile, putFile, driveId, streamDrive } from './storage.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig } from './shop.js';
 
 const needUser = (s) => { if (!s) fail('Please sign in first', 401); return s; };
@@ -220,6 +220,18 @@ export async function handlePublic(req, env, ctx, url, s) {
     return J({ ok: true });
   }
 
+  let mm0;
+  /* ----- portfolio video stream: /v/<id> (Drive or uploaded file, same URL shape for both) ----- */
+  if ((mm0 = p.match(/^\/v\/(\d+)$/)) && (m === 'GET' || m === 'HEAD')) {
+    const it = await env.DB.prepare('SELECT id, video, url, source FROM portfolio WHERE id = ?1 AND visible = 1').bind(+mm0[1]).first();
+    if (!it) return new Response('Not found', { status: 404 });
+    const did = driveId(it.url);
+    if (did) { const tok = await googleToken(env, 'main'); if (!tok) return new Response('Unavailable', { status: 503 }); return streamDrive(env, req, tok, did, { cache: true }); }
+    if (it.video && it.video.startsWith('/u/')) return serveFile(req, env, it.video.slice(3), { cache: true });
+    if (it.video) return Response.redirect(new URL(it.video, url.origin).toString(), 302);
+    return new Response('Not found', { status: 404 });
+  }
+
   /* ----- downloads ----- */
   let mm;
   if ((mm = p.match(/^\/api\/download\/(\d+)$/)) && m === 'GET') {
@@ -232,12 +244,18 @@ export async function handlePublic(req, env, ctx, url, s) {
       await env.DB.prepare('INSERT OR IGNORE INTO owned (user_id, product_id, created) VALUES (?1, ?2, ?3)').bind(s.user.id, pid, now()).run();
       own = { downloads: 0 };
     }
-    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery === 'file', emailed: prod.delivery !== 'file', first: !own.downloads });
+    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery !== 'link', emailed: prod.delivery === 'link', first: !own.downloads });
     await env.DB.batch([
       env.DB.prepare('UPDATE owned SET downloads = downloads + 1, first_dl = COALESCE(first_dl, ?3), last_dl = ?3 WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid, now()),
       env.DB.prepare('UPDATE products SET downloads = downloads + 1 WHERE id = ?1').bind(pid)
     ]);
-    if (prod.delivery === 'drive' || prod.delivery === 'link') {
+    if (prod.delivery === 'drive') {
+      const id = driveId(prod.drive_id) || driveId(prod.link_url);
+      const tok = id ? await googleToken(env, 'main') : null;
+      if (!id || !tok) { await alertOwner(env, 'delivery', `Download failed for "${prod.title}" (Drive link or Gmail/Drive connection missing).`); fail('This download is temporarily unavailable. We have been notified and will fix it soon.', 503); }
+      return streamDrive(env, req, tok, id, { download: prod.file_name || null, cache: false });
+    }
+    if (prod.delivery === 'link') {
       await limitOrFail(env, 'dlmail:' + s.user.id + ':' + pid, 3, 3600e3, 'The link was already sent. Please check your email (and spam folder).');
       await deliverBig(env, prod, s.user, origin);
       return J({ ok: true, emailed: true });

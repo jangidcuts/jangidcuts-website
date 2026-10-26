@@ -40,22 +40,40 @@ function vCat(s){var k=kindQ();var c=catBySlug(s,k);if(!c){app.innerHTML='<div c
  draw()}
 
 /* ----- /watch/<id> ----- */
-function embed(p){var u=p.url||'',v=p.video||'';var m;
- if((m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/))([\w-]{11})/)))return '<iframe src="https://www.youtube-nocookie.com/embed/'+m[1]+'?autoplay=1&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="'+esc(p.title)+'"></iframe>';
- if((m=u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]{20,})/)))return '<iframe src="https://drive.google.com/file/d/'+m[1]+'/preview" allow="autoplay; fullscreen" allowfullscreen title="'+esc(p.title)+'"></iframe>';
- if(v)return '<video src="'+esc(v)+'" poster="'+esc(p.image||'')+'" controls autoplay playsinline></video>';
- if(u)return '<img src="'+esc(p.image)+'" alt=""><a class="btn btn-primary" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)" href="'+esc(u)+'" target="_blank" rel="noopener">'+I('play')+' Watch video</a>';
- return '<img src="'+esc(p.image)+'" alt="'+esc(p.title)+'">'}
+function ytId(u){var m=String(u||'').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/))([\w-]{11})/);return m?m[1]:''}
+function isDrive(u){return /drive\.google\.com/.test(u||'')}
+function fmt(t){t=Math.max(0,Math.floor(t||0));var m=Math.floor(t/60),s=t%60;return m+':'+(s<10?'0':'')+s}
+function embed(p){return '<div class="jp" id="jp"><div class="jp-media" id="jpMedia"></div><div class="jp-shield" id="jpShield"></div><div class="jp-poster" id="jpPoster" style="background-image:url(\''+esc(p.image||'')+'\')"><button class="jp-big" aria-label="Play">'+I('play')+'</button></div>'+
+ '<div class="jp-bar"><button class="jp-b" id="jpPlay" aria-label="Play/pause">'+I('play')+'</button><span class="jp-t" id="jpT">0:00</span><input class="jp-seek" id="jpSeek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="jp-t" id="jpD">0:00</span><button class="jp-b" id="jpMute" aria-label="Mute">🔊</button><button class="jp-b" id="jpFs" aria-label="Fullscreen">⛶</button></div></div>'}
+function mountPlayer(p){var root=$('#jp');if(!root)return;var media=$('#jpMedia'),poster=$('#jpPoster'),seek=$('#jpSeek'),api=null,dragging=false;
+ var yid=ytId(p.url),src=null;if(!yid){if(isDrive(p.url)||(p.video&&p.video.indexOf('/u/')===0))src='/v/'+p.id;else if(p.video)src=p.video;else if(p.url)src=null}
+ function setPlaying(on){root.classList.toggle('playing',on);$('#jpPlay').innerHTML=on?'❚❚':I('play')}
+ function tick(){if(!api)return;var d=api.dur()||0,t=api.cur()||0;$('#jpT').textContent=fmt(t);$('#jpD').textContent=fmt(d);if(!dragging&&d)seek.value=Math.round(t/d*1000)}
+ if(yid){api={ready:false,play:function(){y&&y.playVideo()},pause:function(){y&&y.pauseVideo()},cur:function(){return y&&y.getCurrentTime?y.getCurrentTime():0},dur:function(){return y&&y.getDuration?y.getDuration():0},seekTo:function(s){y&&y.seekTo(s,true)},muted:function(){return y&&y.isMuted()},mute:function(on){y&&(on?y.mute():y.unMute())},paused:function(){return !y||y.getPlayerState()!==1}};var y=null;
+  media.innerHTML='<div id="ytp"></div>';
+  var mk=function(){y=new YT.Player('ytp',{host:'https://www.youtube-nocookie.com',videoId:yid,playerVars:{controls:0,modestbranding:1,rel:0,iv_load_policy:3,disablekb:1,fs:0,playsinline:1,showinfo:0,cc_load_policy:0,autoplay:0},events:{onReady:function(){api.ready=true},onStateChange:function(e){setPlaying(e.data===1);if(e.data===0){poster.hidden=false;root.classList.remove('started')}}}})};
+  if(window.YT&&YT.Player)mk();else{window.onYouTubeIframeAPIReady=mk;var s=D.createElement('script');s.src='https://www.youtube.com/iframe_api';D.head.appendChild(s)}}
+ else if(src){media.innerHTML='<video id="jpv" preload="metadata" playsinline src="'+esc(src)+'"></video>';var v=$('#jpv');
+  api={play:function(){v.play()},pause:function(){v.pause()},cur:function(){return v.currentTime},dur:function(){return v.duration},seekTo:function(s){v.currentTime=s},muted:function(){return v.muted},mute:function(on){v.muted=on},paused:function(){return v.paused}};
+  v.addEventListener('play',function(){setPlaying(true)});v.addEventListener('pause',function(){setPlaying(false)});v.addEventListener('ended',function(){setPlaying(false);poster.hidden=false;root.classList.remove('started')});v.addEventListener('timeupdate',tick);v.addEventListener('loadedmetadata',tick);
+  v.addEventListener('error',function(){poster.innerHTML='<p class="jp-err">This video could not be loaded. Please try again later.</p>'})}
+ else{if(p.url){poster.innerHTML='<a class="btn btn-primary" href="'+esc(p.url)+'" target="_blank" rel="noopener">'+I('play')+' Watch video</a>'}else{root.querySelector('.jp-bar').hidden=true;poster.querySelector('.jp-big').hidden=true}return}
+ function toggle(){if(!api)return;if(api.paused()){poster.hidden=true;root.classList.add('started');api.play();if(yid&&!api.ready)setTimeout(function(){api.play()},800)}else api.pause()}
+ poster.onclick=toggle;$('#jpShield').onclick=toggle;$('#jpPlay').onclick=toggle;
+ seek.addEventListener('input',function(){dragging=true});seek.addEventListener('change',function(){dragging=false;var d=api.dur();if(d)api.seekTo(seek.value/1000*d)});
+ $('#jpMute').onclick=function(){var m=!api.muted();api.mute(m);this.textContent=m?'🔇':'🔊'};
+ $('#jpFs').onclick=function(){if(D.fullscreenElement||D.webkitFullscreenElement){(D.exitFullscreen||D.webkitExitFullscreen).call(D)}else{(root.requestFullscreen||root.webkitRequestFullscreen||function(){var v=$('#jpv');v&&v.webkitEnterFullscreen&&v.webkitEnterFullscreen()}).call(root)}};
+ setInterval(tick,500)}
 function vWatch(id){var p=PF.find(function(x){return x.id===+id});if(!p){app.innerHTML='<div class="wrap pg-top">'+back('/portfolio','Back to portfolio')+'<div class="st-empty">This video is not available.</div></div>';return}
  title(p.title);var c=rootOf(p),from=new URLSearchParams(location.search).get('from')||'cat',b;
  if(from==='home')b=back('/','Back to home');else if(from.indexOf('svc:')===0){var sv=(C.services||[]).find(function(x){return x.slug===from.slice(4)});b=back('/services/'+from.slice(4),'Back to '+(sv?sv.title:'service'))}else b=c?back('/portfolio/'+slug(c.name),'Back to '+c.name):back('/portfolio','Back to portfolio');
  var vert=p.orient==='v';var more=c?itemsOf('video',c.id).filter(function(x){return x.id!==p.id}).slice(0,8):[];
  var svcs=(p.services||[]).map(function(sl){return (C.services||[]).find(function(x){return x.slug===sl})}).filter(Boolean);
- app.innerHTML='<div class="watch"><div class="wrap w-bar">'+b+'<button class="back" id="fsBtn" type="button">Fullscreen</button></div><div class="player'+(vert?' v':'')+'" id="player">'+embed(p)+'</div></div>'+
+ app.innerHTML='<div class="watch"><div class="wrap w-bar">'+b+'</div><div class="player'+(vert?' v':'')+'" id="player">'+embed(p)+'</div></div>'+
   '<div class="wrap w-info"><h1>'+esc(p.title)+'</h1><div class="w-meta">'+(c?'<a href="/portfolio/'+slug(c.name)+'">'+esc(c.name)+'</a>':'')+svcs.map(function(s){return '<a href="/services/'+esc(s.slug)+'">'+esc(s.title)+'</a>'}).join('')+'</div>'+(p.description?'<p class="w-desc">'+esc(p.description)+'</p>':'')+
   '<div class="w-acts">'+(c?'<a class="btn btn-primary" href="/portfolio/'+slug(c.name)+'">See more from '+esc(c.name)+' '+I('arrow')+'</a>':'')+'<a class="btn btn-ghost" href="/?hire=1">Hire for a project like this</a></div>'+
   (more.length?'<section class="sec-row"><div class="sec-row-h"><h2>More from '+esc(c.name)+'</h2><a href="/portfolio/'+slug(c.name)+'">See all →</a></div><div class="mrow">'+more.map(function(x){return card(x,from==='home'?'home':from)}).join('')+'</div></section>':'')+'<div style="height:60px"></div></div>';
- $('#fsBtn').onclick=function(){var el=$('#player');(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el)}}
+ mountPlayer(p)}
 
 /* ----- /services ----- */
 function svcCard(x){return '<a class="svc" href="/services/'+esc(x.slug)+'"><div class="svc-thumb"><img src="'+esc(x.image)+'" alt="" loading="lazy">'+(x.tag?'<span class="tag">'+esc(x.tag)+'</span>':'')+'</div><div class="svc-body"><h3>'+esc(x.title)+'</h3><p>'+esc(x.desc)+'</p><span class="more">View details '+I('arrow')+'</span></div></a>'}

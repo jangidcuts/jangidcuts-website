@@ -1,7 +1,7 @@
 import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie } from './lib.js';
 import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
-import { putFile, deleteFile, storageInfo } from './storage.js';
+import { putFile, deleteFile, storageInfo, driveId, driveMeta } from './storage.js';
 import { fulfil, money } from './shop.js';
 
 const TABLES = {
@@ -89,6 +89,15 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (b.telegram_bot_token) a.telegram_bot_token_enc = await encrypt(env, clean(b.telegram_bot_token, 200));
     if (b.telegram_clear) a.telegram_bot_token_enc = '';
     await setKey(env, '_alerts', a); return J({ ok: true });
+  }
+  if (p === '/api/admin/drive/check' && m === 'GET') {
+    const id = driveId(url.searchParams.get('link') || ''); if (!id) fail('That does not look like a Google Drive file link');
+    const tok = await googleToken(env, 'main'); if (!tok) fail('Connect jangidcuts@gmail.com in Emails first (it also gives Drive access)');
+    const meta = await driveMeta(env, tok, id);
+    if (!meta) { const rr = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=name&supportsAllDrives=true`, { headers: { authorization: 'Bearer ' + tok } }); const tx = (await rr.text()).slice(0, 300);
+      await logEvent(env, 'drive', 'check failed ' + rr.status + ' ' + tx);
+      fail(rr.status === 403 && /insufficient|scope/i.test(tx) ? 'Drive access is not allowed yet: reconnect jangidcuts@gmail.com in Emails and tick the Google Drive box.' : 'Drive file not found, or jangidcuts@gmail.com cannot open it. Make sure it is in that Drive or shared with it. (' + rr.status + ')'); }
+    return J({ ok: true, id, ...meta });
   }
   if (p === '/api/admin/security' && m === 'PUT') {
     const b = await readJson(req); const sec = await getKey(env, '_security');

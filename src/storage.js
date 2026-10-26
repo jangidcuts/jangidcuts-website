@@ -61,3 +61,34 @@ export async function serveFile(req, env, key, { download = null, cache = true }
   head['content-length'] = String(total);
   return new Response(value, { headers: head });
 }
+
+// ---- Google Drive streaming (files stay in the owner's Drive; visitors only ever see our own URL) ----
+export function driveId(s) {
+  const m = String(s || '').match(/(?:\/file\/d\/|[?&]id=|\/folders\/)([\w-]{20,})/) || String(s || '').match(/^([\w-]{25,})$/);
+  return m ? m[1] : '';
+}
+export async function driveMeta(env, token, id) {
+  const ck = 'dmeta:' + id;
+  if (env.CACHE) { const c = await env.CACHE.get(ck, 'json'); if (c) return c; }
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=name,mimeType,size&supportsAllDrives=true`, { headers: { authorization: 'Bearer ' + token } });
+  if (!r.ok) return null;
+  const j = await r.json();
+  if (env.CACHE) await env.CACHE.put(ck, JSON.stringify(j), { expirationTtl: 3600 });
+  return j;
+}
+export async function streamDrive(env, req, token, id, { download = null, cache = true } = {}) {
+  const meta = await driveMeta(env, token, id);
+  if (!meta) return new Response('This file is not available right now.', { status: 404 });
+  const h = { authorization: 'Bearer ' + token };
+  const range = req.headers.get('range'); if (range) h.range = range;
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true&acknowledgeAbuse=true`, { headers: h });
+  if (!r.ok && r.status !== 206) return new Response('This file is not available right now.', { status: r.status === 403 ? 503 : 404 });
+  const out = new Headers();
+  out.set('content-type', meta.mimeType || r.headers.get('content-type') || 'application/octet-stream');
+  for (const k of ['content-length', 'content-range']) { const v = r.headers.get(k); if (v) out.set(k, v); }
+  out.set('accept-ranges', 'bytes');
+  out.set('cache-control', cache ? 'public, max-age=3600' : 'private, no-store');
+  out.set('x-content-type-options', 'nosniff');
+  if (download) out.set('content-disposition', `attachment; filename="${String(download || meta.name || 'download').replace(/[^\w.\- ]+/g, '_')}"`);
+  return new Response(r.body, { status: r.status, headers: out });
+}
