@@ -80,3 +80,14 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .li.acc{flex-wrap:wrap}.li.acc .t{flex:1 1 100%;min-width:0}.li.acc .t b{word-break:break-all}.li.acc .acts{flex-wrap:wrap}
 .multi{display:flex;flex-wrap:wrap;gap:8px}.mchip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px}
 @media (max-width:600px){.li{flex-wrap:wrap}.li .t{min-width:calc(100% - 90px)}.li .acts{width:100%;justify-content:flex-end}}
+
+/* ticket timeline + AI box (Oct 26) */
+.tks{list-style:none;margin:6px 0 14px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.tks li{display:flex;flex-direction:column;gap:3px;padding:10px;border-radius:10px;border:1px solid rgba(43,245,192,.12);opacity:.55}
+.tks li.d{opacity:1;border-color:rgba(43,245,192,.35)}.tks li.c{background:rgba(43,245,192,.08)}
+.tks i{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(43,245,192,.3)}
+.tks li.d i{background:#0DBC94;border-color:#0DBC94;color:#fff}.tks i svg{width:13px;height:13px}
+.tks b{font-size:13px}.tks small{font-size:11.5px;opacity:.7}
+.aibox{border-color:rgba(43,245,192,.45)!important;background:linear-gradient(135deg,rgba(43,245,192,.07),transparent)}
+.tkth{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);margin-top:8px}
+.tkth .row{justify-content:space-between}

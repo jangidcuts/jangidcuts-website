@@ -764,3 +764,4 @@ html.anim-low .hero .hx,html.anim-low .hero .hero-photo,html.anim-low .hero .pho
 .tk-sol p{white-space:pre-line;margin:6px 0 0;font-size:14.5px;color:var(--text)}
 [data-theme="light"] .tk-steps li.done:not(:last-child)::after{background:linear-gradient(90deg,#077A5C,#066B51)}
 [data-theme="light"] .tk-steps li.done .tk-dot{background:linear-gradient(135deg,#077A5C,#066B51 55%,#0E4F41)}
+.fld-err[hidden]{display:none!important}

@@ -79,7 +79,7 @@ export function cleanReply(txt, name) {
   const lines = s.split('\n'); let cut = lines.length;
   for (let i = Math.max(0, lines.length - 8); i < lines.length; i++) if (/^\s*(best\s+)?(warm\s+|kind\s+)?(regards|sincerely|thanks and regards|thank you|best|cheers|yours\s+\w+)\s*,?\s*$/i.test(lines[i])) { cut = i; break; }
   s = lines.slice(0, cut).join('\n').replace(/\n*(team jangid cuts|jangid cuts support|jangid cuts team)\s*$/i, '').trim();
-  s = s.replace(/\n{3,}/g, '\n\n');
+  s = s.split('\n').map(l => l.trim()).filter(Boolean).join('\n\n');
   if (s.length < 40) return '';
   return s + '\n\n' + SIGN;
 }
@@ -100,7 +100,9 @@ export async function aiDraft(env, t) {
     '- Do NOT write any closing or sign-off (no "Regards", no name). It is added automatically.',
     '', 'OWNER INSTRUCTIONS (always follow these):', clean(cfg.instructions, 4000) || '(none)', '', 'FAQ:', faq || '(none)'
   ].join('\n');
-  const user = `Ticket ${t.number}\nCustomer name: ${t.name || 'Customer'}\nTopic: ${t.topic || 'General'}\nProblem:\n${String(t.message || '').slice(0, 3500)}`;
+  const pre = String(t.email || '').split('@')[0];
+  let nm = String(t.name || '').trim(); if (!nm || nm === pre || /[0-9+_@.]/.test(nm)) nm = ''; else nm = nm.split(/\s+/)[0].replace(/^./, c => c.toUpperCase());
+  const user = `Ticket ${t.number}\nCustomer first name: ${nm || 'unknown (greet them as "Dear Customer,")'}\nTopic: ${t.topic || 'General'}\nProblem:\n${String(t.message || '').slice(0, 3500)}`;
   const models = [cfg.model || AI_DEFAULTS.model, '@cf/meta/llama-3.1-8b-instruct'];
   let lastErr = '';
   for (const m of [...new Set(models)]) {
