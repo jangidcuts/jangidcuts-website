@@ -13,7 +13,7 @@ function under(p,cid){var c=cat(p.subcategory_id)||cat(p.category_id);while(c){i
 function itemsOf(kind,cid){return PF.filter(function(p){return p.kind===kind&&(!cid||under(p,cid)||p.category_id===cid)})}
 function catBySlug(s,kind){return CATS.find(function(c){return c.section==='portfolio_'+kind&&!c.parent_id&&slug(c.name)===s})||CATS.find(function(c){return c.section.indexOf('portfolio_')===0&&!c.parent_id&&slug(c.name)===s})}
 function kindQ(){return new URLSearchParams(location.search).get('k')==='thumb'?'thumb':'video'}
-function hasVideo(p){return !!(p.video||p.url)}
+function hasVideo(p){return !!(p.video||p.url||p.has_src)}
 function card(p,from){var c=rootOf(p),v=p.kind==='video'&&p.orient==='v';
  return '<a class="mc'+(v?' v':'')+'" '+(p.kind==='video'?'href="/watch/'+p.id+(from?'?from='+encodeURIComponent(from):'')+'"':'href="#" data-img="'+p.id+'"')+'><img src="'+esc(p.image||'/img/t1.jpg')+'" alt="" loading="lazy">'+(p.kind==='video'?'<span class="pl">'+I('play')+'</span>':'')+'<span class="mt"><b>'+esc(p.title)+'</b><span>'+esc(c?c.name:'')+'</span></span></a>'}
 function bindImgs(root){$$('[data-img]',root).forEach(function(a){a.onclick=function(e){e.preventDefault();var p=PF.find(function(x){return x.id===+a.dataset.img});if(!p)return;var lb=$('#lightbox');$('#lbMedia').innerHTML='<img src="'+esc(p.image)+'" alt="'+esc(p.title)+'">';$('#lbTitle').textContent=p.title;var c=rootOf(p);$('#lbCat')&&($('#lbCat').textContent=c?c.name:'');$('#lbDesc').textContent=p.description||'';JC_UI.open(lb)}})}
@@ -47,7 +47,7 @@ function SK(d){return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
 function embed(p){return '<div class="jp" id="jp"><div class="jp-media" id="jpMedia"></div><div class="jp-shield" id="jpShield"></div><div class="jp-flash l" id="jpFlL">'+SK(-1)+'<span>10s</span></div><div class="jp-flash r" id="jpFlR">'+SK(1)+'<span>10s</span></div><div class="jp-poster" id="jpPoster" style="background-image:url(\''+esc(p.image||'')+'\')"><button class="jp-big" aria-label="Play">'+I('play')+'</button></div>'+
  '<div class="jp-bar"><button class="jp-b" id="jpPlay" aria-label="Play/pause">'+I('play')+'</button><button class="jp-b jp-sk" id="jpBk" aria-label="Back 10 seconds" title="Back 10s (←)">'+SK(-1)+'</button><button class="jp-b jp-sk" id="jpFw" aria-label="Forward 10 seconds" title="Forward 10s (→)">'+SK(1)+'</button><span class="jp-t" id="jpT">0:00</span><input class="jp-seek" id="jpSeek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="jp-t" id="jpD">0:00</span><button class="jp-b" id="jpMute" aria-label="Mute">🔊</button><button class="jp-b" id="jpFs" aria-label="Fullscreen">⛶</button></div></div>'}
 function mountPlayer(p){var root=$('#jp');if(!root)return;var media=$('#jpMedia'),poster=$('#jpPoster'),seek=$('#jpSeek'),api=null,dragging=false;
- var yid=ytId(p.url),src=null;if(!yid){if(isDrive(p.url)||(p.video&&p.video.indexOf('/u/')===0))src='/v/'+p.id;else if(p.video)src=p.video;else if(p.url)src=null}
+ var yid=ytId(p.url)||ytId(p.video),src=null;if(!yid&&(p.url||p.video||p.has_src))src='/v/'+p.id;/* uploaded, Google Drive and any https link all stream through the site in the same native player */
  function setPlaying(on){root.classList.toggle('playing',on);$('#jpPlay').innerHTML=on?'❚❚':I('play')}
  function tick(){if(!api)return;var d=api.dur()||0,t=api.cur()||0;$('#jpT').textContent=fmt(t);$('#jpD').textContent=fmt(d);if(!dragging&&d)seek.value=Math.round(t/d*1000)}
  if(yid){api={ready:false,play:function(){y&&y.playVideo()},pause:function(){y&&y.pauseVideo()},cur:function(){return y&&y.getCurrentTime?y.getCurrentTime():0},dur:function(){return y&&y.getDuration?y.getDuration():0},seekTo:function(s){y&&y.seekTo(s,true)},muted:function(){return y&&y.isMuted()},mute:function(on){y&&(on?y.mute():y.unMute())},paused:function(){return !y||y.getPlayerState()!==1}};var y=null;
@@ -57,7 +57,7 @@ function mountPlayer(p){var root=$('#jp');if(!root)return;var media=$('#jpMedia'
  else if(src){media.innerHTML='<video id="jpv" preload="metadata" playsinline src="'+esc(src)+'"></video>';var v=$('#jpv');
   api={play:function(){v.play()},pause:function(){v.pause()},cur:function(){return v.currentTime},dur:function(){return v.duration},seekTo:function(s){v.currentTime=s},muted:function(){return v.muted},mute:function(on){v.muted=on},paused:function(){return v.paused}};
   v.addEventListener('play',function(){setPlaying(true)});v.addEventListener('pause',function(){setPlaying(false)});v.addEventListener('ended',function(){setPlaying(false);poster.hidden=false;root.classList.remove('started')});v.addEventListener('timeupdate',tick);v.addEventListener('loadedmetadata',tick);
-  v.addEventListener('error',function(){poster.innerHTML='<p class="jp-err">This video could not be loaded. Please try again later.</p>'})}
+  v.addEventListener('error',function(){var did=p.fb||(isDrive(p.url)&&(String(p.url).match(/(?:\/d\/|[?&]id=)([\w-]{20,})/)||[])[1]);if(did&&!root.__fb){root.__fb=1;/* Drive refused streaming: clean minimal Drive embed as a fallback */media.innerHTML='<iframe class="jp-fb" src="https://drive.google.com/file/d/'+did+'/preview" allow="autoplay; fullscreen" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe>';root.querySelector('.jp-bar').hidden=true;$('#jpShield').hidden=true;poster.hidden=true;return}poster.hidden=false;poster.innerHTML='<p class="jp-err">This video could not be loaded. Please try again later.</p>'})}
  else{if(p.url){poster.innerHTML='<a class="btn btn-primary" href="'+esc(p.url)+'" target="_blank" rel="noopener">'+I('play')+' Watch video</a>'}else{root.querySelector('.jp-bar').hidden=true;poster.querySelector('.jp-big').hidden=true}return}
  function toggle(){if(!api)return;if(api.paused()){poster.hidden=true;root.classList.add('started');api.play();if(yid&&!api.ready)setTimeout(function(){api.play()},800)}else api.pause()}
   function skip(d){if(!api)return;var dur=api.dur()||0,t=(api.cur()||0)+d;if(dur)t=Math.min(Math.max(0,t),Math.max(0,dur-0.3));else t=Math.max(0,t);api.seekTo(t);tick();var f=$(d<0?'#jpFlL':'#jpFlR');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}
@@ -72,7 +72,12 @@ function mountPlayer(p){var root=$('#jp');if(!root)return;var media=$('#jpMedia'
  $('#jpMute').onclick=function(){var m=!api.muted();api.mute(m);this.textContent=m?'🔇':'🔊'};
  $('#jpFs').onclick=function(){if(D.fullscreenElement||D.webkitFullscreenElement){(D.exitFullscreen||D.webkitExitFullscreen).call(D)}else{(root.requestFullscreen||root.webkitRequestFullscreen||function(){var v=$('#jpv');v&&v.webkitEnterFullscreen&&v.webkitEnterFullscreen()}).call(root)}};
  setInterval(tick,500)}
-function vWatch(id){var p=PF.find(function(x){return x.id===+id});if(!p){app.innerHTML='<div class="wrap pg-top">'+back('/portfolio','Back to portfolio')+'<div class="st-empty">This video is not available.</div></div>';return}
+function vWatch(id){var p=null;
+ if(id==='reel'){var hr=C.hero||{};if(hr.showreel)p={id:'reel',kind:'video',title:hr.showreel_title||'Showreel',url:hr.showreel,video:'',image:hr.showreel_poster||'/og.jpg',orient:'h',services:[],_x:'reel'}}
+ else if(id[0]==='p'){var pr=(S.products||[]).find(function(x){return 'p'+x.id===id});if(pr&&pr.has_video)p={id:id,kind:'video',title:pr.title,url:pr.video_yt||'',video:pr.video_yt?'':'1',image:pr.image||'',orient:'h',services:[],_x:'product'}}
+ if(p&&p._x){title(p.title);var bk=p._x==='product'?back('/store','Back to store'):back('/','Back to home');
+  app.innerHTML='<div class="watch"><div class="wrap w-bar">'+bk+'</div><div class="player" id="player">'+embed(p)+'</div></div><div class="wrap w-info"><h1>'+esc(p.title)+'</h1></div>';mountPlayer(p);return}
+ p=PF.find(function(x){return x.id===+id});if(!p){app.innerHTML='<div class="wrap pg-top">'+back('/portfolio','Back to portfolio')+'<div class="st-empty">This video is not available.</div></div>';return}
  title(p.title);var c=rootOf(p),from=new URLSearchParams(location.search).get('from')||'cat',b;
  if(from==='home')b=back('/','Back to home');else if(from.indexOf('svc:')===0){var sv=(C.services||[]).find(function(x){return x.slug===from.slice(4)});b=back('/services/'+from.slice(4),'Back to '+(sv?sv.title:'service'))}else b=c?back('/portfolio/'+slug(c.name),'Back to '+c.name):back('/portfolio','Back to portfolio');
  var vert=p.orient==='v';var more=c?itemsOf('video',c.id).filter(function(x){return x.id!==p.id}).slice(0,8):[];
@@ -101,7 +106,7 @@ function vAbout(){var a=C.about||{};title('About');
 
 window.JC_AFTER=function(site){S=site;C=site.content;CATS=site.categories;PF=site.portfolio;app=$('#app');if(!app)return;
  var p=location.pathname.replace(/\/$/,'')||'/',m;
- if(p==='/portfolio')vPortfolio();else if((m=p.match(/^\/portfolio\/([\w-]+)$/)))vCat(m[1]);else if((m=p.match(/^\/watch\/(\d+)$/)))vWatch(m[1]);
+ if(p==='/portfolio')vPortfolio();else if((m=p.match(/^\/portfolio\/([\w-]+)$/)))vCat(m[1]);else if((m=p.match(/^\/watch\/(\d+|p\d+|reel)$/)))vWatch(m[1]);
  else if(p==='/services')vServices();else if((m=p.match(/^\/services\/([\w-]+)$/)))vService(m[1]);else if(p==='/about')vAbout();else vPortfolio();
  window.scrollTo(0,0)};
 })();

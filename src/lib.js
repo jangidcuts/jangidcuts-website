@@ -57,9 +57,9 @@ export async function hashPw(env, pw, saltHex) {
 }
 export function pwProblem(pw) {
   pw = String(pw || '');
-  if (pw.length < 8) return 'Password must be at least 8 characters';
-  if (pw.length > 128) return 'Password is too long';
-  if (!/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw)) return 'Use letters and numbers in your password';
+  // Any characters are allowed (letters only, numbers only, symbols, spaces...). Only the length is checked (Prashant, Oct 26 11:58 PM).
+  if (pw.length < 6) return 'Password must be at least 6 characters';
+  if (pw.length > 128) return 'Password is too long (128 characters max)';
   return null;
 }
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

@@ -2,7 +2,7 @@ import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, 
   newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt, normRef } from './lib.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
-import { storageInfo, serveFile, putFile, driveId, streamDrive } from './storage.js';
+import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource } from './storage.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig } from './shop.js';
 
 const needUser = (s) => { if (!s) fail('Please sign in first', 401); return s; };
@@ -14,12 +14,14 @@ export async function siteData(env) {
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, category_id, image, gallery, delivery, size_text, badge, sort, sales, created FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
+    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
     env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created, r.photo FROM reviews r WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
     env.DB.prepare("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible' AND product_id IS NULL").first()
   ]);
   const pay = await paymentsConfig(env);
-  return { content, categories: cats.results, portfolio: pf.results.map(x => { let sv = []; try { sv = JSON.parse(x.services || '[]'); } catch { } return { ...x, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results, reviews: revs.results,
+  return { content, categories: cats.results, portfolio: pf.results.map(x => { let sv = []; try { sv = JSON.parse(x.services || '[]'); } catch { } const yt = /youtu\.?be/i.test(x.url || ''); const did = !yt ? driveId(x.url) : '';
+    // Drive / direct links stream through /v/<id>; the raw link is not sent to visitors (only YouTube ids are needed client-side)
+    return { ...x, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results, reviews: revs.results,
     reviewStats: { count: revStats?.n || 0, avg: revStats?.avg ? Math.round(revStats.avg * 10) / 10 : 0 },
     cfg: { google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), payments: pay.provider, storage: storageInfo(env).backend } };
 }
@@ -226,14 +228,13 @@ export async function handlePublic(req, env, ctx, url, s) {
 
   let mm0;
   /* ----- portfolio video stream: /v/<id> (Drive or uploaded file, same URL shape for both) ----- */
-  if ((mm0 = p.match(/^\/v\/(\d+)$/)) && (m === 'GET' || m === 'HEAD')) {
-    const it = await env.DB.prepare('SELECT id, video, url, source FROM portfolio WHERE id = ?1 AND visible = 1').bind(+mm0[1]).first();
-    if (!it) return new Response('Not found', { status: 404 });
-    const did = driveId(it.url);
-    if (did) { const tok = await googleToken(env, 'main'); if (!tok) return new Response('Unavailable', { status: 503 }); return streamDrive(env, req, tok, did, { cache: true }); }
-    if (it.video && it.video.startsWith('/u/')) return serveFile(req, env, it.video.slice(3), { cache: true });
-    if (it.video) return Response.redirect(new URL(it.video, url.origin).toString(), 302);
-    return new Response('Not found', { status: 404 });
+  if ((mm0 = p.match(/^\/v\/(\d+|p\d+|reel)$/)) && (m === 'GET' || m === 'HEAD')) {
+    const key = mm0[1]; let srcRow = null;
+    if (key === 'reel') { const hero = (await getContent(env)).hero || {}; if (hero.showreel) srcRow = { url: hero.showreel, video: hero.showreel }; }
+    else if (key[0] === 'p') { const pr = await env.DB.prepare('SELECT video FROM products WHERE id = ?1 AND visible = 1').bind(+key.slice(1)).first(); if (pr && pr.video) srcRow = { url: pr.video, video: pr.video }; }
+    else srcRow = await env.DB.prepare('SELECT id, video, url, source FROM portfolio WHERE id = ?1 AND visible = 1').bind(+key).first();
+    if (!srcRow) return new Response('Not found', { status: 404 });
+    return streamVideoSource(req, env, { url: srcRow.url || '', video: srcRow.video || '' }, googleToken);
   }
 
   /* ----- downloads ----- */
@@ -256,8 +257,10 @@ export async function handlePublic(req, env, ctx, url, s) {
     if (prod.delivery === 'drive') {
       const id = driveId(prod.drive_id) || driveId(prod.link_url);
       const tok = id ? await googleToken(env, 'main') : null;
-      if (!id || !tok) { await alertOwner(env, 'delivery', `Download failed for "${prod.title}" (Drive link or Gmail/Drive connection missing).`); fail('This download is temporarily unavailable. We have been notified and will fix it soon.', 503); }
-      return streamDrive(env, req, tok, id, { download: prod.file_name || null, cache: false });
+      if (id && tok) { const r = await streamDrive(env, req, tok, id, { download: prod.file_name || null, cache: false }); if (r.ok || r.status === 206) return r; }
+      if (id) { const pub = await streamDrivePublic(req, id, { download: prod.file_name || true, cache: false }); if (pub) return pub; }
+      await alertOwner(env, 'delivery', `Download failed for "${prod.title}": the Google Drive file could not be opened. Set its sharing to "Anyone with the link" (or keep it in jangidcuts@gmail.com Drive).`);
+      fail('This download is temporarily unavailable. We have been notified and will fix it soon.', 503);
     }
     if (prod.delivery === 'link') {
       await limitOrFail(env, 'dlmail:' + s.user.id + ':' + pid, 3, 3600e3, 'The link was already sent. Please check your email (and spam folder).');

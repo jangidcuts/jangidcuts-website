@@ -4,7 +4,7 @@ export const DEFAULTS = {
   _security: { admin_2fa: true },
   brand: { name: 'Jangid Cuts', bigword: 'JANGID CUTS', loader_role: 'Video Editor & Graphic Designer' },
   seo: { title: 'Jangid Cuts | Prashant Jangid · Video Editor & Graphic Designer', description: 'Prashant Jangid (Jangid Cuts), video editor and graphic designer from Jaipur. Reels, YouTube, wedding films, ads, colour grading and thumbnails.' },
-  hero: { hello: 'Hello, I am', name: 'Prashant Jangid', role: 'Video Editor & Graphic Designer', cta: 'Hire Me', photo: '/img/hero-n708.webp', photo_alt: 'Prashant Jangid, video editor and graphic designer', bw: true, zoom: 100, shift_y: 0 },
+  hero: { hello: 'Hello, I am', name: 'Prashant Jangid', role: 'Video Editor & Graphic Designer', cta: 'Hire Me', photo: '/img/hero-n708.webp', photo_alt: 'Prashant Jangid, video editor and graphic designer', showreel: '', showreel_poster: '', bw: true, zoom: 100, shift_y: 0 },
   about: {
     editor_title: 'About the editor', editor_photo: '/img/hero-n708.webp',
     editor_body: "I'm Prashant Jangid, a video editor and graphic designer. For 5+ years I have been editing reels and shorts, YouTube videos, wedding films, ads and promos, plus colour grading, motion graphics and thumbnails.\n\nI work in DaVinci Resolve and care about the small things: pacing, sound and colour.",

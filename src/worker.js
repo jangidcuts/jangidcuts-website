@@ -100,7 +100,7 @@ export default {
       if (/^\/(help|faq|support|track|track-order)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/help', { headers: req.headers })); return withSec(res); }
       const PAGES = ['/privacy', '/terms', '/contact', '/social', '/licence', '/shipping', '/how-i-work'];
       if (p === '/portfolio.html') return Response.redirect(url.origin + '/portfolio' + url.search, 301);
-      if (/^\/(portfolio|services|about)(\/[\w-]+)?\/?$/.test(p) || /^\/watch\/\d+\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/page', { headers: req.headers })); return withSec(res); }
+      if (/^\/(portfolio|services|about)(\/[\w-]+)?\/?$/.test(p) || /^\/watch\/(\d+|p\d+|reel)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/page', { headers: req.headers })); return withSec(res); }
       const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile'];
       if (APPP.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers })); return withSec(res); }
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }

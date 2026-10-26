@@ -92,3 +92,44 @@ export async function streamDrive(env, req, token, id, { download = null, cache 
   if (download) out.set('content-disposition', `attachment; filename="${String(download || meta.name || 'download').replace(/[^\w.\- ]+/g, '_')}"`);
   return new Response(r.body, { status: r.status, headers: out });
 }
+
+// Public Google Drive files ("Anyone with the link") stream without any Google login: drive.usercontent with confirm=t
+// skips the big-file virus-scan page. Range is passed through so the native <video> can seek; nothing is buffered.
+export async function streamDrivePublic(req, id, { download = null, cache = true } = {}) {
+  const h = { 'user-agent': 'Mozilla/5.0 (JangidCuts)' }; const range = req.headers.get('range'); if (range) h.range = range;
+  const r = await fetch(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`, { headers: h, redirect: 'follow' });
+  const ct = r.headers.get('content-type') || '';
+  if ((!r.ok && r.status !== 206) || /text\/html/i.test(ct)) { try { r.body?.cancel(); } catch { } return null; }
+  return passThrough(r, { download, cache, type: ct });
+}
+export function passThrough(r, { download = null, cache = true, type = '' } = {}) {
+  const out = new Headers();
+  let ct = type || r.headers.get('content-type') || 'application/octet-stream';
+  if (/octet-stream/i.test(ct) && !download) ct = 'video/mp4';
+  out.set('content-type', ct);
+  for (const k of ['content-length', 'content-range']) { const v = r.headers.get(k); if (v) out.set(k, v); }
+  out.set('accept-ranges', 'bytes'); out.set('x-content-type-options', 'nosniff');
+  out.set('cache-control', cache ? 'public, max-age=3600' : 'private, no-store');
+  if (download) { const cd = r.headers.get('content-disposition'); const nm = typeof download === 'string' ? download : ((cd && /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(cd)?.[1]) || 'download'); out.set('content-disposition', `attachment; filename="${decodeURIComponent(nm).replace(/[^\w.\- ]+/g, '_')}"`); }
+  return new Response(r.body, { status: r.status, headers: out });
+}
+// One stream route for every video on the site (portfolio, product preview, hero showreel): uploaded file, Google Drive or any https link.
+export async function streamVideoSource(req, env, { url = '', video = '' }, googleToken) {
+  const did = driveId(url) || (/drive\.google\.com|docs\.google\.com/.test(video || '') ? driveId(video) : '');
+  if (did) {
+    const tok = googleToken ? await googleToken(env, 'main') : null;
+    if (tok) { const r = await streamDrive(env, req, tok, did, { cache: true }); if (r.ok || r.status === 206) return r; }
+    const pub = await streamDrivePublic(req, did, { cache: true }); if (pub) return pub;
+    return new Response('This Drive video cannot be played. Set its sharing to "Anyone with the link".', { status: 404, headers: { 'x-jc-fallback': 'drive' } });
+  }
+  if (video && video.startsWith('/u/')) return serveFile(req, env, video.slice(3), { cache: true });
+  const link = /^https:\/\//i.test(url) && !/youtu\.?be/i.test(url) ? url : (/^https:\/\//i.test(video) ? video : '');
+  if (link) {
+    const h = {}; const range = req.headers.get('range'); if (range) h.range = range;
+    let r; try { r = await fetch(link, { headers: h, redirect: 'follow', cf: { cacheTtl: 3600 } }); } catch { r = null; }
+    if (!r || (!r.ok && r.status !== 206) || /text\/html/i.test(r.headers.get('content-type') || '')) { try { r?.body?.cancel(); } catch { } return Response.redirect(link, 302); }
+    return passThrough(r, { cache: true });
+  }
+  if (video) return Response.redirect(new URL(video, new URL(req.url).origin).toString(), 302);
+  return new Response('Not found', { status: 404 });
+}

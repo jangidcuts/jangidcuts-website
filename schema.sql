@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS pf_kind ON portfolio(kind, sort);
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT NOT NULL, short TEXT, description TEXT,
   price INTEGER DEFAULT 0, mrp INTEGER DEFAULT 0, category_id INTEGER, image TEXT, gallery TEXT,
-  delivery TEXT DEFAULT 'file', file_key TEXT, file_name TEXT, file_size INTEGER, drive_id TEXT, link_url TEXT, size_text TEXT,
+  delivery TEXT DEFAULT 'file', file_key TEXT, file_name TEXT, file_size INTEGER, drive_id TEXT, link_url TEXT, size_text TEXT, video TEXT,
   badge TEXT, visible INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, downloads INTEGER DEFAULT 0, sales INTEGER DEFAULT 0, created INTEGER, updated INTEGER);
 CREATE INDEX IF NOT EXISTS prod_cat ON products(category_id, sort);
 CREATE TABLE IF NOT EXISTS cart (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, added INTEGER, PRIMARY KEY (user_id, product_id));
@@ -47,3 +47,6 @@ CREATE TABLE IF NOT EXISTS visitors (day TEXT NOT NULL, vid TEXT NOT NULL, PRIMA
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER, kind TEXT, msg TEXT);
 CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, n INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS refs (ref TEXT PRIMARY KEY, kind TEXT NOT NULL, created INTEGER);
+
+CREATE TABLE IF NOT EXISTS ai_chat (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, role TEXT NOT NULL, content TEXT, meta TEXT, created INTEGER);
+CREATE INDEX IF NOT EXISTS ai_chat_user ON ai_chat(user_id, id);

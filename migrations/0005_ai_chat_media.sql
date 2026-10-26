@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS ai_chat (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, role TEXT NOT NULL, content TEXT, meta TEXT, created INTEGER);
+CREATE INDEX IF NOT EXISTS ai_chat_user ON ai_chat(user_id, id);
+ALTER TABLE products ADD COLUMN video TEXT;

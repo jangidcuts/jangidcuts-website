@@ -1,12 +1,13 @@
 import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef } from './lib.js';
 import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
-import { putFile, deleteFile, storageInfo, driveId, driveMeta } from './storage.js';
+import { putFile, deleteFile, storageInfo, driveId, driveMeta, streamDrivePublic } from './storage.js';
 import { fulfil, money } from './shop.js';
+import { handleAssistant } from './assistant.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
 const TABLES = {
-  products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort'],
+  products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort', 'video'],
   portfolio: ['kind', 'title', 'description', 'category_id', 'subcategory_id', 'image', 'video', 'url', 'orient', 'featured', 'home', 'sort', 'visible', 'services', 'source'],
   categories: ['section', 'name', 'parent_id', 'sort', 'thumb'],
   coupons: ['code', 'type', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'note'],
@@ -23,6 +24,7 @@ function rowVals(table, b) {
     else if (typeof v === 'object' && v !== null) v = JSON.stringify(v);
     else v = clean(v, c === 'description' || c === 'text' ? 20000 : 1000);
     if (c === 'code') v = String(v).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if ((c === 'image' || c === 'photo' || c === 'thumb') && /drive\.google\.com|docs\.google\.com/.test(v) && driveId(v)) v = 'https://drive.google.com/thumbnail?id=' + driveId(v) + '&sz=w2000';
     cols.push(c); vals.push(v);
   }
   return { cols, vals };
@@ -35,6 +37,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
   const origin = url.origin;
   let mm;
 
+  if (p === '/api/admin/assistant' || p.startsWith('/api/admin/assistant/')) return handleAssistant(req, env, url, s);
   if (p === '/api/admin/whoami') return J({ ok: true, email: s.user.email, mfa_needed: !s.adminReady, totp_on: !!s.user.totp_on });
 
   /* ----- overview / analytics ----- */
@@ -93,9 +96,12 @@ export async function handleAdmin(req, env, ctx, url, s) {
   }
   if (p === '/api/admin/drive/check' && m === 'GET') {
     const id = driveId(url.searchParams.get('link') || ''); if (!id) fail('That does not look like a Google Drive file link');
-    const tok = await googleToken(env, 'main'); if (!tok) fail('Connect jangidcuts@gmail.com in Emails first (it also gives Drive access)');
-    const meta = await driveMeta(env, tok, id);
-    if (!meta) { const rr = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=name&supportsAllDrives=true`, { headers: { authorization: 'Bearer ' + tok } }); const tx = (await rr.text()).slice(0, 300);
+    const tok = await googleToken(env, 'main');
+    const meta = tok ? await driveMeta(env, tok, id) : null;
+    if (!meta) { const pub = await streamDrivePublic(new Request(url.origin + '/v/check', { headers: { range: 'bytes=0-1023' } }), id);
+      if (pub) { try { await pub.body?.cancel(); } catch {} return J({ ok: true, id, name: 'Public Drive video', mimeType: pub.headers.get('content-type'), sharing: 'public' }); }
+      if (!tok) fail('Drive file is not accessible. Set sharing to Anyone with the link, or connect jangidcuts@gmail.com in Emails.');
+      const rr = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=name&supportsAllDrives=true`, { headers: { authorization: 'Bearer ' + tok } }); const tx = (await rr.text()).slice(0, 300);
       await logEvent(env, 'drive', 'check failed ' + rr.status + ' ' + tx);
       fail(rr.status === 403 && /insufficient|scope/i.test(tx) ? 'Drive access is not allowed yet: reconnect jangidcuts@gmail.com in Emails and tick the Google Drive box.' : 'Drive file not found, or jangidcuts@gmail.com cannot open it. Make sure it is in that Drive or shared with it. (' + rr.status + ')'); }
     return J({ ok: true, id, ...meta });
