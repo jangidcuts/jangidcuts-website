@@ -13,7 +13,7 @@
       "/admin",
       "/admin/*",
       "/auth/*",
-      "/media/*",
+      "/u/*",
       "/robots.txt",
       "/sitemap.xml"
     ]

@@ -142,7 +142,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     if (b.email_notif !== undefined) { sets.push('email_notif = ?'); vals.push(b.email_notif ? 1 : 0); }
     if (b.lang !== undefined) { sets.push('lang = ?'); vals.push(clean(b.lang, 5)); }
     if (b.currency !== undefined) { sets.push('currency = ?'); vals.push(b.currency === 'USD' ? 'USD' : 'INR'); }
-    if (b.avatar !== undefined) { const a = clean(b.avatar, 300); if (a && !a.startsWith('/media/avatars/')) fail('Bad avatar'); sets.push('avatar = ?'); vals.push(a); }
+    if (b.avatar !== undefined) { const a = clean(b.avatar, 300); if (a && !a.startsWith('/u/avatars/')) fail('Bad avatar'); sets.push('avatar = ?'); vals.push(a); }
     if (sets.length) await env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, s.user.id).run();
     return J({ ok: true });
   }
@@ -299,8 +299,8 @@ export async function handlePublic(req, env, ctx, url, s) {
   }
 
   /* ----- media ----- */
-  if (p.startsWith('/media/') && (m === 'GET' || m === 'HEAD')) {
-    const key = decodeURIComponent(p.slice(7));
+  if (p.startsWith('/u/') && (m === 'GET' || m === 'HEAD')) {
+    const key = decodeURIComponent(p.slice(3));
     if (key.startsWith('private/') || key.includes('..')) return new Response('Not found', { status: 404 });
     const cache = caches.default; const ck = new Request(url.origin + p);
     if (!req.headers.get('range')) { const hit = await cache.match(ck); if (hit) return hit; }

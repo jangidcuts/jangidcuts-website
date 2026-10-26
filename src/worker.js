@@ -20,12 +20,12 @@ async function seed(env) {
   }
   const stmts = []; let i = 0;
   for (const [t, c, sc, img, o, clip, feat] of SEED_PORTFOLIO.video) stmts.push(env.DB.prepare('INSERT INTO portfolio (kind, title, category_id, subcategory_id, image, video, orient, featured, home, sort, created) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)')
-    .bind('video', t, catId['portfolio_video/' + c], catId['portfolio_video/' + c + '/' + sc] || null, '/assets/img/' + img, clip ? '/assets/media/' + clip : '', o, feat, feat, i++, now()));
+    .bind('video', t, catId['portfolio_video/' + c], catId['portfolio_video/' + c + '/' + sc] || null, '/img/' + img, clip ? '/media/' + clip : '', o, feat, feat, i++, now()));
   for (const [t, c, sc, img, feat] of SEED_PORTFOLIO.thumb) stmts.push(env.DB.prepare('INSERT INTO portfolio (kind, title, category_id, subcategory_id, image, orient, featured, home, sort, created) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)')
-    .bind('thumb', t, catId['portfolio_thumb/' + c], catId['portfolio_thumb/' + c + '/' + sc] || null, '/assets/img/' + img, 'h', feat, 0, i++, now()));
+    .bind('thumb', t, catId['portfolio_thumb/' + c], catId['portfolio_thumb/' + c + '/' + sc] || null, '/img/' + img, 'h', feat, 0, i++, now()));
   i = 0;
   for (const p of SEED_PRODUCTS) stmts.push(env.DB.prepare('INSERT INTO products (slug, title, short, description, price, mrp, category_id, image, delivery, size_text, badge, visible, sort, created, updated) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,1,?12,?13,?13)')
-    .bind(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, ''), p.title, p.short, p.short + '.\n\nThis is a sample product. Edit or delete it from the admin panel.', p.price, p.mrp || 0, catId[p.cat[0] + '/' + p.cat[1]], '/assets/img/' + p.image, 'file', p.size_text, p.badge, i++, now()));
+    .bind(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, ''), p.title, p.short, p.short + '.\n\nThis is a sample product. Edit or delete it from the admin panel.', p.price, p.mrp || 0, catId[p.cat[0] + '/' + p.cat[1]], '/img/' + p.image, 'file', p.size_text, p.badge, i++, now()));
   for (const r of SEED_REVIEWS) stmts.push(env.DB.prepare("INSERT INTO reviews (name, role, rating, text, status, featured, source, created) VALUES (?1,?2,?3,?4,'visible',1,'admin',?5)").bind(r.name, r.role, r.rating, r.text, now()));
   await env.DB.batch(stmts);
   return { seeded: true };
@@ -66,10 +66,10 @@ export default {
       if (p === '/api/health') return J({ ok: true, at: now() });
       const s = await sessionOf(req, env);
       if (p.startsWith('/api/admin/')) { const r = await handleAdmin(req, env, ctx, url, s); return r || err('Not found', 404); }
-      if (p.startsWith('/api/') || p.startsWith('/media/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
+      if (p.startsWith('/api/') || p.startsWith('/u/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
       if (p.startsWith('/auth/google/') || p === '/admin/mail/connect' || p === '/admin/mail/callback') { const r = await handleGoogle(req, env, url, s, { newSession, findOrCreateUser, cookie }); if (r) return r; }
       if (p === '/admin' || p.startsWith('/admin/')) {
-        const res = await env.ASSETS.fetch(new Request(url.origin + '/admin.html', req));
+        const res = await env.ASSETS.fetch(new Request(url.origin + '/admin', { headers: req.headers }));
         return withSec(res, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' });
       }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });

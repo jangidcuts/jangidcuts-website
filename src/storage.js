@@ -21,7 +21,7 @@ export async function putFile(env, { body, type, name, folder = 'media', size = 
     await env.MEDIA_KV.put(key, buf, { metadata: { type, size } });
   }
   await env.DB.prepare('INSERT INTO media (key, name, type, size, store, folder, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)').bind(key, clean(name, 200), type, size, info.backend, folder, now()).run();
-  return { key, url: '/media/' + key, size, type, store: info.backend };
+  return { key, url: '/u/' + key, size, type, store: info.backend };
 }
 
 export async function deleteFile(env, key) {

@@ -3,7 +3,7 @@
 export const DEFAULTS = {
   brand: { name: 'Jangid Cuts', bigword: 'JANGID CUTS', loader_role: 'Video Editor & Graphic Designer' },
   seo: { title: 'Jangid Cuts | Prashant Jangid · Video Editor & Graphic Designer', description: 'Prashant Jangid (Jangid Cuts), video editor and graphic designer from Jaipur. Reels, YouTube, wedding films, ads, colour grading and thumbnails.' },
-  hero: { hello: 'Hello, I am', name: 'Prashant Jangid', role: 'Video Editor & Graphic Designer', cta: 'Hire Me', photo: '/assets/img/hero.webp', photo_alt: 'Prashant Jangid, video editor and graphic designer', bw: true, zoom: 100, shift_y: 0 },
+  hero: { hello: 'Hello, I am', name: 'Prashant Jangid', role: 'Video Editor & Graphic Designer', cta: 'Hire Me', photo: '/img/hero.webp', photo_alt: 'Prashant Jangid, video editor and graphic designer', bw: true, zoom: 100, shift_y: 0 },
   stats: [
     { icon: 'users', num: 50, suffix: '+', label: 'Happy Clients' },
     { icon: 'clock', num: 5, suffix: '+', label: 'Years Experience' },
@@ -17,14 +17,14 @@ export const DEFAULTS = {
     show_stats: true, show_work: true, show_services: true, show_reviews: true
   },
   services: [
-    { title: 'Colour Grading', desc: 'Cinematic looks from Log footage. Skin tones that pop, moods that match your story.', image: '/assets/img/f8_0.jpg', tag: 'Service' },
-    { title: 'Reels & Shorts', desc: 'Scroll-stopping vertical edits with beat-sync, captions, transitions and SFX.', image: '/assets/img/f0_1.jpg', tag: 'Service' },
-    { title: 'YouTube Videos', desc: 'Long-form edits with pacing, B-roll, music and retention-focused cuts.', image: '/assets/img/f2_0.jpg', tag: 'Service' },
-    { title: 'Wedding Films', desc: 'Highlight films and teasers that feel like a movie, graded to perfection.', image: '/assets/img/f8_1.jpg', tag: 'Service' },
-    { title: 'Ads & Promos', desc: 'Product and brand promos with motion graphics that sell.', image: '/assets/img/f3_0.jpg', tag: 'Service' },
-    { title: 'Thumbnails & Graphics', desc: 'Click-worthy YouTube thumbnails, posters and social graphics.', image: '/assets/img/t1.jpg', tag: 'Service' },
-    { title: 'Motion Graphics', desc: 'Titles, logo animation, lower thirds and animated text.', image: '/assets/img/f3_1.jpg', tag: 'Service' },
-    { title: 'Podcast Editing', desc: 'Multi-cam podcast cuts and short clips for social.', image: '/assets/img/f4_1.jpg', tag: 'Service' }
+    { title: 'Colour Grading', desc: 'Cinematic looks from Log footage. Skin tones that pop, moods that match your story.', image: '/img/f8_0.jpg', tag: 'Service' },
+    { title: 'Reels & Shorts', desc: 'Scroll-stopping vertical edits with beat-sync, captions, transitions and SFX.', image: '/img/f0_1.jpg', tag: 'Service' },
+    { title: 'YouTube Videos', desc: 'Long-form edits with pacing, B-roll, music and retention-focused cuts.', image: '/img/f2_0.jpg', tag: 'Service' },
+    { title: 'Wedding Films', desc: 'Highlight films and teasers that feel like a movie, graded to perfection.', image: '/img/f8_1.jpg', tag: 'Service' },
+    { title: 'Ads & Promos', desc: 'Product and brand promos with motion graphics that sell.', image: '/img/f3_0.jpg', tag: 'Service' },
+    { title: 'Thumbnails & Graphics', desc: 'Click-worthy YouTube thumbnails, posters and social graphics.', image: '/img/t1.jpg', tag: 'Service' },
+    { title: 'Motion Graphics', desc: 'Titles, logo animation, lower thirds and animated text.', image: '/img/f3_1.jpg', tag: 'Service' },
+    { title: 'Podcast Editing', desc: 'Multi-cam podcast cuts and short clips for social.', image: '/img/f4_1.jpg', tag: 'Service' }
   ],
   faq: [
     { q: 'How do I send my raw footage?', a: 'Share a Google Drive (or any cloud) link in the Hire Me form. Large files are totally fine.' },
