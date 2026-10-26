@@ -91,3 +91,13 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .aibox{border-color:rgba(43,245,192,.45)!important;background:linear-gradient(135deg,rgba(43,245,192,.07),transparent)}
 .tkth{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);margin-top:8px}
 .tkth .row{justify-content:space-between}
+
+/* back buttons + same-tab site links + search (Oct 26, 9:40 PM) */
+.back{display:inline-flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:999px;background:color-mix(in srgb,var(--panel) 80%,transparent);border:1px solid var(--line);font-weight:700;font-size:14px;color:var(--text);transition:border-color .2s,transform .2s;text-decoration:none;cursor:pointer}
+.back:hover{border-color:rgba(43,245,192,.55);transform:translateX(-2px)}
+.back svg{width:18px;height:18px;color:var(--mint)}
+.main>.back-row{margin-bottom:16px}.dlg .dlg-back{margin-bottom:14px}
+.srch{position:relative;display:block;width:100%;max-width:340px}
+.srch svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--mint);pointer-events:none}
+.srch .in{padding-left:40px}
+.srch .in::placeholder{color:var(--faint)}

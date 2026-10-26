@@ -13,10 +13,18 @@ var money=function(n){return '₹'+Number(n||0).toLocaleString('en-IN')};
 var ST={me:null,content:null,cats:null,ov:null};
 
 /* ---------- drawer dialog ---------- */
-function openDlg(title,html,onReady){var d=$('#dlg');d.innerHTML='<div class="dh"><b>'+esc(title)+'</b><button class="ib" data-x aria-label="Close">'+I('x')+'</button></div><div class="db">'+html+'</div>';
- d.classList.add('on');d.setAttribute('aria-hidden','false');$('#ov').classList.add('on');$('[data-x]',d).onclick=closeDlg;onReady&&onReady($('.db',d))}
-function closeDlg(){$('#dlg').classList.remove('on');$('#dlg').setAttribute('aria-hidden','true');$('#ov').classList.remove('on')}
-$('#ov').onclick=closeDlg;D.addEventListener('keydown',function(e){if(e.key==='Escape')closeDlg()});
+function backLbl(){var on=$('#view > .tabs button.on'),h=$('#view .top h1');return (on&&on.textContent.trim())||(h&&h.textContent.trim())||'list'}
+function backBtn(label,href,attr){return '<a class="back" href="'+(href||'#')+'"'+(attr||'')+'>'+I('left')+'<span>Back to '+esc(label)+'</span></a>'}
+var dlgPushed=false,dlgBackT;
+function openDlg(title,html,onReady){var d=$('#dlg');d.innerHTML='<div class="dh"><b>'+esc(title)+'</b><button class="ib" data-x aria-label="Close">'+I('x')+'</button></div><div class="db"><div class="back-row dlg-back">'+backBtn(backLbl(),'#',' data-back')+'</div>'+html+'</div>';
+ d.classList.add('on');d.setAttribute('aria-hidden','false');$('#ov').classList.add('on');$('[data-x]',d).onclick=function(){closeDlg()};$('[data-back]',d).onclick=function(e){e.preventDefault();closeDlg()};
+ clearTimeout(dlgBackT);if(!dlgPushed){try{history.pushState({jcDlg:1},'');dlgPushed=true}catch(e){}}
+ onReady&&onReady($('.db',d))}
+function closeDlg(fromNav){$('#dlg').classList.remove('on');$('#dlg').setAttribute('aria-hidden','true');$('#ov').classList.remove('on');
+ if(fromNav===true){dlgPushed=false;return}
+ clearTimeout(dlgBackT);dlgBackT=setTimeout(function(){if(dlgPushed&&!$('#dlg').classList.contains('on')){dlgPushed=false;history.back()}},0)}
+window.addEventListener('popstate',function(){if($('#dlg').classList.contains('on'))closeDlg(true);else dlgPushed=false});
+$('#ov').onclick=function(){closeDlg()};D.addEventListener('keydown',function(e){if(e.key==='Escape')closeDlg()});
 
 /* ---------- image compression in the browser ---------- */
 function compressImage(file,maxW,q){return new Promise(function(res){if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size<120000&&file.type==='image/webp'){res(file);return}
@@ -83,15 +91,17 @@ var SECTIONS=[
  ['_h','People & mail'],['users','Users','users'],['mail','Emails','mail'],['media','Media library','download'],
  ['_h','System'],['settings','Settings & security','gear']];
 function layout(){var root=$('#root');
- root.innerHTML='<div class="mobnav"><button class="ib" id="mb" aria-label="Menu">'+I('menu')+'</button><b class="grad">JANGID CUTS</b><a class="ib" href="/" target="_blank" aria-label="Open site">'+I('globe')+'</a></div><div class="app"><nav class="side" id="side"><div class="logo grad">JANGID CUTS</div><div class="sub">Admin panel</div><div class="nav">'+
+ root.innerHTML='<div class="mobnav"><button class="ib" id="mb" aria-label="Menu">'+I('menu')+'</button><b class="grad">JANGID CUTS</b><a class="ib" href="/" aria-label="Back to site" title="Back to site">'+I('globe')+'</a></div><div class="app"><nav class="side" id="side"><div class="logo grad">JANGID CUTS</div><div class="sub">Admin panel</div><div class="nav">'+
  SECTIONS.map(function(s){return s[0]==='_h'?'<h5>'+s[1]+'</h5>':'<a href="#'+s[0]+'" data-s="'+s[0]+'">'+I(s[2])+'<span>'+s[1]+'</span>'+(s[0]==='desk'?'<i class="cnt hidden" id="deskCnt"></i>':'')+'</a>'}).join('')+
- '<h5>Account</h5><a href="/" target="_blank">'+I('globe')+'<span>View website</span></a><a href="#" id="logout">'+I('logout')+'<span>Sign out</span></a></div></nav><main class="main" id="view"></main></div>';
+ '<h5>Account</h5><a href="/">'+I('globe')+'<span>Visit site</span></a><a href="#" id="logout">'+I('logout')+'<span>Sign out</span></a></div></nav><main class="main"><div class="back-row" id="bkr"></div><div id="view"></div></main></div>';
  $('#mb').onclick=function(){$('#side').classList.toggle('open')};
  $('#logout').onclick=function(e){e.preventDefault();req('/api/auth/logout',{body:{}}).then(function(){location.reload()})};
  window.addEventListener('hashchange',route);route()}
 function setDeskCount(n){var c=$('#deskCnt');if(!c)return;c.textContent=n;c.classList.toggle('hidden',!n);c.style.display=n?'':'none'}
 function route(){var h=(location.hash||'#dashboard').slice(1),name=h.split('?')[0]||'dashboard',q=new URLSearchParams(h.split('?')[1]||'');
  $$('.nav a[data-s]').forEach(function(a){a.classList.toggle('on',a.dataset.s===name)});$('#side').classList.remove('open');
+ if($('#dlg').classList.contains('on'))closeDlg(true);
+ $('#bkr').innerHTML=name==='dashboard'||!VIEWS[name]?backBtn('site','/'):backBtn('Admin','#dashboard');
  var v=$('#view');v.innerHTML='<p class="muted">Loading…</p>';window.scrollTo(0,0);
  (VIEWS[name]||VIEWS.dashboard)(v,q)}
 function top(title,actions){return '<div class="top"><h1 class="grad">'+esc(title)+'</h1><div class="row">'+(actions||'')+'</div></div>'}
@@ -105,7 +115,7 @@ VIEWS.dashboard=function(v){req('/api/admin/overview').then(function(o){ST.ov=o;
  var warn='';if(!o.mail.google)warn+='<div class="note">Site emails are being connected (Google sign-in + Gmail). Until then OTP / thank-you mails wait in the queue.</div>';
  else if(!o.mail.main)warn+='<div class="note">Main Gmail (jangidcuts@gmail.com) is not connected — OTP and order emails cannot be sent. <a href="#mail">Connect it</a>.</div>';
  if(o.storage.backend==='kv')warn+='<div class="note">Cloud file storage (R2) activation is pending. Uploads up to 25 MB work now; big packs use Google Drive / links.</div>';
- v.innerHTML=top('Dashboard','<a class="btn g s" href="/" target="_blank">'+I('globe')+' View site</a>')+warn+
+ v.innerHTML=top('Dashboard','<a class="btn g s" href="/">'+I('globe')+' Visit site</a>')+warn+
  '<div class="kpis"><div class="kpi"><b>'+money(o.revenue.total)+'</b><span>Total sales · '+o.revenue.n+' orders</span></div><div class="kpi"><b>'+money(o.revenue.total30)+'</b><span>Last 30 days</span></div><div class="kpi"><b>'+money(o.revenue.today)+'</b><span>Today</span></div>'+
  '<div class="kpi"><b>'+sum(o.pv)+'</b><span>Page views · 30 days</span></div><div class="kpi"><b>'+sum(o.uv)+'</b><span>Visitors · 30 days</span></div><div class="kpi"><b>'+(o.users.n||0)+'</b><span>Registered users (+'+(o.users.new7||0)+' new this week)</span></div><div class="kpi"><b>'+(o.users.today||0)+' / '+(o.users.active7||0)+'</b><span>Signed in today / last 7 days</span></div>'+
  '<div class="kpi"><b>'+o.pendingTickets+'</b><span>Pending tickets</span></div><div class="kpi"><b>'+o.newHires+'</b><span>New hire requests</span></div><div class="kpi"><b>'+o.downloads+'</b><span>Downloads</span></div><div class="kpi"><b>'+(o.reviews.avg||'–')+'★</b><span>'+o.reviews.count+' reviews</span></div></div>'+
@@ -121,15 +131,15 @@ VIEWS.desk=function(v,q){var tab=q.get('t')||'hire';
  v.innerHTML=top('Client Desk')+'<div class="tabs"><button data-t="hire">Hire requests</button><button data-t="tickets">Support tickets</button></div><div id="dk"></div>';
  $$('.tabs button',v).forEach(function(b){b.classList.toggle('on',b.dataset.t===tab);b.onclick=function(){location.hash='desk?t='+b.dataset.t}});
  var box=$('#dk');
- if(tab==='hire')req('/api/admin/hire').then(function(r){var items=r.items;var f='all';
+ if(tab==='hire')req('/api/admin/hire').then(function(r){var items=r.items;var f='all',kq={v:''};
   function draw(){var list=items.filter(function(h){return f==='all'||h.status===f});
-   box.innerHTML='<div class="row mb"><input class="in" id="refq" placeholder="Enter JC-HIRE no." style="max-width:260px" autocomplete="off"></div>'+'<div class="row mb">'+['all','new','approved','done','rejected'].map(function(s){return '<button class="btn '+(s===f?'p':'g')+' s" data-f="'+s+'">'+s+' ('+(s==='all'?items.length:items.filter(function(h){return h.status===s}).length)+')</button>'}).join('')+'</div>'+
-   (list.length?'<div class="card tw"><table class="tbl"><tr><th>#</th><th>Client</th><th>Work</th><th>Budget</th><th>Status</th><th>When</th></tr>'+list.map(function(h){return '<tr class="click" data-id="'+h.id+'"><td>'+esc(h.number)+'</td><td><b>'+esc(h.name)+'</b><div class="faint small">'+esc(h.email)+'</div></td><td class="small">'+esc((h.data.categories||[]).join(', ')+(h.data.category_other?' · '+h.data.category_other:''))+'</td><td class="small">'+esc(h.data.budget||'')+'</td><td>'+pill(h.status)+'</td><td class="small">'+fmtD(h.created)+'</td></tr>'}).join('')+'</table></div>':'<div class="card muted">No hire requests here yet. When someone fills the Hire Me form it shows up here and you get an email.</div>');
+   box.innerHTML='<div class="row mb"><label class="srch">'+I('search')+'<input class="in" id="refq" type="search" placeholder="Search by JC no., name or email" aria-label="Search by JC no., name or email" autocomplete="off"></label></div>'+'<div class="row mb">'+['all','new','approved','done','rejected'].map(function(s){return '<button class="btn '+(s===f?'p':'g')+' s" data-f="'+s+'">'+s+' ('+(s==='all'?items.length:items.filter(function(h){return h.status===s}).length)+')</button>'}).join('')+'</div>'+
+   (list.length?'<div class="card tw"><table class="tbl"><tr><th>#</th><th>Client</th><th>Work</th><th>Budget</th><th>Status</th><th>When</th></tr>'+list.map(function(h){return '<tr class="click" data-id="'+h.id+'" data-q="'+esc(sq(h.number+' '+h.name+' '+h.email))+'"><td>'+esc(h.number)+'</td><td><b>'+esc(h.name)+'</b><div class="faint small">'+esc(h.email)+'</div></td><td class="small">'+esc((h.data.categories||[]).join(', ')+(h.data.category_other?' · '+h.data.category_other:''))+'</td><td class="small">'+esc(h.data.budget||'')+'</td><td>'+pill(h.status)+'</td><td class="small">'+fmtD(h.created)+'</td></tr>'}).join('')+'</table></div>':'<div class="card muted">No hire requests here yet. When someone fills the Hire Me form it shows up here and you get an email.</div>');
    $$('[data-f]',box).forEach(function(b){b.onclick=function(){f=b.dataset.f;draw()}});
-   refFilter(box);$$('tr[data-id]',box).forEach(function(tr){tr.onclick=function(){openHire(items.find(function(h){return h.id==tr.dataset.id}),function(){VIEWS.desk(v,q)})}})}
+   refFilter(box,kq);$$('tr[data-id]',box).forEach(function(tr){tr.onclick=function(){openHire(items.find(function(h){return h.id==tr.dataset.id}),function(){VIEWS.desk(v,q)})}})}
   draw()});
  else req('/api/admin/tickets').then(function(r){var items=r.items;
-  box.innerHTML='<div class="row mb"><input class="in" id="refq" placeholder="Enter JC-TKT no." style="max-width:260px" autocomplete="off"></div>'+(items.length?'<div class="card tw"><table class="tbl"><tr><th>Ticket</th><th>From</th><th>Problem</th><th>Status</th><th>When</th></tr>'+items.map(function(t){return '<tr class="click" data-id="'+t.id+'"><td><b>'+esc(t.number)+'</b></td><td class="small">'+esc(t.name)+'<div class="faint">'+esc(t.email)+'</div></td><td class="small">'+esc(t.message).slice(0,120)+'</td><td>'+pill(t.status)+'</td><td class="small">'+fmtD(t.created)+'</td></tr>'}).join('')+'</table></div>':'<div class="card muted">No tickets. Tickets are private — only you see them here.</div>');
+  box.innerHTML='<div class="row mb"><label class="srch">'+I('search')+'<input class="in" id="refq" type="search" placeholder="Search by JC no., name or email" aria-label="Search by JC no., name or email" autocomplete="off"></label></div>'+(items.length?'<div class="card tw"><table class="tbl"><tr><th>Ticket</th><th>From</th><th>Problem</th><th>Status</th><th>When</th></tr>'+items.map(function(t){return '<tr class="click" data-id="'+t.id+'" data-q="'+esc(sq(t.number+' '+t.name+' '+t.email))+'"><td><b>'+esc(t.number)+'</b></td><td class="small">'+esc(t.name)+'<div class="faint">'+esc(t.email)+'</div></td><td class="small">'+esc(t.message).slice(0,120)+'</td><td>'+pill(t.status)+'</td><td class="small">'+fmtD(t.created)+'</td></tr>'}).join('')+'</table></div>':'<div class="card muted">No tickets. Tickets are private — only you see them here.</div>');
   refFilter(box);$$('tr[data-id]',box).forEach(function(tr){tr.onclick=function(){openTicket(items.find(function(t){return t.id==tr.dataset.id}),function(){VIEWS.desk(v,q)})}})})};
 function openHire(h,refresh){var d=h.data,L=function(k,l){return d[k]&&(Array.isArray(d[k])?d[k].length:String(d[k]).trim())?'<dt>'+l+'</dt><dd>'+esc(Array.isArray(d[k])?d[k].join(', '):d[k])+'</dd>':''};
  openDlg('Hire request '+h.number,'<div class="row mb">'+pill(h.status)+'<span class="faint small">'+fmtD(h.created)+'</span></div><dl class="kv"><dt>Name</dt><dd>'+esc(h.name)+'</dd><dt>Email</dt><dd><a href="mailto:'+esc(h.email)+'">'+esc(h.email)+'</a></dd>'+L('whatsapp','WhatsApp')+L('country','Country / TZ')+L('agency','Agency?')+L('agency_name','Agency name')+L('agency_address','Agency address')+L('categories','Type of work')+L('category_other','Other')+L('perday','Videos per day')+L('format','Format')+L('plan','Work type')+L('budget','Budget')+L('deadline','Start / deadline')+L('raw_link','Raw footage')+L('reference','Reference')+'</dl>'+
@@ -337,9 +347,14 @@ VIEWS.coupons=function(v){req('/api/admin/coupons').then(function(r){var items=r
  $$('[data-del]',v).forEach(function(b){b.onclick=function(){if(confirm('Delete coupon?'))req('/api/admin/coupons/'+b.dataset.del,{method:'DELETE'}).then(function(){VIEWS.coupons(v)})}})})};
 
 /* ---------- orders ---------- */
-function refFilter(scope){var q=$('#refq',scope);if(!q)return;q.oninput=function(){var s=q.value.toUpperCase().replace(/\s+/g,'');$$('tr[data-id]',scope).forEach(function(tr){tr.style.display=!s||tr.textContent.toUpperCase().replace(/\s+/g,'').indexOf(s)>=0?'':'none'})}}
+function sq(x){return String(x==null?'':x).toLowerCase().replace(/[\s\-_#]+/g,'')}
+function refFilter(scope,keep){var q=$('#refq',scope);if(!q)return;var rows=$$('tr[data-id]',scope);
+ function run(){var s=sq(q.value),n=0;rows.forEach(function(tr){var ok=!s||(tr.getAttribute('data-q')||sq(tr.textContent)).indexOf(s)>=0;tr.style.display=ok?'':'none';if(ok)n++});
+  var m=$('.nomatch',scope);if(s&&!n&&rows.length){if(!m){m=D.createElement('div');m.className='card muted nomatch';var t=rows[0].closest('.card');t&&t.parentNode.insertBefore(m,t.nextSibling)}m.textContent='No request matches “'+q.value.trim()+'”. Clear the search to see all.'}else if(m)m.remove();
+  if(keep)keep.v=q.value}
+ if(keep&&keep.v){q.value=keep.v}q.oninput=run;run()}
 VIEWS.orders=function(v){req('/api/admin/orders').then(function(r){var items=r.items;
- v.innerHTML=top('Orders')+'<div class="row mb"><input class="in" id="refq" placeholder="Enter JC-ORD no." style="max-width:260px" autocomplete="off"></div>'+(items.length?'<div class="card tw"><table class="tbl"><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr>'+items.map(function(o){return '<tr class="click" data-id="'+o.id+'"><td><b>'+esc(o.number)+'</b><div class="faint small">'+esc(o.provider||'')+'</div></td><td class="small">'+esc(o.email)+'</td><td class="small">'+o.items.map(function(i){return esc(i.title)}).join('<br>')+'</td><td>'+money(o.total)+(o.discount?'<div class="faint small">−'+money(o.discount)+(o.coupon?' '+esc(o.coupon):'')+'</div>':'')+'</td><td>'+pill(o.status)+'</td><td class="small">'+fmtD(o.created)+'</td></tr>'}).join('')+'</table></div>':'<div class="card muted">No orders yet.</div>');
+ v.innerHTML=top('Orders')+'<div class="row mb"><label class="srch">'+I('search')+'<input class="in" id="refq" type="search" placeholder="Search by JC no. or email" aria-label="Search by JC no. or email" autocomplete="off"></label></div>'+(items.length?'<div class="card tw"><table class="tbl"><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr>'+items.map(function(o){return '<tr class="click" data-id="'+o.id+'" data-q="'+esc(sq(o.number+' '+o.email))+'"><td><b>'+esc(o.number)+'</b><div class="faint small">'+esc(o.provider||'')+'</div></td><td class="small">'+esc(o.email)+'</td><td class="small">'+o.items.map(function(i){return esc(i.title)}).join('<br>')+'</td><td>'+money(o.total)+(o.discount?'<div class="faint small">−'+money(o.discount)+(o.coupon?' '+esc(o.coupon):'')+'</div>':'')+'</td><td>'+pill(o.status)+'</td><td class="small">'+fmtD(o.created)+'</td></tr>'}).join('')+'</table></div>':'<div class="card muted">No orders yet.</div>');
  refFilter(v);$$('tr[data-id]',v).forEach(function(tr){tr.onclick=function(){var o=items.find(function(x){return x.id==tr.dataset.id});
   openDlg('Order '+o.number,'<div class="row mb">'+pill(o.status)+'</div><dl class="kv"><dt>Buyer</dt><dd>'+esc(o.email)+'</dd><dt>Items</dt><dd>'+o.items.map(function(i){return esc(i.title)+' — '+(i.price?money(i.price):'Free')}).join('<br>')+'</dd><dt>Subtotal</dt><dd>'+money(o.subtotal)+'</dd><dt>Discount</dt><dd>'+money(o.discount)+(o.coupon?' ('+esc(o.coupon)+')':'')+'</dd><dt>Total</dt><dd><b>'+money(o.total)+'</b></dd><dt>Payment</dt><dd>'+esc(o.provider||'')+' '+esc(o.payment_id||'')+'</dd></dl>'+
   '<h3 class="small muted">Tracking</h3>'+o.events.map(function(e){return '<div class="small">✓ '+esc(e.s)+' <span class="faint">'+fmtD(e.at)+'</span></div>'}).join('')+
