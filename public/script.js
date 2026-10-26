@@ -48,6 +48,15 @@ $$('[data-demo]').forEach(function(b){b.addEventListener('click',function(){toas
 /* ---------- loader + entrance ---------- */
 var loader=$('#loader');
 function ready(){D.body.classList.add('ready')}
+/* hero entrance v2: starts only when the page is really visible (loader done, no entry gate) and the photo is decoded, so nothing blinks */
+(function(){var hero=D.querySelector('section.hero');if(!hero)return;var H=D.documentElement,ph=hero.querySelector('.hero-photo'),dec=!ph,fired=false;
+ function go(){if(fired||!D.body.classList.contains('ready')||H.classList.contains('jc-gate')||!dec)return;fired=true;
+  requestAnimationFrame(function(){requestAnimationFrame(function(){D.body.classList.add('hero-go');
+   setTimeout(function(){hero.querySelectorAll('.hx').forEach(function(e){e.style.transition='none';e.classList.remove('hx')})},1800)})})}
+ window.JC_HERO_GO=go;
+ if(ph){var done=function(){dec=true;go()};if(ph.complete&&ph.naturalWidth){(ph.decode?ph.decode():Promise.resolve()).then(done,done)}else{ph.addEventListener('load',function(){(ph.decode?ph.decode():Promise.resolve()).then(done,done)},{once:true});ph.addEventListener('error',done,{once:true})}setTimeout(done,2500)}
+ new MutationObserver(go).observe(H,{attributes:true,attributeFilter:['class']});new MutationObserver(go).observe(D.body,{attributes:true,attributeFilter:['class']});
+ setTimeout(function(){dec=true;if(!H.classList.contains('jc-gate'))D.body.classList.add('ready');go()},5000)})();
 if(loader){var lv=anim(),seen=false;try{seen=sessionStorage.getItem('jc-seen')==='1';sessionStorage.setItem('jc-seen','1')}catch(e){}
  if(lv==='low'||seen){loader.classList.add('done');ready()}
  else{loader.classList.add('go');setTimeout(function(){loader.classList.add('done');ready()},lv==='high'?750:600)}
