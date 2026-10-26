@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jangidcuts",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/admin",
+      "/admin/*",
+      "/auth/*",
+      "/media/*",
+      "/robots.txt",
+      "/sitemap.xml"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jangidcuts-db",
+      "database_id": "5ed5d3ce-8bfc-48f7-af21-2c23309edbb0",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "MEDIA_KV",
+      "id": "1ec46e439b2a4b1d8d9ddb69ade7eed6"
+    },
+    {
+      "binding": "CACHE",
+      "id": "6f1f4d90009f4c9e9c7a3a3a582bd270"
+    }
+  ],
+  "vars": {
+    "ADMIN_EMAILS": "jangidcuts@gmail.com",
+    "MAIN_EMAIL": "jangidcuts@gmail.com",
+    "SUPPORT_EMAIL": "supportjangidcuts@gmail.com"
+  },
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
