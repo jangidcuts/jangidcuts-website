@@ -43,7 +43,10 @@
       "/faq",
       "/track",
       "/help.html",
-      "/track-order"
+      "/track-order",
+      "/resume",
+      "/resume/",
+      "/resume.pdf"
     ]
   },
   "d1_databases": [

@@ -769,3 +769,9 @@ html.anim-low .hero .hx,html.anim-low .hero .hero-photo,html.anim-low .hero .pho
 html:lang(hi) body *:not(.bigword):not(.bw-line):not(#loginTitle),html:lang(ja) body *:not(.bigword):not(.bw-line):not(#loginTitle){letter-spacing:normal!important}
 .trk-alt{margin:8px 0 0;color:var(--muted);font-size:14.5px}.trk-alt a{color:var(--mint);font-weight:700;text-decoration:none}
 .field .opt{color:var(--muted);font-weight:400;font-size:.9em}
+
+/* hero buttons row: Hire Me + View Resume (resume viewer) */
+.hero-btns{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+.hero-cv .icon{width:18px;height:18px;color:var(--mint)}
+.hero-cv{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@media (max-width:640px){.hero-btns{justify-content:center;gap:10px}.hero-btns .btn{padding:0 20px}}

@@ -154,6 +154,19 @@ function openHire(h,refresh){var d=h.data,L=function(k,l){return d[k]&&(Array.is
   $('#sd',b).onclick=function(){act('email',{subject:$('#rs',b).value,body:$('#rb',b).value}).then(function(r){toast(r.ok?'Email sent ✓':'Not sent: '+r.error,!r.ok)})};
   $('#sn',b).onclick=function(){act('note',{note:$('#nt',b).value}).then(function(){toast('Note saved')})};
   $('#del',b).onclick=function(){if(confirm('Delete this request permanently?'))act('delete').then(function(){closeDlg();refresh()})}})}
+function fmtSize(b){b=+b||0;return b>=1048576?(b/1048576).toFixed(2)+' MB':Math.max(1,Math.round(b/1024))+' KB'}
+function resumeCard(v,n){var box=$('#resSet',v);if(!box){if(n<60)setTimeout(function(){resumeCard(v,n+1)},100);return}
+ function draw(r){var has=r&&r.name;box.innerHTML='<div class="card" id="resCard"><h2>Resume PDF</h2><p class="muted small mb">Shown on the site with the “View Resume” buttons (home, next to Hire Me, and About → About the editor). Visitors can zoom and download it without signing in. PDF only, up to 10 MB. A new upload replaces the old file on the site straight away.</p>'+
+  (has?'<div class="okbox" id="resInfo"><b>'+esc(r.name)+'</b> · '+fmtSize(r.size)+' · updated '+fmtD(r.updated)+'</div>':'<div class="note" id="resInfo">No resume uploaded yet.</div>')+
+  '<div class="row" style="gap:10px;flex-wrap:wrap;margin-top:12px">'+(has?'<a class="btn g s" href="/resume" id="resView">View on site</a><a class="btn g s" href="'+esc(r.url)+'&dl=1" id="resDl">Download</a>':'')+
+  '<button class="btn p s" type="button" id="resUp">'+(has?'Replace PDF':'Upload PDF')+'</button><input type="file" id="resFile" accept="application/pdf,.pdf" hidden></div><p class="faint small" id="resMsg" style="margin-top:8px"></p></div>';
+  var inp=$('#resFile',box);$('#resUp',box).onclick=function(){inp.value='';inp.click()};
+  inp.onchange=function(){var f=inp.files&&inp.files[0];if(!f)return;var m=$('#resMsg',box);
+   if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){m.textContent='Only PDF files.';toast('Only PDF files can be uploaded',true);return}
+   if(f.size>10*1024*1024){m.textContent='This PDF is '+fmtSize(f.size)+'. Max 10 MB.';toast('PDF is bigger than 10 MB',true);return}
+   var b=$('#resUp',box);b.disabled=true;b.textContent='Uploading…';m.textContent='Uploading '+f.name+' ('+fmtSize(f.size)+')…';
+   req('/api/admin/resume?name='+encodeURIComponent(f.name),{method:'POST',body:f,type:'application/pdf'}).then(function(j){draw(j.resume);$('#resMsg',box).textContent='Uploaded ✓ The site now shows this PDF.';toast('Resume updated ✓')}).catch(function(){b.disabled=false;b.textContent='Replace PDF';m.textContent='Upload failed. Please try again.'})}}
+ api('/api/admin/resume').then(function(r){if(r.ok===false){box.innerHTML='';return}draw(r.resume)})}
 function aiSettingsCard(v,n){var box=$('#aiSet',v);if(!box){if(n<60)setTimeout(function(){aiSettingsCard(v,n+1)},100);return}
  api('/api/admin/ai').then(function(r){if(!r.ok)return;box.innerHTML='<div class="card"><h2>AI support instructions <button class="btn p s" id="aiSv">Save</button></h2><p class="muted small mb">The AI follows these every time it writes a ticket solution (your rules, tone, known answers). It also reads your FAQ. Replies always start by thanking the client and end with “Regards, Team Jangid Cuts”.'+(r.available?'':' <b style="color:#ff6b6b">AI is not connected on this site.</b>')+'</p><textarea class="in" id="aiIn" rows="9">'+esc(r.settings.instructions||'')+'</textarea></div>';
   $('#aiSv',box).onclick=function(){req('/api/admin/ai',{body:{instructions:$('#aiIn',box).value}}).then(function(){toast('AI instructions saved ✓')})}})}
@@ -394,8 +407,8 @@ VIEWS.media=function(v){req('/api/admin/media').then(function(r){var mb=function
  $$('[data-del]',v).forEach(function(b){b.onclick=function(){if(confirm('Delete this file? Anything using it will break.'))req('/api/admin/media',{method:'DELETE',body:{key:b.dataset.del}}).then(function(){VIEWS.media(v)})}})})};
 
 /* ---------- settings ---------- */
-VIEWS.settings=function(v){aiSettingsCard(v,0);withContent(function(c){var pay=c._payments,al=c._alerts;
- v.innerHTML=top('Settings & security')+'<div id="aiSet"></div>'+
+VIEWS.settings=function(v){aiSettingsCard(v,0);resumeCard(v,0);withContent(function(c){var pay=c._payments,al=c._alerts;
+ v.innerHTML=top('Settings & security')+'<div id="resSet"></div><div id="aiSet"></div>'+
  '<div class="card"><h2>Admin email 2-step code</h2><p class="muted small mb">When ON, after signing in (password or Google) the admin panel asks for a 6-digit code sent to '+esc(ST.me.email)+'. Only you can change this.</p><label class="row" style="gap:10px;align-items:center"><input type="checkbox" id="e2fa" '+((c._security||{}).admin_2fa!==false?'checked':'')+'> <b>Email 2-step code '+((c._security||{}).admin_2fa!==false?'ON':'OFF')+'</b></label></div>'+
  '<div class="card"><h2>Authenticator app (optional)</h2>'+(ST.me.totp_on?'<div class="okbox">2-step login is ON. You need your authenticator code on every new device.</div><div class="row"><input class="in" id="tdc" placeholder="Current 6-digit code" style="max-width:220px"><button class="btn r s" id="tdis">Turn off</button></div>':'<p class="muted small mb">Strongly recommended: after your password / Google login, the panel also asks for a 6-digit code from Google Authenticator on your phone.</p><button class="btn p s" id="tset">Turn on 2-step login</button><div id="tbox"></div>')+'</div>'+
  '<div class="card"><h2>Payments</h2>'+(pay.provider==='razorpay'&&pay.secret_set?'<div class="okbox">Razorpay is live.</div>':'<div class="note">Test mode — customers cannot pay yet; you can place test orders. Add your Razorpay keys to go live.</div>')+

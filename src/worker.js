@@ -1,4 +1,5 @@
-import { J, err, HttpError, now, rand, clean, readJson, cookie, sessionOf, newSession, findOrCreateUser, hashPw, pwProblem, safeEq, logEvent, SEC_HEADERS } from './lib.js';
+import { J, err, HttpError, now, rand, clean, readJson, cookie, sessionOf, newSession, findOrCreateUser, hashPw, pwProblem, safeEq, logEvent, SEC_HEADERS, getKey } from './lib.js';
+import { serveFile } from './storage.js';
 import { handlePublic } from './public.js';
 import { handleAdmin, handleGoogle } from './admin.js';
 import { retryOutbox, alertOwner, setOrigin } from './mail.js';
@@ -69,6 +70,24 @@ export default {
       }
       if (p === '/api/setup' && req.method === 'POST') return await setup(req, env, url);
       if (p === '/api/health') return J({ ok: true, at: now() });
+      /* ----- resume (public, no sign-in): meta, the PDF itself (?v= cache-bust, ?dl=1 download), viewer page ----- */
+      if (p === '/api/resume' && req.method === 'GET') {
+        const r = await getKey(env, '_resume');
+        const res = J(r && r.key ? { ok: true, resume: { name: r.name, size: r.size, updated: r.updated, url: '/resume.pdf?v=' + r.updated, download: '/resume.pdf?v=' + r.updated + '&dl=1' } } : { ok: true, resume: null });
+        res.headers.set('cache-control', 'no-store'); return res;
+      }
+      if (p === '/resume.pdf' && (req.method === 'GET' || req.method === 'HEAD')) {
+        const r = await getKey(env, '_resume');
+        if (!r || !r.key) return new Response('Resume not uploaded yet.', { status: 404, headers: { 'content-type': 'text/plain', 'cache-control': 'no-store' } });
+        const v = url.searchParams.get('v'), fresh = v && v === String(r.updated);
+        const dl = url.searchParams.get('dl') === '1' ? (String(r.name || 'Prashant_Jangid_Resume.pdf').replace(/[^\w.\- ]+/g, '_').replace(/\.pdf$/i, '') + '.pdf') : null;
+        const out = await serveFile(req, env, r.key, { download: dl, cache: !!fresh });
+        if (!fresh) out.headers.set('cache-control', 'no-cache, max-age=0');
+        if (!dl) out.headers.set('content-disposition', 'inline; filename="' + (String(r.name || 'resume.pdf').replace(/[^\w.\- ]+/g, '_')) + '"');
+        out.headers.set('content-type', 'application/pdf'); out.headers.set('x-robots-tag', 'noindex');
+        return out;
+      }
+      if (p === '/resume' || p === '/resume/') { const res = await env.ASSETS.fetch(new Request(url.origin + '/resume', { headers: req.headers })); return withSec(res); }
       const s = await sessionOf(req, env);
       if (p.startsWith('/api/admin/')) { const r = await handleAdmin(req, env, ctx, url, s); return r || err('Not found', 404); }
       if (p.startsWith('/api/') || p.startsWith('/u/') || p.startsWith('/v/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
@@ -87,7 +106,7 @@ export default {
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
-        const pages = ['/', '/portfolio', '/services', '/store', '/about', '/contact', '/social', '/faq', '/support', '/track', '/track-order', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
+        const pages = ['/', '/portfolio', '/services', '/store', '/about', '/resume', '/contact', '/social', '/faq', '/support', '/track', '/track-order', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
         const { results } = await env.DB.prepare('SELECT id FROM products WHERE visible = 1').all();
         const urls = pages.map(x => `<url><loc>${url.origin}${x}</loc></url>`).concat(results.map(r => `<url><loc>${url.origin}/store?p=${r.id}</loc></url>`));
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } });

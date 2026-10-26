@@ -164,8 +164,28 @@ export async function handleAdmin(req, env, ctx, url, s) {
     const f = await putFile(env, { body: req.body, type: req.headers.get('content-type'), name: url.searchParams.get('name') || 'file', folder, size });
     return J({ ok: true, ...f });
   }
+  /* ----- resume PDF (public at /resume + /resume.pdf; one current file, replaced on upload) ----- */
+  if (p === '/api/admin/resume' && m === 'GET') { const r = await getKey(env, '_resume'); return J({ ok: true, resume: r && r.key ? { name: r.name, size: r.size, updated: r.updated, url: '/resume.pdf?v=' + r.updated } : null }); }
+  if (p === '/api/admin/resume' && m === 'POST') {
+    const len = +(req.headers.get('content-length') || 0);
+    if (len > 10 * 1024 * 1024) fail('This PDF is bigger than 10 MB. Please upload a smaller file.', 413);
+    const buf = await req.arrayBuffer();
+    if (!buf.byteLength) fail('Empty file.');
+    if (buf.byteLength > 10 * 1024 * 1024) fail('This PDF is bigger than 10 MB. Please upload a smaller file.', 413);
+    const head = new TextDecoder().decode(new Uint8Array(buf, 0, Math.min(1024, buf.byteLength)));
+    if (head.indexOf('%PDF-') === -1) fail('Only PDF files can be uploaded as the resume.');
+    let name = clean(url.searchParams.get('name') || 'Prashant_Jangid_Resume.pdf', 120).replace(/[^\w.\- ]+/g, '_');
+    if (!/\.pdf$/i.test(name)) name += '.pdf';
+    const prev = await getKey(env, '_resume');
+    const f = await putFile(env, { body: buf, type: 'application/pdf', name, folder: 'resume', size: buf.byteLength });
+    const rec = { key: f.key, name, size: buf.byteLength, updated: now() };
+    await setKey(env, '_resume', rec);
+    if (prev && prev.key && prev.key !== f.key) { try { await deleteFile(env, prev.key); } catch { } }
+    await logEvent(env, 'admin', 'resume PDF replaced by ' + s.user.email + ' (' + name + ', ' + buf.byteLength + ' bytes)');
+    return J({ ok: true, resume: { name, size: rec.size, updated: rec.updated, url: '/resume.pdf?v=' + rec.updated } });
+  }
   if (p === '/api/admin/media' && m === 'GET') {
-    const { results } = await env.DB.prepare("SELECT * FROM media WHERE folder != 'avatars' ORDER BY created DESC LIMIT 500").all();
+    const { results } = await env.DB.prepare("SELECT * FROM media WHERE folder NOT IN ('avatars', 'resume') ORDER BY created DESC LIMIT 500").all();
     const tot = await env.DB.prepare('SELECT COALESCE(SUM(size),0) n FROM media').first();
     return J({ ok: true, items: results, used: tot.n, storage: storageInfo(env) });
   }

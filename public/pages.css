@@ -96,3 +96,5 @@
 .pf-cta{display:flex;flex-wrap:wrap;gap:10px}.pf-cta .btn{white-space:nowrap}
 @media (max-width:560px){.pf-cta{width:100%}.pf-cta .btn{flex:1 1 100%;justify-content:center}}
 .jp-sk .icon{width:24px;height:24px}
+
+.ab-acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}.ab-acts .icon{width:18px;height:18px}
