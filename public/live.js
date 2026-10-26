@@ -138,7 +138,7 @@ function ads(c){var a=c.ads||{};if(!a.enabled||!a.publisher_id)return;var slots=
  s.onload=function(){$$('ins.adsbygoogle').forEach(function(){try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){}})};D.head.appendChild(s)}
 function ungate(){try{window.JC_UNGATE&&JC_UNGATE()}catch(e){}}
 function endEntry(){ungate();try{sessionStorage.setItem('jc-welcomed','1')}catch(e){}try{window.JC_ENDENTRY&&JC_ENDENTRY()}catch(e){}}
-function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user){endEntry();return}try{if(sessionStorage.getItem('jc-welcomed')){endEntry();return}}catch(e){endEntry();return}
+function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user){endEntry();return}try{if(sessionStorage.getItem('jc-welcomed')&&!window.JC_GATED){endEntry();return}}catch(e){endEntry();return}
  var ldr=D.getElementById('loader'),wait=ldr&&!ldr.classList.contains('done')?650:0;
  setTimeout(function(){var m=$('#loginModal');if(!m)return;var b=$('.modal-body',m);b.dataset.stage='welcome';authify(m,'Jangid Cuts');
   b.innerHTML=authTop(noEmoji(w.title).replace(/!+$/,'')||'Welcome')+'<p class="lg-sub" data-rv>'+esc(w.sub)+'</p><div class="lg-rest" data-rv style="display:grid;gap:10px"><button class="btn btn-primary" id="wIn">'+esc(w.signin)+'</button><button class="btn btn-ghost" id="wSkip">'+esc(w.skip)+'</button></div>';
