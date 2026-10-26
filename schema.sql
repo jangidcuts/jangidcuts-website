@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_i
 CREATE INDEX IF NOT EXISTS reviews_prod ON reviews(product_id, status);
 CREATE TABLE IF NOT EXISTS hire (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT, user_id INTEGER, name TEXT, email TEXT, data TEXT, status TEXT DEFAULT 'new', note TEXT, created INTEGER, approved_at INTEGER, ip TEXT);
 CREATE INDEX IF NOT EXISTS hire_status ON hire(status, created);
-CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT, user_id INTEGER, email TEXT, name TEXT, topic TEXT, message TEXT, status TEXT DEFAULT 'pending', solution TEXT, created INTEGER, solved_at INTEGER, ip TEXT);
+CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT, user_id INTEGER, email TEXT, name TEXT, topic TEXT, message TEXT, status TEXT DEFAULT 'pending', solution TEXT, created INTEGER, solved_at INTEGER, ip TEXT, events TEXT, thread TEXT, read_at INTEGER);
 CREATE INDEX IF NOT EXISTS tickets_status ON tickets(status, created);
 CREATE TABLE IF NOT EXISTS outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, to_addr TEXT, subject TEXT, body TEXT, kind TEXT, ref TEXT, status TEXT DEFAULT 'pending', error TEXT, tries INTEGER DEFAULT 0, created INTEGER, sent_at INTEGER);
 CREATE INDEX IF NOT EXISTS outbox_status ON outbox(status, created);

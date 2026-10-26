@@ -1,3 +1,4 @@
+import { DEFAULTS } from './defaults.js';
 import { enc, now, b64url, b64std, clean, decrypt, encrypt, getKey, setKey, logEvent, isEmail } from './lib.js';
 
 // Mail accounts: "main" = jangidcuts@gmail.com (OTP, orders, downloads, hire), "support" = supportjangidcuts@gmail.com (tickets only).
@@ -94,7 +95,7 @@ export async function sendMail(env, { account = 'main', to, subject, body, kind 
 }
 export async function sendTemplate(env, name, to, vars, opts = {}) {
   const tpls = await getKey(env, 'mail_templates');
-  const t = tpls[name]; if (!t) return { ok: false, error: 'no template ' + name };
+  const t = (tpls && tpls[name]) || DEFAULTS.mail_templates[name]; if (!t) return { ok: false, error: 'no template ' + name };
   return sendMail(env, { account: opts.account || accountFor(name), to, subject: fill(t.subject, vars), body: fill(t.body, vars), kind: name, ref: opts.ref || '' });
 }
 export async function retryOutbox(env) {

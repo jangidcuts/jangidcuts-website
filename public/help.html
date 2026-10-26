@@ -12,7 +12,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta property="og:description" content="This page is part of the next build step.">
 <link rel="preload" href="/fonts/BebasNeue-400.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=15">
+<link rel="stylesheet" href="/styles.css?v=16">
 <script src="/prefs.js?v=3"></script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -61,24 +61,50 @@
 <nav class="subnav" aria-label="Main (mobile)"><div class="wrap"><a href="/">Home</a><a href="/portfolio">Portfolio</a><a href="/services">Services</a><a href="/store">Store</a></div></nav>
 <main id="main">
 <section class="section help-page" aria-labelledby="helpTitle"><div class="wrap">
- <div class="sec-head"><div><span class="eyebrow">Help</span><h1 class="h-lg grad-text" id="helpTitle">Questions &amp; Help</h1></div></div>
- <div class="help-grid">
+ <div class="hp-view" data-view="faq">
+  <div class="sec-head"><div><span class="eyebrow">Help</span><h1 class="h-lg grad-text" id="helpTitle">Questions &amp; Help</h1></div></div>
   <div class="faq" id="faq">
    <details open><summary>How do I send my raw footage?</summary><p>Share a Google Drive (or any cloud) link in the Hire Me form. Large files are totally fine.</p></details>
    <details><summary>How long does an edit take?</summary><p>Reels usually 24–48 hours, long YouTube videos 2–5 days, depending on length and complexity.</p></details>
-   <details><summary>How many revisions do I get?</summary><p>Revisions are included until you're happy with the edit, within the agreed scope.</p></details>
-   <details><summary>How do I pay?</summary><p>Secure payments by UPI, cards and net banking. You'll get a receipt by email.</p></details>
-   <details><summary>Where do I find my downloads?</summary><p>In your profile under My Orders &amp; Downloads, available for lifetime on your account email.</p></details>
   </div>
-  <div class="panel" id="issue">
-   <h3 class="grad-text">Facing any issue? Let us know</h3>
-   <p>We'll reply by email with a ticket number.</p>
-   <form>
-    <div class="field"><label for="isEmail">Email</label><input class="input" id="isEmail" type="email" placeholder="you@example.com" required></div>
-    <div class="field"><label for="isMsg">What's the problem?</label><textarea class="input" id="isMsg" placeholder="Describe the issue" required></textarea></div>
-    <label class="check"><input type="checkbox" required> <span>I have read the <a class="tc-link" href="/terms">Terms &amp; Conditions</a></span></label>
-    <button class="btn btn-primary" type="submit">Send</button>
+  <div class="panel faq-cta" id="faqCta">
+   <div><h3 class="grad-text">Facing any issue?</h3><p>Raise a ticket and our support team replies by email. You can track it any time with your ticket number.</p></div>
+   <div class="faq-cta-btns"><a class="btn btn-primary" href="/support">Facing any issue? <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="btn btn-ghost" href="/track">Track request</a></div>
+  </div>
+ </div>
+ <div class="hp-view" data-view="support" hidden>
+  <div class="sec-head"><div><span class="eyebrow">Support</span><h1 class="h-lg grad-text" id="supTitle">Support</h1><p class="lead" id="supIntro" style="margin-top:10px">Facing an issue with an order, a download or your account? Raise a ticket below. You get a ticket number right away and the solution by email.</p></div></div>
+  <div class="help-grid">
+   <div class="panel" id="issue">
+    <h3 class="grad-text">Facing any issue? Let us know</h3>
+    <p class="is-note">We'll reply by email with a ticket number.</p>
+    <form id="issueForm" novalidate>
+     <div class="field"><label for="isEmail">Email</label><input class="input" id="isEmail" type="email" placeholder="you@example.com" required autocomplete="email"></div>
+     <div class="field"><label for="isTopic">Category</label><select class="input" id="isTopic"><option value="Order / payment">Order / payment</option><option value="Download">Download</option><option value="Account / sign in">Account / sign in</option><option value="Hire Me / project">Hire Me / project</option><option value="Other">Other</option></select></div>
+     <div class="field"><label for="isMsg">What's the problem?</label><textarea class="input" id="isMsg" placeholder="Describe the issue" required></textarea></div>
+     <label class="check"><input type="checkbox" id="isTc" required> <span>I have read the <a class="tc-link" href="/terms">Terms &amp; Conditions</a></span></label>
+     <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+    <div class="is-done" id="isDone" hidden></div>
+   </div>
+   <div class="sup-side">
+    <div class="panel trk-card"><h3 class="grad-text">Track request</h3><p>Already raised a ticket? See its live status with your ticket number.</p><a class="btn btn-ghost" href="/track">Track request <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+    <div id="supMailBox"></div>
+    <a class="faq-link" href="/faq">Read the FAQ <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+   </div>
+  </div>
+ </div>
+ <div class="hp-view" data-view="track" hidden>
+  <div class="sec-head"><div><span class="eyebrow">Support</span><h1 class="h-lg grad-text">Track request</h1><p class="lead" style="margin-top:10px">Enter your ticket number and the email you used. For your privacy, both must match.</p></div></div>
+  <div class="trk-wrap">
+   <form class="panel trk-form" id="trkForm" novalidate>
+    <div class="field"><label for="trkNum">Ticket number</label><input class="input" id="trkNum" placeholder="JC-TKT-XXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" required></div>
+    <div class="field"><label for="trkEmail">Email used</label><input class="input" id="trkEmail" type="email" placeholder="you@example.com" autocomplete="email" required></div>
+    <p class="fld-err" id="trkErr" hidden></p>
+    <button class="btn btn-primary" type="submit">Track</button>
    </form>
+   <div id="trkOut"></div>
+   <div id="trkMine"></div>
   </div>
  </div>
 </div></section>
@@ -94,7 +120,7 @@
     <a href="https://whatsapp.com/channel/0029VbDPSvz11ulFkdMulk3e" aria-label="WhatsApp channel" rel="noopener" target="_blank"><svg class="icon" aria-hidden="true"><use href="#i-wa"/></svg></a>
    </div></div>
   <div><h4>Explore</h4><ul><li><a href="/">Home</a></li><li><a href="/portfolio">Portfolio</a></li><li><a href="/services">Services</a></li><li><a href="/store">Store</a></li><li><a href="/about">About</a></li></ul></div>
-  <div><h4>Help</h4><ul><li><a href="/help#faq">FAQ</a></li><li><a href="/support">Support</a></li><li><a href="/contact">Contact</a></li><li><a href="/social">Social</a></li></ul></div>
+  <div><h4>Help</h4><ul><li><a href="/faq">FAQ</a></li><li><a href="/support">Support</a></li><li><a href="/track">Track request</a></li><li><a href="/contact">Contact</a></li><li><a href="/social">Social</a></li></ul></div>
   <div><h4>Legal</h4><ul><li><a href="/privacy">Privacy &amp; Refund</a></li><li><a href="/terms">Terms &amp; Conditions</a></li><li><a href="/licence">Licence</a></li><li><a href="/shipping">Shipping / Delivery</a></li></ul></div>
  </div>
  <div class="copy"><span>© 2026 Jangid Cuts. All rights reserved.</span><span>Made in Jaipur, India</span></div>
@@ -113,9 +139,9 @@
    <a class="d-link" href="/tickets"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg></span><span class="d-tx">My tickets</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
   </div>
   <div class="d-group"><h4>Help</h4>
-   <a class="d-link" href="/help#faq"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg></span><span class="d-tx">FAQ</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
-   <a class="d-link" href="/help#issue"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg></span><span class="d-tx">Facing any issue? Let us know</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
-   <a class="d-link" href="/support"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span><span class="d-tx">Support</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
+   <a class="d-link" href="/faq"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg></span><span class="d-tx">FAQ</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
+   <a class="d-link" href="/support"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg></span><span class="d-tx">Support</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
+   <a class="d-link" href="/track"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg></span><span class="d-tx">Track request</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
    <a class="d-link" href="/contact"><span class="d-ic"><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg></span><span class="d-tx">Contact</span><svg class="icon d-chev" aria-hidden="true"><use href="#i-right"/></svg></a>
   </div>
   <div class="d-group"><h4>More</h4>
@@ -176,7 +202,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 
-<script src="/script.js?v=7"></script>
-<script src="/live.js?v=14"></script>
+<script src="/script.js?v=8"></script>
+<script src="/live.js?v=15"></script>
 </body>
 </html>

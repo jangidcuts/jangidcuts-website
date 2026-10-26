@@ -3,6 +3,7 @@ import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
 import { putFile, deleteFile, storageInfo, driveId, driveMeta } from './storage.js';
 import { fulfil, money } from './shop.js';
+import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
 const TABLES = {
   products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort'],
@@ -222,16 +223,40 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (b.action === 'delete') { await env.DB.prepare('DELETE FROM hire WHERE id = ?1').bind(h.id).run(); return J({ ok: true }); }
     fail('Unknown action');
   }
-  if (p === '/api/admin/tickets' && m === 'GET') { const { results } = await env.DB.prepare('SELECT * FROM tickets ORDER BY (status = \'pending\') DESC, id DESC LIMIT 1000').all(); return J({ ok: true, items: results }); }
+  if (p === '/api/admin/tickets' && m === 'GET') { const { results } = await env.DB.prepare("SELECT * FROM tickets ORDER BY (status IN ('pending','received','read','processing')) DESC, id DESC LIMIT 1000").all(); return J({ ok: true, items: results.map(t => ({ ...t, status: norm(t.status) })) }); }
+  if (p === '/api/admin/ai' && m === 'GET') { const c = await aiSettings(env); return J({ ok: true, settings: { instructions: c.instructions, enabled: c.enabled !== false }, available: !!env.AI }); }
+  if (p === '/api/admin/ai' && m === 'POST') { const b = await readJson(req, 20000); const cur = (await getKey(env, '_ai_support')) || {}; await setKey(env, '_ai_support', { ...cur, instructions: clean(b.instructions, 4000), enabled: b.enabled !== false }); return J({ ok: true }); }
+  if ((mm = p.match(/^\/api\/admin\/tickets\/(\d+)$/)) && m === 'GET') {
+    let t = await env.DB.prepare('SELECT * FROM tickets WHERE id = ?1').bind(+mm[1]).first(); if (!t) fail('Not found', 404);
+    let autoRead = null;
+    if (norm(t.status) === 'received') { autoRead = await setStatus(env, t, 'read', { origin: url.origin, by: 'auto' }); t = await env.DB.prepare('SELECT * FROM tickets WHERE id = ?1').bind(t.id).first(); }
+    return J({ ok: true, ticket: { ...t, status: norm(t.status), steps: timeline(t), thread: threadOf(t) }, autoRead });
+  }
   if ((mm = p.match(/^\/api\/admin\/tickets\/(\d+)$/)) && m === 'POST') {
     const b = await readJson(req, 30000); const t = await env.DB.prepare('SELECT * FROM tickets WHERE id = ?1').bind(+mm[1]).first(); if (!t) fail('Not found', 404);
+    if (b.action === 'status') {
+      const st = String(b.status || ''); if (!LABELS[st] || st === 'solved') fail(st === 'solved' ? 'Send a solution to mark it Solution delivered' : 'Unknown status');
+      const r = await setStatus(env, t, st, { origin: url.origin, mail: b.mail !== false });
+      return J({ ok: true, ...r });
+    }
     if (b.action === 'solve') {
       const solution = clean(b.solution, 10000); if (!solution) fail('Write the solution first');
-      const r = await sendTemplate(env, 'ticket_solved', t.email, { name: t.name, number: t.number, solution }, { account: 'support', ref: t.number });
-      await env.DB.prepare("UPDATE tickets SET status = 'solved', solution = ?1, solved_at = ?2 WHERE id = ?3").bind(solution, now(), t.id).run();
-      return J({ ok: true, mailed: r.ok, mailError: r.error || null });
+      try { await sendSolution(env, t, solution, { origin: url.origin, by: 'admin' }); return J({ ok: true, mailed: true }); }
+      catch (e) { return J({ ok: false, mailed: false, mailError: e.message, error: e.message }); }
     }
-    if (b.action === 'reopen') { await env.DB.prepare("UPDATE tickets SET status = 'pending' WHERE id = ?1").bind(t.id).run(); return J({ ok: true }); }
+    if (b.action === 'ai_draft') {
+      try { const d = await aiDraft(env, t); return J({ ok: true, text: d.text, model: d.model }); }
+      catch (e) { return J({ ok: false, error: e.message }); }
+    }
+    if (b.action === 'ai_send') {
+      let text = clean(b.text, 10000), model = 'edited';
+      try {
+        if (!text) { const d = await aiDraft(env, t); text = d.text; model = d.model; }
+        await sendSolution(env, t, text, { origin: url.origin, by: 'ai', model });
+        return J({ ok: true, mailed: true, text });
+      } catch (e) { return J({ ok: false, error: e.message }); }
+    }
+    if (b.action === 'reopen') { const r = await setStatus(env, t, 'processing', { origin: url.origin, mail: false }); await addThread(env, t, { by: 'admin', kind: 'reopened' }); return J({ ok: true, ...r }); }
     if (b.action === 'delete') { await env.DB.prepare('DELETE FROM tickets WHERE id = ?1').bind(t.id).run(); return J({ ok: true }); }
     fail('Unknown action');
   }

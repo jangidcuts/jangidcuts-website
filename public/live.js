@@ -61,18 +61,51 @@ function applyFooter(c){var f=$('.footer');if(!f)return;var p=$('.foot-grid > di
 
 function supMail(c){var h=c.help||{},se=h.support_email||'supportjangidcuts@gmail.com',be=h.business_email||'jangidcuts@gmail.com';
  return '<div class="sup-mail"><span class="sup-ic">'+ICON('mail')+'</span><div class="sup-tx"><small>Email support</small><a href="mailto:'+esc(se)+'">'+esc(se)+'</a><p>'+esc(h.support_note||'Only support-related emails here (orders, downloads, account, tickets).')+'</p><a class="sup-biz" href="mailto:'+esc(be)+'">For business →</a></div></div>'}
-function applyHelp(c){var fq=$('#faq');if(fq)fq.innerHTML=(c.faq||[]).map(function(x,i){return '<details'+(i===0?' open':'')+'><summary>'+esc(x.q)+'</summary><p>'+esc(x.a)+'</p></details>'}).join('');
- var t=$('#helpTitle');if(t)t.textContent=c.help.title;var it=$('#issue h3');if(it)it.textContent=c.help.issue_title;var inote=$('#issue p');if(inote)inote.textContent=c.help.issue_note;
- var f=$('#issue form');if(f&&!$('#issue .sup-mail'))f.insertAdjacentHTML('afterend',supMail(c));if(f){f.removeAttribute('data-demo-form');
-  f.addEventListener('submit',function(e){e.preventDefault();if(!f.checkValidity()){f.reportValidity();return}var b=f.querySelector('button');b.disabled=true;
-   api('/api/tickets',{email:$('#isEmail').value,message:$('#isMsg').value,tc:f.querySelector('input[type=checkbox]').checked,website:''}).then(function(r){b.disabled=false;
-    if(!r.ok){toast(r.error||'Could not send');return}toast(String(c.help.thanks||'Ticket {number} created').replace('{number}',r.number));f.reset()})})}}
-
+var TK_LABEL={received:'Received',read:'Read',processing:'Processing',solved:'Solution delivered',closed:'Closed'};
+function fdt(t){if(!t)return '';var d=new Date(t);try{return d.toLocaleDateString(JCL.locale||'en-IN',{day:'numeric',month:'short',year:'numeric'})+', '+d.toLocaleTimeString(JCL.locale||'en-IN',{hour:'numeric',minute:'2-digit'})}catch(e){return d.toLocaleString()}}
+function tkTimeline(t){return '<div class="tk-card"><div class="tk-head"><div><small>Ticket</small><b>'+esc(t.number)+'</b></div><span class="tk-pill tk-'+esc(t.status)+'">'+esc(TK_LABEL[t.status]||t.label||t.status)+'</span></div>'+
+ '<ol class="tk-steps">'+(t.steps||[]).map(function(s){return '<li class="'+(s.done?'done':'')+(s.current?' cur':'')+'"><span class="tk-dot">'+(s.done?ICON('check'):'')+'</span><div><b>'+esc(TK_LABEL[s.s]||s.label)+'</b><small>'+(s.at?esc(fdt(s.at)):(s.done?'':'Waiting'))+'</small></div></li>'}).join('')+'</ol>'+
+ '<div class="tk-meta"><span><small>Category</small>'+esc(t.topic||'General')+'</span><span><small>Raised</small>'+esc(fdt(t.created))+'</span></div>'+
+ (t.message?'<details class="tk-msg"><summary>Your message</summary><p>'+esc(t.message)+'</p></details>':'')+
+ (t.solution?'<div class="tk-sol"><b>Solution</b><p>'+esc(t.solution)+'</p></div>':'')+'</div>'}
+JCL.tkTimeline=tkTimeline;
+function helpView(){var p=location.pathname.replace(/\/$/,'');if(p==='/support')return 'support';if(p==='/track')return 'track';if(/^\/help(\.html)?$/.test(p)&&location.hash==='#issue')return 'support';return 'faq'}
+function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView();
+ if(view==='support'&&location.pathname.indexOf('/support')!==0){history.replaceState(null,'','/support')}
+ $$('.hp-view',page).forEach(function(v){v.hidden=v.getAttribute('data-view')!==view});
+ D.title=({faq:'FAQ',support:'Support',track:'Track request'})[view]+' | Jangid Cuts';
+ var h=c.help||{};
+ var fq=$('#faq');if(fq&&c.faq)fq.innerHTML=(c.faq||[]).map(function(x,i){return '<details'+(i===0?' open':'')+'><summary>'+esc(x.q)+'</summary><p>'+esc(x.a)+'</p></details>'}).join('');
+ var t=$('#helpTitle');if(t&&h.title)t.textContent=h.title;
+ var sp=(c.pages||{}).support;if(sp&&$('#supTitle')){$('#supTitle').textContent=sp.title||'Support';if(sp.body)$('#supIntro').textContent=sp.body}
+ var it=$('#issue h3');if(it&&h.issue_title)it.textContent=h.issue_title;var inote=$('#issue .is-note');if(inote&&h.issue_note)inote.textContent=h.issue_note;
+ var mb=$('#supMailBox');if(mb&&!mb.innerHTML)mb.innerHTML=supMail(c);
+ var f=$('#issueForm');if(f&&!f._b){f._b=1;if(JCL.user&&$('#isEmail'))$('#isEmail').value=JCL.user.email;
+  f.addEventListener('submit',function(e){e.preventDefault();var em=$('#isEmail'),ms=$('#isMsg'),tc=$('#isTc');$$('.fld-err',f).forEach(function(x){x.remove()});$$('.is-err',f).forEach(function(x){x.classList.remove('is-err')});
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())){fieldErr(em,'Please enter a valid email');return}
+   if(ms.value.trim().length<5){fieldErr(ms,'Please describe the problem');return}
+   if(!tc.checked){toast('Please accept the Terms & Conditions');return}
+   var b=f.querySelector('button[type=submit]');b.disabled=true;
+   api('/api/tickets',{email:em.value.trim(),topic:$('#isTopic').value,message:ms.value,tc:true,website:''}).then(function(r){b.disabled=false;
+    if(!r.ok){toast(r.error||'Could not send');return}
+    var dn=$('#isDone');f.hidden=true;dn.hidden=false;dn.innerHTML='<div class="ok-ic">'+ICON('check')+'</div><h3>Ticket created</h3><p>Your ticket number is</p><div class="tk-num">'+esc(r.number)+'</div><p class="small">A confirmation is on its way to <b>'+esc(em.value.trim())+'</b> from supportjangidcuts@gmail.com. Keep this number to track your request.</p><div class="row-btns"><a class="btn btn-primary" href="/track?n='+encodeURIComponent(r.number)+'&e='+encodeURIComponent(em.value.trim())+'">Track request</a><button class="btn btn-ghost" type="button" id="isAgain">Raise another ticket</button></div>';
+    $('#isAgain').onclick=function(){f.reset();if(JCL.user)em.value=JCL.user.email;dn.hidden=true;f.hidden=false};
+    try{dn.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}})})}
+ var tf=$('#trkForm');if(tf&&!tf._b){tf._b=1;var q=new URLSearchParams(location.search);if(q.get('n'))$('#trkNum').value=q.get('n');if(q.get('e'))$('#trkEmail').value=q.get('e');else if(JCL.user)$('#trkEmail').value=JCL.user.email;
+  var run=function(){var n=$('#trkNum').value.trim().toUpperCase(),em=$('#trkEmail').value.trim(),er=$('#trkErr');er.hidden=true;$('#trkNum').classList.remove('is-err');$('#trkEmail').classList.remove('is-err');
+   if(!/^JC-TKT-[A-Z0-9]{4,8}$/.test(n.replace(/\s+/g,''))){$('#trkNum').classList.add('is-err');er.textContent='Enter your ticket number, like JC-TKT-AB12CD';er.hidden=false;return}
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#trkEmail').classList.add('is-err');er.textContent='Enter the email you used for the ticket';er.hidden=false;return}
+   var b=tf.querySelector('button');b.disabled=true;
+   api('/api/tickets/track',{number:n,email:em}).then(function(r){b.disabled=false;if(!r.ok){er.textContent=r.error||'Could not find it';er.hidden=false;$('#trkOut').innerHTML='';return}
+    $('#trkOut').innerHTML=tkTimeline(r.ticket);try{history.replaceState(null,'','/track?n='+encodeURIComponent(n))}catch(e){}})};
+  tf.addEventListener('submit',function(e){e.preventDefault();run()});if(q.get('n')&&$('#trkEmail').value)run()}
+ var mine=$('#trkMine');if(mine&&JCL.me&&JCL.me.tickets&&JCL.me.tickets.length){mine.innerHTML='<h3 class="h-md grad-text" style="margin:28px 0 12px">Your tickets</h3>'+JCL.me.tickets.map(tkTimeline).join('')}
+}
 function applySoon(c,s){var t=$('#soonTitle');if(!t)return;var key=((location.pathname.replace(/^\/|\/$/g,'')!=='soon'&&location.pathname.replace(/^\/|\/$/g,'').indexOf('.html')<0&&location.pathname.replace(/^\/|\/$/g,''))||(location.hash||'').slice(1)).replace(/-/g,'_');var sec=t.closest('section'),lead=$('.lead',sec),eb=$('.eyebrow',sec);
  var pages=c.pages||{};eb.textContent='Jangid Cuts';
  function prose(html){lead.outerHTML='<div class="prose" style="text-align:left;max-width:72ch;margin:22px auto 26px;color:var(--muted);font-size:16px;line-height:1.7">'+html+'</div>'}
  if(key==='terms'){var tt=pages.terms;t.textContent=tt.title;prose(tt.sections.map(function(x){return '<h3 class="h-md grad-text" id="'+esc(x.id)+'" style="margin:26px 0 10px">'+esc(x.title)+'</h3>'+md(x.body)}).join(''));return}
- if(pages[key]){t.textContent=pages[key].title;prose(md(pages[key].body)+(key==='support'?'<p><a class="btn btn-primary" href="help.html#issue">'+esc(c.help.issue_title)+'</a></p>'+supMail(c):''));return}
+ if(pages[key]){t.textContent=pages[key].title;prose(md(pages[key].body));return}
  if(key==='contact'){var k=c.contact;t.textContent=k.title;var wa=String(k.whatsapp||'').replace(/\D/g,'');
   var cards=[[k.whatsapp,'wa','WhatsApp','https://wa.me/'+wa],[k.call,'phone','Call','tel:'+String(k.call).replace(/\s/g,'')],[k.instagram_dm,'ig','Instagram DM',k.instagram_dm],[k.email,'mail','Email','mailto:'+k.email],[k.telegram,'tg','Telegram',k.telegram]].filter(function(x){return x[0]});
   prose(md(k.intro)+'<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-top:18px">'+cards.map(function(x){return '<a class="panel" style="display:flex;gap:12px;align-items:center;padding:16px" href="'+esc(x[3])+'" target="_blank" rel="noopener">'+ICON(x[1])+'<span><b style="color:var(--text)">'+esc(x[2])+'</b><br><small>'+esc(x[1]==='wa'||x[1]==='phone'?x[0]:x[2]==='Email'?x[0]:'Open')+'</small></span></a>'}).join('')+'</div><p style="margin-top:14px"><small>'+esc(k.hours||'')+'</small></p>');return}
@@ -180,13 +213,13 @@ function avatar(){var u=JCL.user,av=$('#dpAv'),dp=$('#dProfile');var p=location.
 
 Promise.all([api('/api/site'),api('/api/me')]).then(function(r){var s=r[0],me=r[1];
  if(!s||!s.content){endEntry();var sc=D.createElement('script');sc.src='data.js';sc.onload=function(){window.JC_RUN()};D.body.appendChild(sc);return}
- JCL.site=s;JCL.c=s.content;JCL.user=me&&me.user;window.JC=buildJC(s);
+ JCL.site=s;JCL.c=s.content;JCL.user=me&&me.user;JCL.me=me&&me.user?me:null;window.JC=buildJC(s);
  try{applyHome(s.content,s);applyFooter(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
  window.JC_RUN();avatar();syncSettings();
  try{window.JC_AFTER&&window.JC_AFTER(s,me)}catch(e){console.error(e)}
  try{ads(s.content);welcome(s.content);if(new URLSearchParams(location.search).get('hire')==='1'){var hb=$('#hireBtn');hb&&setTimeout(function(){hb.click()},800)}}catch(e){console.error(e)}
  var err=new URLSearchParams(location.search).get('error');if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is being set up — use email for now'}[err]||'Sign-in problem: '+err)},2300);
- if(location.hash==='#issue'||location.hash==='#faq'){var el=$(location.hash);el&&setTimeout(function(){el.scrollIntoView()},2200)}
+ 
  if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});
  api('/api/t',{p:location.pathname+(location.pathname.indexOf('soon')>-1?location.hash:'')})});
 })();

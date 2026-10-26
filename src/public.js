@@ -1,6 +1,7 @@
 import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, newRef, limitOrFail, rateLimit,
   newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt } from './lib.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
+import { publicTicket, norm } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive } from './storage.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig } from './shop.js';
 
@@ -30,11 +31,11 @@ async function meData(env, s) {
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
-    env.DB.prepare('SELECT number, topic, message, status, created, solved_at FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all()
+    env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all()
   ]);
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
-    owned: owned.results, orders: orders.results.map(o => ({ ...o, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') })), tickets: tickets.results };
+    owned: owned.results, orders: orders.results.map(o => ({ ...o, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') })), tickets: tickets.results.map(publicTicket) };
 }
 
 /* ---------- OTP ---------- */
@@ -305,6 +306,16 @@ export async function handlePublic(req, env, ctx, url, s) {
     })());
     return J({ ok: true, number });
   }
+  if (p === '/api/tickets/track' && m === 'POST') {
+    const b = await readJson(req, 2000);
+    await limitOrFail(env, 'track:' + ip(req), 30, 3600e3);
+    const number = clean(b.number, 40).toUpperCase().replace(/\s+/g, ''), email = clean(b.email, 200).toLowerCase();
+    if (!/^JC-TKT-[A-Z0-9]{4,8}$/.test(number)) fail('Enter your ticket number, like JC-TKT-AB12CD');
+    if (!isEmail(email)) fail('Enter the email you used for the ticket');
+    const t = await env.DB.prepare('SELECT * FROM tickets WHERE number = ?1').bind(number).first();
+    if (!t || String(t.email || '').toLowerCase() !== email) fail('No ticket found with this number and email. Check both and try again.', 404);
+    return J({ ok: true, ticket: publicTicket(t) });
+  }
   if (p === '/api/tickets' && m === 'POST') {
     const b = await readJson(req, 20000); needTc(b);
     if (b.website) return J({ ok: true });
@@ -313,7 +324,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     await limitOrFail(env, 'ticket:' + ip(req), 6, 3600e3);
     const number = await newRef(env, 'TKT');
     const name = clean(b.name || s?.user.name || email.split('@')[0], 100);
-    await env.DB.prepare('INSERT INTO tickets (number, user_id, email, name, topic, message, status, created, ip) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)').bind(number, s?.user.id || null, email, name, clean(b.topic, 80) || 'General', message, 'pending', now(), ip(req)).run();
+    await env.DB.prepare('INSERT INTO tickets (number, user_id, email, name, topic, message, status, created, ip, events) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)').bind(number, s?.user.id || null, email, name, clean(b.topic, 80) || 'General', message, 'received', now(), ip(req), JSON.stringify([{ s: 'received', at: now() }])).run();
     ctx.waitUntil((async () => {
       await sendTemplate(env, 'ticket_received', email, { name, number, message }, { account: 'support', ref: number });
       await alertOwner(env, 'ticket', `New support ticket ${number} from ${email}\n\n${message}`);

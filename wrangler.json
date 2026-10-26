@@ -38,7 +38,11 @@
       "/watch/*",
       "/services",
       "/services/*",
-      "/v/*"
+      "/v/*",
+      "/help",
+      "/faq",
+      "/track",
+      "/help.html"
     ]
   },
   "d1_databases": [
@@ -71,5 +75,8 @@
   },
   "observability": {
     "enabled": true
+  },
+  "ai": {
+    "binding": "AI"
   }
 }
