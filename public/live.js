@@ -1,3 +1,8 @@
+/* Admin "Preview" opens the site in the same tab: show a "Back to Admin" pill for the rest of this tab session */
+(function(){try{var q=new URLSearchParams(location.search);if(q.get('from')==='admin'){var b=(q.get('back')||'dashboard').replace(/[^\w?=&.-]/g,'');sessionStorage.setItem('jc-admin-back','/admin#'+b);q.delete('from');q.delete('back');history.replaceState(history.state,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
+ var to=sessionStorage.getItem('jc-admin-back');if(!to)return;var mk=function(){if(document.getElementById('jcAdmBack'))return;var a=document.createElement('a');a.id='jcAdmBack';a.href=to;a.setAttribute('data-i18n-skip','');a.innerHTML='&larr; Back to Admin';
+  a.style.cssText='position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147483000;padding:10px 16px;border-radius:999px;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#021a14;font:700 14px/1 Inter,system-ui,sans-serif;text-decoration:none;box-shadow:0 6px 24px rgba(0,0,0,.35)';
+  a.onclick=function(){try{sessionStorage.removeItem('jc-admin-back')}catch(e){}};document.body.appendChild(a)};if(document.body)mk();else document.addEventListener('DOMContentLoaded',mk)}catch(e){}})();
 (function(){'use strict';
 var D=document,$=function(s,r){return (r||D).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||D).querySelectorAll(s))};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
