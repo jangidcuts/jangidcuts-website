@@ -33,7 +33,7 @@ $('#openSearch')&&$('#openSearch').addEventListener('click',function(){openLayer
 var ts=$('#themeSwitch');
 function syncTheme(){var dark=H.getAttribute('data-theme')!=='light';ts&&ts.setAttribute('aria-checked',dark?'true':'false');var m=$('meta[name=theme-color]');m&&m.setAttribute('content',dark?'#000101':'#EEF6F4')}
 ts&&ts.addEventListener('click',function(){var dark=H.getAttribute('data-theme')!=='light';H.setAttribute('data-theme',dark?'light':'dark');try{localStorage.setItem('jc-theme',dark?'light':'dark')}catch(e){}syncTheme()});
-syncTheme();
+syncTheme();window.JC_UI.syncTheme=syncTheme;
 function syncAnim(){var a=anim();$$('#animSeg button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.anim===a?'true':'false')})}
 $$('#animSeg button').forEach(function(b){b.addEventListener('click',function(){H.classList.remove('anim-high','anim-moderate','anim-low');H.classList.add('anim-'+b.dataset.anim);try{localStorage.setItem('jc-anim',b.dataset.anim)}catch(e){}syncAnim();toast('Animations: '+b.textContent)})});
 syncAnim();

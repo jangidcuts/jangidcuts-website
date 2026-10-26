@@ -93,11 +93,12 @@ function ads(c){var a=c.ads||{};if(!a.enabled||!a.publisher_id)return;var slots=
  if(!any)return;var s=D.createElement('script');s.async=true;s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(a.publisher_id);s.crossOrigin='anonymous';
  s.onload=function(){$$('ins.adsbygoogle').forEach(function(){try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){}})};D.head.appendChild(s)}
 function ungate(){try{window.JC_UNGATE&&JC_UNGATE()}catch(e){}}
-function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user){ungate();return}try{if(localStorage.getItem('jc-welcomed')){ungate();return}localStorage.setItem('jc-welcomed','1')}catch(e){ungate();return}
+function endEntry(){ungate();try{window.JC_ENDENTRY&&JC_ENDENTRY()}catch(e){}}
+function welcome(c){var w=c.welcome||{};if(!w.show||JCL.user){endEntry();return}try{if(localStorage.getItem('jc-welcomed')){endEntry();return}localStorage.setItem('jc-welcomed','1')}catch(e){endEntry();return}
  var ldr=D.getElementById('loader'),wait=ldr&&!ldr.classList.contains('done')?650:0;
  setTimeout(function(){var m=$('#loginModal');if(!m)return;var b=$('.modal-body',m);b.dataset.stage='welcome';authify(m,'Jangid Cuts');
   b.innerHTML=authTop(noEmoji(w.title).replace(/!+$/,'')||'Welcome')+'<p class="lg-sub" data-rv>'+esc(w.sub)+'</p><div class="lg-rest" data-rv style="display:grid;gap:10px"><button class="btn btn-primary" id="wIn">'+esc(w.signin)+'</button><button class="btn btn-ghost" id="wSkip">'+esc(w.skip)+'</button></div>';
-  $('#wIn',b).onclick=function(){JCL.openLogin?JCL.openLogin('signin',true):buildLogin(JCL.site)};$('#wSkip',b).onclick=function(){ungate();JC_UI.close();setTimeout(function(){buildLogin(JCL.site)},400)};JC_UI.open(m)},wait)}
+  $('#wIn',b).onclick=function(){JCL.openLogin?JCL.openLogin('signin',true):buildLogin(JCL.site)};$('#wSkip',b).onclick=function(){endEntry();JC_UI.close();setTimeout(function(){buildLogin(JCL.site)},400)};JC_UI.open(m)},wait)}
 
 /* ---------- auth screens (full-screen, own background, staggered reveal) ---------- */
 function noEmoji(t){return String(t||'').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,'').replace(/\s+([!.,])/g,'$1').trim()}
@@ -109,7 +110,7 @@ function authify(m,eyebrow,still){if(!m.classList.contains('auth')){m.classList.
    var bg=D.createElement('div');bg.className='auth-bg';bg.setAttribute('aria-hidden','true');var sc=D.createElement('div');sc.className='auth-scene';sc.setAttribute('aria-hidden','true');sc.innerHTML='<div class="as-panel"><svg class="as-svg"></svg></div>';
    var col=D.createElement('div');col.className='auth-col';col.appendChild(card);m.appendChild(bg);m.appendChild(sc);m.appendChild(col);
    var ld=function(){if(innerWidth<1024||sc._ld)return;sc._ld=1;var x=D.createElement('script');x.src='/auth-scene.js?v=4';x.onload=function(){try{JCAuthScene(sc,m)}catch(e){console.error(e)}};D.head.appendChild(x)};ld();addEventListener('resize',ld);
-   new MutationObserver(function(){if(!m.classList.contains('on'))ungate();else if(m.classList.contains('auth'))reveal($('.modal-body',m),false)}).observe(m,{attributes:true,attributeFilter:['class']})}}
+   var wasOn=false;new MutationObserver(function(){if(!m.classList.contains('on')){if(wasOn){wasOn=false;endEntry()}return}if(wasOn)return;wasOn=true;if(m.classList.contains('auth'))reveal($('.modal-body',m),false)}).observe(m,{attributes:true,attributeFilter:['class']})}}
  var eb=$('.modal-head .eyebrow',m);if(eb&&eyebrow)eb.textContent=eyebrow;
  var b=$('.modal-body',m);if(b&&m.classList.contains('on'))setTimeout(function(){if(still)$$('[data-rv]',b).forEach(function(x){x.classList.add('rv-still')});else reveal(b,true)},0)}
 function authDone(){var go=function(){location.reload()};try{if(window.JCAuthCelebrate){JCAuthCelebrate().then(go);return}}catch(e){}setTimeout(go,500)}
@@ -171,7 +172,7 @@ function avatar(){var u=JCL.user,av=$('#dpAv'),dp=$('#dProfile');var p=location.
  if(u.isAdmin){$('#dAdmin').innerHTML='<a class="d-link d-admin" href="/admin"><span class="d-ic">'+ICON('shield')+'</span><span class="d-tx">Admin Panel<small>Client Desk, edits, orders</small></span>'+ICON('right').replace('class="icon"','class="icon d-chev"')+'</a>'}}
 
 Promise.all([api('/api/site'),api('/api/me')]).then(function(r){var s=r[0],me=r[1];
- if(!s||!s.content){ungate();var sc=D.createElement('script');sc.src='data.js';sc.onload=function(){window.JC_RUN()};D.body.appendChild(sc);return}
+ if(!s||!s.content){endEntry();var sc=D.createElement('script');sc.src='data.js';sc.onload=function(){window.JC_RUN()};D.body.appendChild(sc);return}
  JCL.site=s;JCL.c=s.content;JCL.user=me&&me.user;window.JC=buildJC(s);
  try{applyHome(s.content,s);applyFooter(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
  window.JC_RUN();avatar();syncSettings();
