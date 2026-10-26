@@ -11,7 +11,7 @@ export const DEFAULTS = {
     brand_title: 'About Jangid Cuts', brand_photo: '/img/f2_0.jpg',
     brand_body: "Jangid Cuts is a video editing and design studio for creators, brands and wedding filmmakers, in India and worldwide.\n\nWe also make editing packs, LUTs and SFX you can download from the store."
   },
-  welcome: { show: true, title: 'Welcome!', sub: 'Sign in to buy packs, hire us and download freebies, or just look around.', signin: 'Sign in / Sign up', skip: 'Start without sign in' },
+  welcome: { show: true, title: 'Welcome', sub: 'Sign in to buy packs, hire us and download freebies, or just look around.', signin: 'Sign in / Sign up', skip: 'Start without sign in' },
   ads: { enabled: false, publisher_id: '', slots: { home_mid: '', portfolio: '', services: '', store: '' } },
   app: { version: '1.0.0' },
   stats: [
