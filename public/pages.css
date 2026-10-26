@@ -95,3 +95,4 @@
 .pf-contact b{display:block;font-size:18px}.pf-contact span{color:var(--muted);font-size:14px}
 .pf-cta{display:flex;flex-wrap:wrap;gap:10px}.pf-cta .btn{white-space:nowrap}
 @media (max-width:560px){.pf-cta{width:100%}.pf-cta .btn{flex:1 1 100%;justify-content:center}}
+.jp-sk .icon{width:24px;height:24px}

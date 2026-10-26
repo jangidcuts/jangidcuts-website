@@ -91,6 +91,19 @@ export default {
         const urls = pages.map(x => `<url><loc>${url.origin}${x}</loc></url>`).concat(results.map(r => `<url><loc>${url.origin}/store?p=${r.id}</loc></url>`));
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } });
       }
+      const rg = req.headers.get('range');
+      if (rg && /^\/media\/[\w.-]+\.(mp4|webm|mov)$/i.test(p)) {
+        // Bundled sample clips: answer byte ranges so the player can seek (±10s, scrubbing).
+        const full = await env.ASSETS.fetch(new Request(url.origin + p));
+        if (full.ok) {
+          const buf = await full.arrayBuffer(), total = buf.byteLength, mm = /bytes=(\d*)-(\d*)/.exec(rg);
+          let start = mm && mm[1] !== '' ? +mm[1] : 0, end = mm && mm[2] !== '' ? +mm[2] : total - 1;
+          if (mm && mm[1] === '' && mm[2] !== '') { start = Math.max(0, total - +mm[2]); end = total - 1; }
+          end = Math.min(end, total - 1);
+          if (start >= total || start > end) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${total}` } });
+          return new Response(buf.slice(start, end + 1), { status: 206, headers: { 'content-type': full.headers.get('content-type') || 'video/mp4', 'content-range': `bytes ${start}-${end}/${total}`, 'content-length': String(end - start + 1), 'accept-ranges': 'bytes', 'cache-control': 'public, max-age=86400' } });
+        }
+      }
       const res = await env.ASSETS.fetch(req);
       return withSec(res);
     } catch (e) {

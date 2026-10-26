@@ -648,3 +648,4 @@ html[data-theme="light"] .modal.login.auth{--bg:#000101;--bg2:#070F0F;--panel:#1
  .as-svg{width:min(96%,880px);max-height:84%}
  .as-panel:before{content:"JANGID CUTS";position:absolute;left:0;right:0;top:7%;text-align:center;font-family:var(--head);font-size:clamp(64px,8.4vw,150px);line-height:1;letter-spacing:.02em;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(43,245,192,.13);pointer-events:none}
 }
+.sup-tx>a:first-of-type{font-size:15px;word-break:normal;overflow-wrap:anywhere;letter-spacing:-.005em}
