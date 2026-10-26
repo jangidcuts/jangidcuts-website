@@ -25,8 +25,8 @@ async function seed(env) {
   for (const [t, c, sc, img, feat] of SEED_PORTFOLIO.thumb) stmts.push(env.DB.prepare('INSERT INTO portfolio (kind, title, category_id, subcategory_id, image, orient, featured, home, sort, created) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)')
     .bind('thumb', t, catId['portfolio_thumb/' + c], catId['portfolio_thumb/' + c + '/' + sc] || null, '/img/' + img, 'h', feat, 0, i++, now()));
   i = 0;
-  for (const p of SEED_PRODUCTS) stmts.push(env.DB.prepare('INSERT INTO products (slug, title, short, description, price, mrp, category_id, image, delivery, size_text, badge, visible, sort, created, updated) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,1,?12,?13,?13)')
-    .bind(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, ''), p.title, p.short, p.short + '.\n\nThis is a sample product. Edit or delete it from the admin panel.', p.price, p.mrp || 0, catId[p.cat[0] + '/' + p.cat[1]], '/img/' + p.image, 'file', p.size_text, p.badge, i++, now()));
+  for (const p of SEED_PRODUCTS) stmts.push(env.DB.prepare('INSERT INTO products (slug, title, short, description, price, mrp, category_id, image, delivery, size_text, badge, visible, sort, created, updated) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,0,?12,?13,?13)')
+    .bind(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, ''), p.title, p.short, p.short, p.price, p.mrp || 0, catId[p.cat[0] + '/' + p.cat[1]], '/img/' + p.image, 'file', p.size_text, p.badge, i++, now()));
   for (const r of SEED_REVIEWS) stmts.push(env.DB.prepare("INSERT INTO reviews (name, role, rating, text, status, featured, source, created) VALUES (?1,?2,?3,?4,'visible',1,'admin',?5)").bind(r.name, r.role, r.rating, r.text, now()));
   await env.DB.batch(stmts);
   return { seeded: true };

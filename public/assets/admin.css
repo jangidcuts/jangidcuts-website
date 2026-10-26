@@ -101,3 +101,6 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .srch svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--mint);pointer-events:none}
 .srch .in{padding-left:40px}
 .srch .in::placeholder{color:var(--faint)}
+
+/* product Published/Draft status */
+.li .t .pst{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:7px;font-size:12px}.li .t .pst .pill{font-size:11.5px}.li .t .pst .pill.ok{color:var(--mint)}.li .t .pst .pill.warn{color:var(--amber)}.li .t .pst .btn.pub{padding:4px 11px;font-size:12px;min-height:0}

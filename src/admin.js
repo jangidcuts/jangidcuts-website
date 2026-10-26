@@ -126,7 +126,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     }
     if (m === 'POST' && !id) {
       const b = await readJson(req, 300000);
-      if (table === 'products') { if (!clean(b.title)) fail('Title is required'); b.slug = slugify(b.slug || b.title) + '-' + rand(2); b.price = Math.max(0, +b.price || 0); }
+      if (table === 'products') { if (!clean(b.title)) fail('Title is required'); b.slug = slugify(b.slug || b.title) + '-' + rand(2); b.price = Math.max(0, +b.price || 0); b.visible = +b.visible === 1 ? 1 : 0; }
       if (table === 'coupons' && !b.code) fail('Code is required');
       if (table === 'categories' && (!b.name || !b.section)) fail('Name and section are required');
       if (table === 'reviews') { b.source = 'admin'; if (!b.rating) b.rating = 5; }

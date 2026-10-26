@@ -145,10 +145,10 @@ export const SEED_PORTFOLIO = {
 };
 
 export const SEED_PRODUCTS = [
-  { title: 'Cinematic Teal & Orange LUTs (sample)', short: '5 free .cube LUTs for Log and phone footage', price: 0, cat: ['store_free','LUTs'], image: 't9.jpg', badge: 'Free', size_text: '2 MB' },
-  { title: 'Whoosh & Impact SFX (sample)', short: '20 transition sounds for reels', price: 0, cat: ['store_free','SFX Packs'], image: 't2.jpg', badge: 'Free', size_text: '8 MB' },
-  { title: 'Wedding Colour Pack (sample)', short: '12 LUTs tuned for bridal skin tones', price: 199, mrp: 499, cat: ['store_paid','LUTs'], image: 't4.jpg', badge: 'Bestseller', size_text: '6 MB' },
-  { title: 'Reels Editing Mega Pack (sample)', short: 'Transitions, overlays, SFX and text presets', price: 499, mrp: 999, cat: ['store_paid','Editing Packs'], image: 't6.jpg', badge: 'New', size_text: '1.2 GB' }
+  { title: 'Cinematic Teal & Orange LUTs', short: '5 free .cube LUTs for Log and phone footage', price: 0, cat: ['store_free','LUTs'], image: 't9.jpg', badge: 'Free', size_text: '2 MB' },
+  { title: 'Whoosh & Impact SFX', short: '20 transition sounds for reels', price: 0, cat: ['store_free','SFX Packs'], image: 't2.jpg', badge: 'Free', size_text: '8 MB' },
+  { title: 'Wedding Colour Pack', short: '12 LUTs tuned for bridal skin tones', price: 199, mrp: 499, cat: ['store_paid','LUTs'], image: 't4.jpg', badge: 'Bestseller', size_text: '6 MB' },
+  { title: 'Reels Editing Mega Pack', short: 'Transitions, overlays, SFX and text presets', price: 499, mrp: 999, cat: ['store_paid','Editing Packs'], image: 't6.jpg', badge: 'New', size_text: '1.2 GB' }
 ];
 
 export const SEED_REVIEWS = [

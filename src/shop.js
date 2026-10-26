@@ -58,10 +58,14 @@ function ev(list, s) { list.push({ s, at: now() }); return list; }
 
 export async function createOrder(env, req, sess, { items, coupon }) {
   const q = await quote(env, { items, coupon, userId: sess.user.id });
+  const asked = [...new Set((items || []).map(Number).filter(Boolean))];
+  const okIds = new Set([...q.items.map(i => i.id), ...q.skipped]);
+  if (asked.some(id => !okIds.has(id))) fail('Some items in your cart are not available right now. Please remove them and try again.', 409);
   if (!q.items.length) fail(q.skipped.length ? 'You already own these items' : 'Your cart is empty');
   if (coupon && q.couponError) fail(q.couponError);
-  const number = await newRef(env, q.total === 0 ? 'DL' : 'ORD');
   const pay = await paymentsConfig(env);
+  if (q.total > 0 && pay.provider !== 'razorpay' && !sess.adminReady) fail('Online payment is being set up. Please try again soon or contact us.', 503);
+  const number = await newRef(env, q.total === 0 ? 'DL' : 'ORD');
   const events = ev([], 'Order confirmed');
   const row = await env.DB.prepare('INSERT INTO orders (number, user_id, email, items, subtotal, discount, total, coupon, status, provider, events, created) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12) RETURNING id')
     .bind(number, sess.user.id, sess.user.email, JSON.stringify(q.items), q.subtotal, q.discount, q.total, q.coupon?.code || null, 'created', q.total === 0 ? 'free' : pay.provider, JSON.stringify(events), now()).first();
