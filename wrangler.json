@@ -28,7 +28,9 @@
       "/store",
       "/orders",
       "/tickets",
-      "/profile"
+      "/profile",
+      "/cart",
+      "/wishlist"
     ]
   },
   "d1_databases": [

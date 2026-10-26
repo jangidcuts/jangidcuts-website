@@ -119,6 +119,7 @@ Promise.all([api('/api/site'),api('/api/me')]).then(function(r){var s=r[0],me=r[
  JCL.site=s;JCL.c=s.content;JCL.user=me&&me.user;window.JC=buildJC(s);
  try{applyHome(s.content,s);applyFooter(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
  window.JC_RUN();avatar();syncSettings();
+ try{window.JC_AFTER&&window.JC_AFTER(s,me)}catch(e){console.error(e)}
  var err=new URLSearchParams(location.search).get('error');if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is being set up — use email for now'}[err]||'Sign-in problem: '+err)},2300);
  if(location.hash==='#issue'||location.hash==='#faq'){var el=$(location.hash);el&&setTimeout(function(){el.scrollIntoView()},2200)}
  if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});

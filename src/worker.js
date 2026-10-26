@@ -72,7 +72,9 @@ export default {
         const res = await env.ASSETS.fetch(new Request(url.origin + '/admin', { headers: req.headers }));
         const r2 = withSec(res); r2.headers.set('cache-control', 'no-store'); r2.headers.set('x-robots-tag', 'noindex'); return r2;
       }
-      const PAGES = ['/privacy', '/terms', '/about', '/contact', '/social', '/support', '/licence', '/shipping', '/how-i-work', '/store', '/orders', '/tickets', '/profile'];
+      const PAGES = ['/privacy', '/terms', '/about', '/contact', '/social', '/support', '/licence', '/shipping', '/how-i-work'];
+      const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile'];
+      if (APPP.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers })); return withSec(res); }
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
