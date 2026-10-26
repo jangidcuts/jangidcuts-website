@@ -690,3 +690,13 @@ html[data-theme="light"] .as-svg .jw-white .jw-body>path{stroke:rgba(14,79,65,.2
 html[data-theme="light"] .auth-mark{-webkit-text-stroke-color:rgba(7,122,92,.18)}
 @media (prefers-reduced-motion:reduce){.auth-mark{opacity:1!important;animation:none!important}}
 .modal.login.auth{transition:none!important}
+
+/* field errors (wrong password / wrong or expired code / invalid email) */
+.input.is-err{border-color:#FF5A6A!important;box-shadow:0 0 0 3px rgba(255,90,106,.18)!important;animation:fldShake .38s cubic-bezier(.36,.07,.19,.97)}
+.fld-err{margin:6px 2px 10px;color:#FF6B7A;font-size:13px;font-weight:600;text-align:left;display:flex;align-items:center;gap:6px}
+.fld-err:before{content:"!";flex:none;width:16px;height:16px;border-radius:50%;background:#FF5A6A;color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;line-height:1}
+.lg-code+.fld-err,.fld-err[data-for="lgCode"]{justify-content:center;margin-top:-6px}
+html[data-theme="light"] .input.is-err{border-color:#D32F45!important;box-shadow:0 0 0 3px rgba(211,47,69,.14)!important}
+html[data-theme="light"] .fld-err{color:#C62839}html[data-theme="light"] .fld-err:before{background:#D32F45}
+@keyframes fldShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.input.is-err{animation:none}}

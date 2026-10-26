@@ -46,7 +46,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
       q('SELECT path, SUM(n) n FROM pv WHERE day >= ?1 GROUP BY path ORDER BY n DESC LIMIT 10', d30),
       q("SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?1 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) today FROM orders WHERE status = 'delivered'", now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
       q('SELECT status, COUNT(*) n FROM orders GROUP BY status'),
-      q('SELECT COUNT(*) n, SUM(CASE WHEN created >= ?1 THEN 1 ELSE 0 END) new7 FROM users', now() - 7 * 864e5),
+      q('SELECT COUNT(*) n, SUM(CASE WHEN created >= ?1 THEN 1 ELSE 0 END) new7, SUM(CASE WHEN last_login >= ?2 THEN 1 ELSE 0 END) today, SUM(CASE WHEN last_login >= ?1 THEN 1 ELSE 0 END) active7 FROM users', now() - 7 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
       q("SELECT COUNT(*) n FROM tickets WHERE status = 'pending'"),
       q("SELECT COUNT(*) n FROM hire WHERE status = 'new'"),
       q('SELECT COALESCE(SUM(downloads),0) n FROM products'),

@@ -109,7 +109,7 @@ function authify(m,eyebrow,still){if(!m.classList.contains('auth')){m.classList.
   if(!$('.auth-card',m)){var card=D.createElement('div');card.className='auth-card';while(m.firstChild)card.appendChild(m.firstChild);
    var bg=D.createElement('div');bg.className='auth-bg';bg.setAttribute('aria-hidden','true');var sc=D.createElement('div');sc.className='auth-scene';sc.setAttribute('aria-hidden','true');sc.innerHTML='<div class="as-panel"><div class="auth-mark am-d">JANGID CUTS</div><svg class="as-svg"></svg></div>';bg.innerHTML='<div class="auth-mark am-m">JANGID CUTS</div>';
    var col=D.createElement('div');col.className='auth-col';col.appendChild(card);m.appendChild(bg);m.appendChild(sc);m.appendChild(col);
-   var ld=function(){if(innerWidth<1024||sc._ld)return;sc._ld=1;var x=D.createElement('script');x.src='/auth-scene.js?v=4';x.onload=function(){try{JCAuthScene(sc,m)}catch(e){console.error(e)}};D.head.appendChild(x)};ld();addEventListener('resize',ld);
+   var ld=function(){if(innerWidth<1024||sc._ld)return;sc._ld=1;var x=D.createElement('script');x.src='/auth-scene.js?v=5';x.onload=function(){try{JCAuthScene(sc,m)}catch(e){console.error(e)}};D.head.appendChild(x)};ld();addEventListener('resize',ld);
    var wasOn=false;new MutationObserver(function(){if(!m.classList.contains('on')){if(wasOn){wasOn=false;endEntry()}return}if(wasOn)return;wasOn=true;if(m.classList.contains('auth'))reveal($('.modal-body',m),false)}).observe(m,{attributes:true,attributeFilter:['class']})}}
  var eb=$('.modal-head .eyebrow',m);if(eb&&eyebrow)eb.textContent=eyebrow;
  var b=$('.modal-body',m);if(b&&m.classList.contains('on'))setTimeout(function(){if(still)$$('[data-rv]',b).forEach(function(x){x.classList.add('rv-still')});else reveal(b,true)},0)}
@@ -121,6 +121,12 @@ function reveal(b,quick){if(!b)return;var it=$$('[data-rv]',b),mk=$$('#loginModa
  it.forEach(function(x,i){x.classList.remove('rv-on');x.style.animationDelay=(off+i*step)+'ms';void x.offsetWidth;x.classList.add('rv-on')})}
 
 /* ---------- login modal ---------- */
+function fieldErr(inp,msg){if(!inp)return;var box=inp.closest('.field')||inp;var p=box.parentNode.querySelector('.fld-err[data-for="'+inp.id+'"]');
+ if(!p){p=D.createElement('p');p.className='fld-err';p.setAttribute('role','alert');p.dataset.for=inp.id;box.insertAdjacentElement('afterend',p)}
+ p.textContent=msg;inp.classList.remove('is-err');void inp.offsetWidth;inp.classList.add('is-err');inp.setAttribute('aria-invalid','true');
+ if(!inp._errClr){inp._errClr=1;inp.addEventListener('input',function(){inp.classList.remove('is-err');inp.removeAttribute('aria-invalid');var q=box.parentNode.querySelector('.fld-err[data-for="'+inp.id+'"]');q&&q.remove()})}
+ try{inp.focus({preventScroll:true})}catch(e){}}
+function codeMsg(e){e=String(e||'');return /expired/i.test(e)?'This code has expired. Tap “Resend code” for a new one.':/too many/i.test(e)?'Too many wrong codes. Tap “Resend code” for a new one.':/wrong code/i.test(e)?'Wrong code. Check your email and try again.':e}
 function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-body',m);var email='',name='',stage='signin',from='signin',usePw=false,cd=0,timer=null;
  var head=$('.modal-head .eyebrow',m);
  function tabs(){return '<div class="lg-tabs" role="tablist"><button type="button" role="tab" data-tab="signin" aria-selected="'+(stage==='signin')+'">Sign in</button><button type="button" role="tab" data-tab="signup" aria-selected="'+(stage==='signup')+'">Sign up</button></div>'}
@@ -145,13 +151,13 @@ function buildLogin(s){var m=$('#loginModal');if(!m)return;var body=$('.modal-bo
  function bind(){$$('[data-tab]',body).forEach(function(b){b.onclick=function(){stage=b.dataset.tab;draw()}});
   var gb=$('#gBtn',body);if(gb)gb.onclick=function(){if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}location.href='/auth/google/start?tc=1&next='+encodeURIComponent(location.pathname+location.search)};
   var up=$('#usePw',body);if(up)up.onclick=function(){email=$('#lgEmail',body).value.trim();usePw=!usePw;draw()};
-  var fg=$('#forgot',body);if(fg)fg.onclick=function(){email=$('#lgEmail',body).value.trim();if(!email){toast('Enter your email first');authFail();return}from='signin';sendCode('reset','reset')};
-  var lf=$('#lgForm',body);if(lf)lf.onsubmit=function(e){e.preventDefault();email=$('#lgEmail',body).value.trim();if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');authFail();return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}
-   if(usePw){api('/api/auth/login',{email:email,password:$('#lgPw',body).value}).then(function(r){if(r.ok===false){toast(r.error);authFail();return}toast('Signed in ✓');authDone()});return}from='signin';sendCode('login','code',$('#lgGo',body))};
-  var sf=$('#suForm',body);if(sf)sf.onsubmit=function(e){e.preventDefault();name=$('#suName',body).value.trim();email=$('#suEmail',body).value.trim();if(!name){toast('Please enter your name');authFail();return}if(!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email');authFail();return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}from='signup';sendCode('login','code',$('#suGo',body))};
-  var cf=$('#codeForm',body);if(cf)cf.onsubmit=function(e){e.preventDefault();var code=$('#lgCode',body).value.replace(/\D/g,'');if(code.length!==6){toast('Enter the 6-digit code');authFail();return}
-   if(stage==='code')api('/api/auth/verify',{email:email,code:code,name:name,tc:true}).then(function(r){if(r.ok===false){toast(r.error);authFail();return}toast(r.isNew?'Account created ✓':'Signed in ✓');authDone()});
-   else api('/api/auth/reset',{email:email,code:code,password:$('#np1',body).value,confirm:$('#np2',body).value}).then(function(r){if(r.ok===false){toast(r.error);authFail();return}toast('Password changed ✓');authDone()})};
+  var fg=$('#forgot',body);if(fg)fg.onclick=function(){email=$('#lgEmail',body).value.trim();if(!email){fieldErr($('#lgEmail',body),'Enter your email first');authFail();return}from='signin';sendCode('reset','reset')};
+  var lf=$('#lgForm',body);if(lf)lf.onsubmit=function(e){e.preventDefault();email=$('#lgEmail',body).value.trim();if(!/^\S+@\S+\.\S+$/.test(email)){fieldErr($('#lgEmail',body),'Please enter a valid email');authFail();return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}
+   if(usePw){api('/api/auth/login',{email:email,password:$('#lgPw',body).value}).then(function(r){if(r.ok===false){if(/wrong email or password/i.test(r.error||'')){fieldErr($('#lgPw',body),'Wrong password')}else toast(r.error);authFail();return}toast('Signed in ✓');authDone()});return}from='signin';sendCode('login','code',$('#lgGo',body))};
+  var sf=$('#suForm',body);if(sf)sf.onsubmit=function(e){e.preventDefault();name=$('#suName',body).value.trim();email=$('#suEmail',body).value.trim();if(!name){fieldErr($('#suName',body),'Please enter your name');authFail();return}if(!/^\S+@\S+\.\S+$/.test(email)){fieldErr($('#suEmail',body),'Please enter a valid email');authFail();return}if(!$('#lgTc',body).checked){toast('Please tick the Terms & Conditions box');return}from='signup';sendCode('login','code',$('#suGo',body))};
+  var cf=$('#codeForm',body);if(cf)cf.onsubmit=function(e){e.preventDefault();var code=$('#lgCode',body).value.replace(/\D/g,'');if(code.length!==6){fieldErr($('#lgCode',body),'Enter the 6-digit code');authFail();return}
+   if(stage==='code')api('/api/auth/verify',{email:email,code:code,name:name,tc:true}).then(function(r){if(r.ok===false){fieldErr($('#lgCode',body),codeMsg(r.error));authFail();return}toast(r.isNew?'Account created ✓':'Signed in ✓');authDone()});
+   else api('/api/auth/reset',{email:email,code:code,password:$('#np1',body).value,confirm:$('#np2',body).value}).then(function(r){if(r.ok===false){var er=r.error||'';if(/code/i.test(er))fieldErr($('#lgCode',body),codeMsg(er));else if(/match/i.test(er))fieldErr($('#np2',body),er);else fieldErr($('#np1',body),er);authFail();return}toast('Password changed ✓');authDone()})};
   var lc=$('#lgCode',body);if(lc)lc.addEventListener('input',function(){lc.value=lc.value.replace(/\D/g,'').slice(0,6);if(lc.value.length===6&&stage==='code')cf.requestSubmit&&cf.requestSubmit()});
   var rs=$('#resend',body);if(rs)rs.onclick=function(){sendCode(stage==='reset'?'reset':'login',stage)};
   var bk=$('#back',body);if(bk)bk.onclick=function(){stage=from;draw()}}

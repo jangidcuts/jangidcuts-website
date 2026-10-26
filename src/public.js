@@ -165,6 +165,9 @@ export async function handlePublic(req, env, ctx, url, s) {
       env.DB.prepare('DELETE FROM wishlist WHERE user_id = ?1').bind(uid), env.DB.prepare('DELETE FROM owned WHERE user_id = ?1').bind(uid),
       env.DB.prepare("UPDATE orders SET email = 'deleted', user_id = NULL WHERE user_id = ?1").bind(uid),
       env.DB.prepare("UPDATE reviews SET user_id = NULL WHERE user_id = ?1").bind(uid),
+      env.DB.prepare('DELETE FROM tickets WHERE user_id = ?1 OR email = ?2').bind(uid, s.user.email),
+      env.DB.prepare('DELETE FROM hire WHERE user_id = ?1 OR email = ?2').bind(uid, s.user.email),
+      env.DB.prepare('DELETE FROM otps WHERE email = ?1').bind(s.user.email),
       env.DB.prepare('DELETE FROM users WHERE id = ?1').bind(uid)
     ]);
     return J({ ok: true }, 200, { 'set-cookie': setCookie(SESSION_COOKIE, '', 0) });
