@@ -70,8 +70,10 @@ export default {
       if (p.startsWith('/auth/google/') || p === '/admin/mail/connect' || p === '/admin/mail/callback') { const r = await handleGoogle(req, env, url, s, { newSession, findOrCreateUser, cookie }); if (r) return r; }
       if (p === '/admin' || p.startsWith('/admin/')) {
         const res = await env.ASSETS.fetch(new Request(url.origin + '/admin', { headers: req.headers }));
-        return withSec(res, { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' });
+        const r2 = withSec(res); r2.headers.set('cache-control', 'no-store'); r2.headers.set('x-robots-tag', 'noindex'); return r2;
       }
+      const PAGES = ['/privacy', '/terms', '/about', '/contact', '/social', '/support', '/licence', '/shipping', '/how-i-work', '/store', '/orders', '/tickets', '/profile'];
+      if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
         const pages = ['/', '/portfolio', '/services', '/store', '/about', '/contact', '/social', '/help', '/faq', '/support', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];

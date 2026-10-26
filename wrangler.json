@@ -15,7 +15,20 @@
       "/auth/*",
       "/u/*",
       "/robots.txt",
-      "/sitemap.xml"
+      "/sitemap.xml",
+      "/privacy",
+      "/terms",
+      "/about",
+      "/contact",
+      "/social",
+      "/support",
+      "/licence",
+      "/shipping",
+      "/how-i-work",
+      "/store",
+      "/orders",
+      "/tickets",
+      "/profile"
     ]
   },
   "d1_databases": [

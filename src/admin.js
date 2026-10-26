@@ -330,6 +330,7 @@ export async function handleGoogle(req, env, url, s, deps) {
       const want = expectedEmail(env, account);
       if (String(profile.email).toLowerCase() !== want) return redirect('/admin#mail?error=' + encodeURIComponent('Please choose ' + want));
       if (!tokens.refresh_token) return redirect('/admin#mail?error=no_refresh_token');
+      if (!String(tokens.scope || '').includes('gmail.send')) return redirect('/admin#mail?error=' + encodeURIComponent('Please tick the box that lets the site send email, then try again'));
       await setKey(env, ACCOUNTS[account].key, { email: want, refresh_enc: await encrypt(env, tokens.refresh_token), scopes: tokens.scope, connected_at: now() });
       if (env.CACHE) await env.CACHE.put('gtok:' + account, tokens.access_token, { expirationTtl: 3000 });
       await logEvent(env, 'mail', `${account} mail connected (${want})`);

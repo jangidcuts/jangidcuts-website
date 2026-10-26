@@ -230,6 +230,7 @@ export async function handlePublic(req, env, ctx, url, s) {
       await env.DB.prepare('INSERT OR IGNORE INTO owned (user_id, product_id, created) VALUES (?1, ?2, ?3)').bind(s.user.id, pid, now()).run();
       own = { downloads: 0 };
     }
+    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery === 'file', emailed: prod.delivery !== 'file', first: !own.downloads });
     await env.DB.batch([
       env.DB.prepare('UPDATE owned SET downloads = downloads + 1, first_dl = COALESCE(first_dl, ?3), last_dl = ?3 WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid, now()),
       env.DB.prepare('UPDATE products SET downloads = downloads + 1 WHERE id = ?1').bind(pid)
@@ -240,7 +241,6 @@ export async function handlePublic(req, env, ctx, url, s) {
       return J({ ok: true, emailed: true });
     }
     if (!prod.file_key) fail('The file for this item is not uploaded yet. Please raise a ticket.', 404);
-    if (url.searchParams.get('check') === '1') return J({ ok: true, file: true, first: !own.downloads });
     return serveFile(req, env, prod.file_key, { download: prod.file_name || (prod.slug + '.zip'), cache: false });
   }
 
