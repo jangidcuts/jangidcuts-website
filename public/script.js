@@ -120,14 +120,20 @@ function buildRow(container,title,note,items,kind,auto){
  container.appendChild(row)}
 function fillTrack(tr,items,kind,auto){
  items.forEach(function(it,i){tr.appendChild(card(it,kind,i))});
- if(auto){items.forEach(function(it,i){tr.appendChild(card(it,kind,i,true))});autos.push({el:tr,paused:false,half:0,pos:0});
+ if(auto){items.forEach(function(it,i){var c=card(it,kind,i,true);if(i===0)c.setAttribute('data-dup1','');tr.appendChild(c)});autos.push({el:tr,paused:false,half:0,pos:0,items:items,kind:kind,set:0,ck:0});
   var a=autos[autos.length-1];
-  ['mouseenter','touchstart','focusin','pointerdown'].forEach(function(ev){tr.addEventListener(ev,function(){a.paused=true;clearTimeout(a.t)},{passive:true})});
+  ['mouseenter','touchstart','focusin','pointerdown'].forEach(function(ev){tr.addEventListener(ev,function(){a.paused=true;a.pt=performance.now();clearTimeout(a.t)},{passive:true})});
   ['mouseleave','touchend','focusout','pointerup'].forEach(function(ev){tr.addEventListener(ev,function(){clearTimeout(a.t);a.t=setTimeout(function(){a.pos=tr.scrollLeft;a.paused=false},1800)},{passive:true})});
  }}
+/* width of one set of cards; adds more copies until the row can always scroll one full set further (few items / wide screens) */
+function loopFit(a){var f=a.el.firstElementChild,d=a.el.querySelector('[data-dup1]');if(!f||!d)return;var w=d.offsetLeft-f.offsetLeft;if(w<=0)return;a.set=w;var g=0;
+ while(a.el.scrollWidth-a.el.clientWidth<w+8&&g++<8)a.items.forEach(function(it,i){a.el.appendChild(card(it,a.kind,i,true))})}
 var lastT=0;
 function tick(t){var dt=lastT?Math.min(50,t-lastT):16;lastT=t;var lv=anim();var sp=lv==='high'?0.045:lv==='moderate'?0.022:0;
- if(sp&&!D.hidden)autos.forEach(function(a){if(a.paused||!a.el.isConnected)return;a.half=a.el.scrollWidth/2;a.pos+=sp*dt;if(a.pos>=a.half)a.pos-=a.half;a.el.scrollLeft=a.pos});
+ if(sp&&!D.hidden)autos.forEach(function(a){if(a.paused&&a.pt&&t-a.pt>6000&&!a.el.matches(':hover')&&!(D.activeElement&&a.el.contains(D.activeElement)&&D.activeElement.matches(':focus-visible'))){a.pos=a.el.scrollLeft;a.paused=false}
+  if(a.paused||!a.el.isConnected)return;if(!a.set||t-a.ck>600){a.ck=t;loopFit(a)}if(!(a.set>0))return;
+  /* endless loop: wrap after exactly one set; never stalls at the end of the row (Oct 27c) */
+  a.pos+=sp*dt;while(a.pos>=a.set)a.pos-=a.set;if(a.pos<0)a.pos=0;a.el.scrollLeft=a.pos});
  requestAnimationFrame(tick)}
 requestAnimationFrame(tick);
 autos.forEach(function(a){a.el.addEventListener('scroll',function(){if(a.paused){a.pos=a.el.scrollLeft}},{passive:true})});
@@ -181,7 +187,7 @@ sIn&&sIn.addEventListener('input',function(){renderSearch(sIn.value)});
 
 /* ---------- hire form ---------- */
 var hf=$('#hireForm');
-function openHire(){if(window.JCL&&JCL.site&&!JCL.user){toast('Please sign in to send a hire request');openLayer($('#loginModal'));return}openLayer($('#hireModal'))}
+function openHire(){if(window.JCL&&JCL.site&&!JCL.user){toast('Please sign in to send a hire request');openLayer($('#loginModal'));return}var bx=$('#hireDone'),f=$('#hireForm');if(bx&&!bx.hidden&&f){bx.hidden=true;f.hidden=false}openLayer($('#hireModal'))}
 $('#hireBtn')&&$('#hireBtn').addEventListener('click',openHire);
 $$('[data-hire]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();if(hf)openHire();else location.href='/?hire=1'})});
 if(hf){

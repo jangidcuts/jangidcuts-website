@@ -1,5 +1,6 @@
 import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, newRef, limitOrFail, rateLimit,
-  newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt, normRef } from './lib.js';
+  newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt, normRef, parseRef, refClosed } from './lib.js';
+import { publicHire, hireKind } from './hire.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource } from './storage.js';
@@ -28,17 +29,20 @@ export async function siteData(env) {
 
 async function meData(env, s) {
   const uid = s.user.id;
-  const [cart, wish, owned, orders, tickets] = await Promise.all([
+  const [cart, wish, owned, orders, tickets, hires, dld] = await Promise.all([
     env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
-    env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all()
+    env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
+    env.DB.prepare('SELECT number, data, status, kind, events, created, approved_at FROM hire WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
+    env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all()
   ]);
+  const dl = new Set((dld.results || []).map(r => r.order_id));
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
-    owned: owned.results, orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } return { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; }),
-    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'delivered', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })) };
+    owned: owned.results, orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); return x; }),
+    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })), hires: hires.results.map(h => publicHire(h, { full: true })) };
 }
 
 /* ---------- OTP ---------- */
@@ -297,7 +301,7 @@ export async function handlePublic(req, env, ctx, url, s) {
       if (!own) fail('Only buyers can review this item', 403);
       await env.DB.prepare('DELETE FROM reviews WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid).run();
     } else {
-      const ok = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND status = 'delivered' UNION SELECT 1 FROM hire WHERE email = ?2 AND status = 'approved' LIMIT 1").bind(s.user.id, s.user.email).first();
+      const ok = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND status IN ('delivered','completed') UNION SELECT 1 FROM hire WHERE email = ?2 AND status IN ('approved','progress','delivered','completed','active','paused','ended') LIMIT 1").bind(s.user.id, s.user.email).first();
       if (!ok) fail('Reviews are open to clients and buyers', 403);
       await env.DB.prepare('DELETE FROM reviews WHERE user_id = ?1 AND product_id IS NULL').bind(s.user.id).run();
     }
@@ -316,68 +320,60 @@ export async function handlePublic(req, env, ctx, url, s) {
     await limitOrFail(env, 'hire:' + ip(req), 5, 3600e3);
     const number = await newRef(env, 'HIRE');
     const data = {}; for (const k of ['whatsapp', 'country', 'agency', 'agency_name', 'agency_address', 'categories', 'category_other', 'perday', 'format', 'plan', 'budget', 'deadline', 'raw_link', 'reference', 'project']) data[k] = Array.isArray(b[k]) ? b[k].map(x => clean(x, 80)).slice(0, 40) : clean(b[k], k === 'project' ? 6000 : 300);
-    await env.DB.prepare('INSERT INTO hire (number, user_id, name, email, data, status, created, ip) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)').bind(number, s?.user.id || null, name, email, JSON.stringify(data), 'new', now(), ip(req)).run();
+    await env.DB.prepare('INSERT INTO hire (number, user_id, name, email, data, status, created, ip) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)').bind(number, s?.user.id || null, name, email, JSON.stringify(data), 'received', now(), ip(req)).run();
+    try { await env.DB.prepare('UPDATE hire SET kind = ?1, events = ?2 WHERE number = ?3').bind(hireKind({ data: JSON.stringify(data) }), JSON.stringify([{ s: 'received', at: now() }]), number).run(); } catch { }
     ctx.waitUntil((async () => {
       await sendTemplate(env, 'hire_received', email, { name, number }, { ref: number });
       await alertOwner(env, 'hire', `New Hire Me request ${number} from ${name} <${email}>\nWork: ${(data.categories || []).join(', ')} ${data.category_other || ''}\nBudget: ${data.budget}\n\n${data.project}`);
     })());
     return J({ ok: true, number });
   }
-  if (p === '/api/tickets/track' && m === 'POST') {
+  /* ----- tracking: one tracker per type (Oct 27c). A number only works in its own tracker. ----- */
+  const trackPaths = { '/api/track': null, '/api/tickets/track': 'ticket', '/api/orders/track': 'order', '/api/hire/track': 'hire' };
+  if (p in trackPaths && m === 'POST') {
     const b = await readJson(req, 2000);
-    const number = normRef('TKT', b.number), email = clean(b.email, 200).toLowerCase();
-    await limitOrFail(env, 'track:' + ip(req), 10, 600e3, 'Too many lookups. Please wait 10 minutes and try again.'); await limitOrFail(env, 'trackref:' + number, 10, 600e3, 'Too many lookups. Please wait 10 minutes and try again.');
-    if (!/^JC-(TKT|HIRE)-[A-Z0-9]{4,9}$/.test(number)) fail('Enter your ticket number, like JC-TKT-100001 (or just 100001)');
-    if (!isEmail(email)) fail('Enter the email you used for the ticket');
-    if (number.startsWith('JC-HIRE-')) {
-      const h = await env.DB.prepare('SELECT * FROM hire WHERE number = ?1').bind(number).first();
-      if (!h || String(h.email || '').toLowerCase() !== email) fail('No request found for this number and email.', 404);
-      const rej = h.status === 'rejected', done = h.status === 'done', appr = h.status === 'approved' || done;
-      const steps = [{ s: 'received', label: 'Received', at: h.created, done: true, current: !appr && !rej },
-        { s: 'approved', label: rej ? 'Not accepted' : 'Approved', at: h.approved_at || null, done: appr || rej, current: (appr && !done) || rej },
-        { s: 'done', label: 'Completed', at: null, done, current: done }];
-      let d = {}; try { d = JSON.parse(h.data || '{}'); } catch { }
-      return J({ ok: true, ticket: { number, topic: 'Hire Me request', status: rej ? 'closed' : done ? 'solved' : appr ? 'processing' : 'received', label: rej ? 'Not accepted' : done ? 'Completed' : appr ? 'Approved' : 'Received', created: h.created, email: maskEmail(h.email), steps } });
+    const type = trackPaths[p] || ({ hire: 'hire', ticket: 'ticket', order: 'order' })[b.type] || 'ticket';
+    const T = { hire: 'HIRE', ticket: 'TKT', order: 'ORD' }[type];
+    const word = { hire: 'hire request', ticket: 'ticket', order: 'order' }[type];
+    const email = clean(b.email, 200).toLowerCase();
+    const pr = parseRef(T, b.number);
+    const prDl = type === 'order' ? parseRef('DL', b.number) : null; // free-download orders share the order tracker
+    if (!pr.ok) fail(`Enter your ${word} number, like JC-${T}-12345 (or just 12345)`);
+    if (!isEmail(email)) fail(`Enter the email you used for the ${word}`);
+    await limitOrFail(env, 'track:' + ip(req), 10, 600e3, 'Too many lookups. Please wait 10 minutes and try again.'); await limitOrFail(env, 'trackref:' + pr.digits, 10, 600e3, 'Too many lookups. Please wait 10 minutes and try again.');
+    const notFound = () => J({ ok: false, notFound: true, error: `No ${word} found for this number and email.` }, 404);
+    const own = r => r && String(r.email || '').toLowerCase() === email;
+    if (pr.wrong && !(prDl && prDl.ok && !prDl.wrong)) return notFound();
+    if (type === 'hire') {
+      const h = await env.DB.prepare('SELECT * FROM hire WHERE number = ?1').bind(pr.ref).first();
+      if (!own(h)) return notFound();
+      return J({ ok: true, type, hire: { ...publicHire(h), email: maskEmail(h.email) } });
     }
-    const t = await env.DB.prepare('SELECT * FROM tickets WHERE number = ?1').bind(number).first();
-    if (!t || String(t.email || '').toLowerCase() !== email) fail('No request found for this number and email.', 404);
-    return J({ ok: true, ticket: publicTicket(t, { full: false }) });
-  }
-  if (p === '/api/orders/track' && m === 'POST') {
-    const b = await readJson(req, 2000);
-    let number = normRef('ORD', b.number); const email = clean(b.email, 200).toLowerCase();
-    await limitOrFail(env, 'track:' + ip(req), 10, 600e3, 'Too many lookups. Please wait 10 minutes and try again.'); await limitOrFail(env, 'trackref:' + number, 10, 600e3, 'Too many lookups. Please wait 10 minutes and try again.');
-    if (!/^JC-(ORD|DL)-[A-Z0-9]{4,9}$/.test(number)) fail('Enter your order number, like JC-ORD-100001 (or just 100001)');
-    if (!isEmail(email)) fail('Enter the email used for the order');
-    let o = null;
-    if (/^\d+$/.test(String(b.number || '').trim())) { const { results } = await env.DB.prepare('SELECT * FROM orders WHERE number IN (?1, ?2)').bind(number, number.replace('JC-ORD-', 'JC-DL-')).all(); o = results.find(x => String(x.email || '').toLowerCase() === email) || null; }
-    else o = await env.DB.prepare('SELECT * FROM orders WHERE number = ?1').bind(number).first();
-    if (!o || String(o.email || '').toLowerCase() !== email) fail('No request found for this number and email.', 404);
-    let ev = []; try { ev = JSON.parse(o.events || '[]'); } catch { }
-    const at = s => (ev.filter(e => e.s === s).slice(-1)[0] || {}).at || null;
-    const free = !(o.total > 0), delivered = o.status === 'delivered' || !!o.delivered_at, paid = !!o.paid_at || delivered;
-    const steps = [{ s: 'placed', label: 'Order placed', at: at('Order confirmed') || o.created, done: true },
-      { s: 'paid', label: free ? 'Free order' : 'Payment confirmed', at: free ? (o.paid_at || at('Delivered')) : (at('Payment confirmed') || o.paid_at), done: paid },
-      { s: 'delivered', label: 'Delivered / Download ready', at: at('Delivered') || o.delivered_at, done: delivered }];
-    if (o.status === 'refunded') steps.push({ s: 'refunded', label: 'Refunded', at: at('Refunded'), done: true });
-    if (o.status === 'cancelled') steps.push({ s: 'cancelled', label: 'Cancelled', at: at('Cancelled'), done: true });
-    let cur = steps.map(x => x.done).lastIndexOf(true); steps.forEach((x, i) => x.current = i === cur);
-    let items = []; try { items = JSON.parse(o.items || '[]').map(x => x.title); } catch { }
-    const label = { created: 'Order placed', delivered: 'Delivered', refunded: 'Refunded', cancelled: 'Cancelled' }[o.status] || o.status;
-    return J({ ok: true, order: { number: o.number, status: o.status, label, created: o.created, email: maskEmail(o.email), items, steps } });
+    if (type === 'ticket') {
+      const t = await env.DB.prepare('SELECT * FROM tickets WHERE number = ?1').bind(pr.ref).first();
+      if (!own(t)) return notFound();
+      return J({ ok: true, type, ticket: { ...publicTicket(t, { full: false }), kind: t.type === 'question' ? 'question' : 'problem' } });
+    }
+    const refs = [pr.wrong ? null : pr.ref, prDl && !prDl.wrong ? prDl.ref : null].filter(Boolean);
+    const { results } = await env.DB.prepare('SELECT * FROM orders WHERE number IN (?1, ?2)').bind(refs[0], refs[1] || refs[0]).all();
+    const o = results.find(own);
+    if (!o) return notFound();
+    return J({ ok: true, type, order: await publicOrder(env, o) });
   }
   if (p === '/api/tickets' && m === 'POST') {
     const b = await readJson(req, 20000); needTc(b);
     if (b.website) return J({ ok: true });
     const email = clean(b.email || s?.user.email, 200).toLowerCase(); const message = clean(b.message, 4000);
-    if (!isEmail(email)) fail('Please enter a valid email'); if (message.length < 5) fail('Please describe the problem');
+    const ttype = b.type === 'question' ? 'question' : 'problem';
+    if (!isEmail(email)) fail('Please enter a valid email'); if (message.length < 5) fail(ttype === 'question' ? 'Please write your question' : 'Please describe the problem');
     await limitOrFail(env, 'ticket:' + ip(req), 6, 3600e3);
     const number = await newRef(env, 'TKT');
     const name = clean(b.name || s?.user.name || email.split('@')[0], 100);
     await env.DB.prepare('INSERT INTO tickets (number, user_id, email, name, topic, message, status, created, ip, events) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)').bind(number, s?.user.id || null, email, name, clean(b.topic, 80) || 'General', message, 'received', now(), ip(req), JSON.stringify([{ s: 'received', at: now() }])).run();
+    try { await env.DB.prepare('UPDATE tickets SET type = ?1 WHERE number = ?2').bind(ttype, number).run(); } catch { }
     ctx.waitUntil((async () => {
-      await sendTemplate(env, 'ticket_received', email, { name, number, message }, { account: 'support', ref: number });
-      await alertOwner(env, 'ticket', `New support ticket ${number} from ${email}\n\n${message}`);
+      await sendTemplate(env, ttype === 'question' ? 'ticket_question' : 'ticket_received', email, { name, number, message }, { account: 'support', ref: number });
+      await alertOwner(env, 'ticket', `New support ${ttype === 'question' ? 'question' : 'ticket'} ${number} from ${email}\n\n${message}`);
     })());
     return J({ ok: true, number });
   }
@@ -393,4 +389,36 @@ export async function handlePublic(req, env, ctx, url, s) {
     return res;
   }
   return null;
+}
+
+/* ---------- order status (automatic, admin can override) ---------- */
+export const ORDER_LABELS = { created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
+export async function publicOrder(env, o, { full = false } = {}) {
+  let downloaded = false;
+  try { downloaded = !!(await env.DB.prepare('SELECT 1 FROM owned WHERE order_id = ?1 AND downloads > 0 LIMIT 1').bind(o.id).first()); } catch { }
+  return orderView(o, downloaded, full);
+}
+export function orderView(o, downloaded, full = false) {
+  let ev = []; try { ev = Array.isArray(o.events) ? o.events : JSON.parse(o.events || '[]'); } catch { }
+  const at = (...names) => { for (const e of ev.slice().reverse()) if (names.includes(e.s)) return e.at; return null; };
+  let items = []; try { items = Array.isArray(o.items) ? o.items : JSON.parse(o.items || '[]'); } catch { }
+  const free = !(o.total > 0);
+  let st = o.status || 'created';
+  if (st === 'delivered' && downloaded) st = 'completed'; // first download completes the order automatically
+  const byMail = items.some(x => x.delivery === 'drive' || x.delivery === 'email' || x.big);
+  const dLabel = byMail ? 'Delivered via email' : 'Download ready';
+  const rank = { created: 0, failed: 0, paid: 1, processing: 2, delivered: 3, completed: 4, refunded: 3, cancelled: 0 }[st] ?? 0;
+  const steps = [
+    { s: 'paid', label: free ? 'Order confirmed' : 'Payment received', at: at('paid', 'Payment confirmed', 'Order confirmed') || o.paid_at, done: rank >= 1 },
+    { s: 'processing', label: 'Processing', at: at('processing') || o.paid_at, done: rank >= 2 || (rank >= 1 && st !== 'paid') },
+    { s: 'delivered', label: dLabel, at: at('delivered', 'Delivered') || o.delivered_at, done: rank >= 3 },
+    { s: 'completed', label: 'Completed', at: at('completed') || (st === 'completed' ? (o.delivered_at || null) : null), done: rank >= 4 }];
+  if (st === 'created') steps.unshift({ s: 'created', label: 'Awaiting payment', at: o.created, done: true });
+  if (st === 'failed') steps.unshift({ s: 'failed', label: 'Payment failed', at: at('failed') || o.created, done: true });
+  if (st === 'refunded' || st === 'cancelled') steps.push({ s: st, label: ORDER_LABELS[st], at: at(st, st === 'refunded' ? 'Refunded' : 'Cancelled'), done: true });
+  let cur = -1; steps.forEach((x, i) => { if (x.done) cur = i; }); steps.forEach((x, i) => x.current = i === cur);
+  const label = st === 'delivered' ? dLabel : (ORDER_LABELS[st] || st);
+  const out = { number: o.number, status: st, label, created: o.created, items: items.map(x => x.title), steps, download: st === 'delivered' || st === 'completed' };
+  if (!full) out.email = maskEmail(o.email);
+  return out;
 }

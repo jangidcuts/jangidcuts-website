@@ -88,20 +88,46 @@ export async function getKey(env, k) {
   return DEFAULTS[k] !== undefined ? structuredClone(DEFAULTS[k]) : null;
 }
 export async function setKey(env, k, v) { await env.DB.prepare('INSERT INTO kv (k, v, updated) VALUES (?1, ?2, ?3) ON CONFLICT(k) DO UPDATE SET v = ?2, updated = ?3').bind(k, JSON.stringify(v), now()).run(); }
-// Reference numbers: JC-<TYPE>-<number>, e.g. JC-ORD-100001. Types: ORD (paid order), DL (free download / licence),
-// TKT (support ticket), HIRE (project request), REF (refund). Numeric + sequential per type from 100001 (Prashant 8:29 PM Oct 26).
+// Reference numbers: JC-<TYPE>-<number>, e.g. JC-HIRE-48213. Types: ORD (paid order), DL (free download / licence),
+// TKT (support ticket), HIRE (project request), REF (refund).
+// Oct 27c (Prashant + Tab): new numbers are RANDOM 5-digit (10000-99999) from ONE pool shared by every type, so a number
+// never belongs to two live requests at all. A number is freed only when its request is closed/completed AND 30 days have
+// passed (refs.closed_at); on reuse the old record keeps its history under "<ref>~<created>". Old 6-digit refs keep working.
 export const REF_TYPES = { ORD: 'order', DL: 'free download', TKT: 'support ticket', HIRE: 'project request', REF: 'refund' };
-const REF_ABC = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+export const REF_REUSE_DAYS = 30;
+const REF_TABLE = { ORD: ['orders', 'number'], DL: ['orders', 'number'], TKT: ['tickets', 'number'], HIRE: ['hire', 'number'] };
 export async function newRef(env, type) {
-  // Purely numeric, sequential per type: JC-TKT-100001, JC-TKT-100002 … (atomic counter row per type in D1).
   if (!REF_TYPES[type]) throw new Error('bad ref type ' + type);
-  for (let i = 0; i < 5; i++) {
-    const n = await nextNumber(env, 'ref_' + type, 100001);
-    const ref = `JC-${type}-${n}`;
-    const r = await env.DB.prepare('INSERT OR IGNORE INTO refs (ref, kind, created) VALUES (?1, ?2, ?3)').bind(ref, type, Date.now()).run();
-    if (r.meta?.changes) return ref;
+  const free = now() - REF_REUSE_DAYS * 864e5;
+  for (let i = 0; i < 40; i++) {
+    const b = new Uint32Array(1); crypto.getRandomValues(b);
+    const num = String(10000 + (b[0] % 90000)); const ref = `JC-${type}-${num}`;
+    const used = await env.DB.prepare('SELECT ref, kind, created, closed_at FROM refs WHERE num = ?1').bind(num).all();
+    const rows = used.results || [];
+    if (rows.some(r => !r.closed_at || r.closed_at > free)) continue; // live (or closed < 30 days ago) somewhere -> taken
+    for (const r of rows) { // all holders closed > 30 days: archive them so the number can serve a new request
+      const tb = REF_TABLE[r.kind]; const arch = r.ref + '~' + (r.created || 0);
+      if (tb) await env.DB.prepare(`UPDATE ${tb[0]} SET ${tb[1]} = ?1 WHERE ${tb[1]} = ?2`).bind(arch, r.ref).run();
+      await env.DB.prepare('DELETE FROM refs WHERE ref = ?1').bind(r.ref).run();
+    }
+    const ins = await env.DB.prepare('INSERT OR IGNORE INTO refs (ref, kind, created, num) VALUES (?1, ?2, ?3, ?4)').bind(ref, type, Date.now(), num).run();
+    if (ins.meta?.changes) return ref;
   }
   throw new Error('could not allocate reference');
+}
+// Marks a reference closed (request completed / closed / declined) or open again; closed_at starts the 30-day clock.
+export async function refClosed(env, ref, closed) {
+  if (!ref) return;
+  try { await env.DB.prepare('UPDATE refs SET closed_at = ?1 WHERE ref = ?2').bind(closed ? now() : null, String(ref)).run(); } catch { }
+}
+// Tracker input -> reference of ONE type. "12345", " jc-hire-12345 ", "JC HIRE 12345", "jchire12345" all -> JC-HIRE-12345.
+// A full code of another type returns { wrong: true } (that tracker must answer "not found").
+export function parseRef(type, s) {
+  const t = String(s || '').toUpperCase().replace(/[\s_#:.]+/g, '').replace(/[\u2010-\u2015]/g, '-');
+  if (/^\d{4,9}$/.test(t)) return { ok: true, ref: `JC-${type}-${t}`, digits: t };
+  const m = t.match(/^(?:JC)?-?([A-Z]{2,4})-?(\d{4,9})$/);
+  if (!m) return { ok: false };
+  return m[1] === type ? { ok: true, ref: `JC-${type}-${m[2]}`, digits: m[2] } : { ok: true, wrong: true, ref: `JC-${m[1]}-${m[2]}`, digits: m[2] };
 }
 // "100001", "jc tkt 100001", "JC-TKT-100001" -> "JC-TKT-100001"
 export function normRef(type, s) {

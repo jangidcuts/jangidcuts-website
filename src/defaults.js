@@ -75,7 +75,7 @@ export const DEFAULTS = {
     ] },
     licence: { title: 'Licence', body: 'Free and paid resources from the Jangid Cuts store are licensed for personal and commercial projects you create. You may not re-sell, re-upload or share the files themselves.' },
     shipping: { title: 'Shipping / Delivery Policy', body: 'All products are digital. Small files are available to download right after purchase from My Orders. Large packs are delivered by a private link sent to your registered email from jangidcuts@gmail.com. Nothing is shipped physically.' },
-    support: { title: 'Support', body: 'Facing an issue with an order, a download or your account? Raise a ticket below. You get a ticket number right away and the solution by email.' }
+    support: { title: 'Support', body: 'Have a question, or facing an issue with an order, a download or your account? Send it below. You get a ticket number right away and the reply by email.' }
   },
   store: {
     title: 'Store', intro: 'Templates, LUTs, editing packs, SFX and more. Free and paid.',
@@ -96,13 +96,15 @@ export const DEFAULTS = {
     budgets: ['Under ₹2,000','₹2,000 – ₹5,000','₹5,000 – ₹15,000','₹15,000+','$100 – $500','$500+','Not sure yet'],
     word_limit: 500, thanks: "Thanks! Your request is in. You'll get a reply on your email soon."
   },
-  help: { title: 'Questions & Help', issue_title: 'Facing any issue? Let us know', issue_note: "You'll get a ticket number now and the reply by email.", thanks: 'Thanks! Your ticket {number} is created. A confirmation is on its way to your email.', support_email: 'supportjangidcuts@gmail.com', support_note: 'Only support-related emails here (orders, downloads, account, tickets).', business_email: 'jangidcuts@gmail.com' },
+  help: { title: 'Questions & Help', issue_title: 'How can we help?', issue_note: "You'll get a ticket number now and the reply by email.", thanks: 'Thanks! Your ticket {number} is created. A confirmation is on its way to your email.', support_email: 'supportjangidcuts@gmail.com', support_note: 'Only support-related emails here (orders, downloads, account, tickets).', business_email: 'jangidcuts@gmail.com' },
   languages: ['en','hi','es','fr','de','ar','pt','ja'],
   mail_templates: {
     otp: { subject: '{code} is your Jangid Cuts code', body: 'Hi {name},\n\nYour verification code is {code}. It expires in 10 minutes.\n\nIf you did not ask for this, you can ignore this email.\n\nJangid Cuts' },
     hire_received: { subject: 'We received your project request ({number})', body: 'Hi {name},\n\nThank you for reaching out to Jangid Cuts. Your project request {number} has been received. I will review it and get back to you shortly.\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts' },
     hire_approved: { subject: 'Ready to work with you — Jangid Cuts [{number}]', body: "Hi {name},\n\nThank you for your project request ({number}). I have reviewed your brief and I'm ready to work with you.\n\nPlease reply to this email with your raw footage link and any references, and we will get started.\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts\njangidcuts@gmail.com · Instagram @jangidcuts" },
     ticket_received: { subject: 'Ticket {number} received — Jangid Cuts Support', body: 'Hi {name},\n\nThank you for contacting Jangid Cuts Support. Your ticket {number} has been created and we are looking into it.\n\nYour message:\n{message}\n\nJangid Cuts Support' },
+    ticket_question: { subject: 'We got your question ({number}) — Jangid Cuts Support', body: 'Hi {name},\n\nThank you for your question. We have received it as {number} and will reply to you by email soon.\n\nYour question:\n{message}\n\nJangid Cuts Support' },
+    hire_status: { subject: 'Project update: {status} ({number})', body: 'Hi {name},\n\nA quick update on your project request {number}: it is now {status}.\n\nIf you have any questions, just reply to this email.\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts' },
     ticket_status: { subject: 'Ticket {number} update: {status}', body: 'Dear {name},\n\nThank you for reaching out to Jangid Cuts Support. Your ticket {number} is now: {status}.\n\n{note}\n\nRegards,\nTeam Jangid Cuts' },
     ticket_solved: { subject: 'Your ticket {number} has been resolved', body: 'Hi {name},\n\nYour ticket {number} has been resolved. Here is the solution:\n\n{solution}\n\nIf you still need help, reply to this email.\n\nJangid Cuts Support' },
     order_paid: { subject: 'Thank you for your purchase — Order {number}', body: 'Hi {name},\n\nThank you for purchasing from Jangid Cuts! Your order {number} is confirmed.\n\n{items}\n\nTotal: {total}\n\nYour downloads are available any time in My Orders: {link}\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts' },

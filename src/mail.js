@@ -38,6 +38,15 @@ export function htmlMail(text, brand, opts = {}) {
   const code = /^otp/.test(kind) ? ((String(text).match(/\b(\d{6})\b/) || [])[1] || '') : '';
   let codeDone = false;
   const paras = htmlEscape(text).split(/\n{2,}/).map(p => {
+    const rm = !code && p.match(/^Your ([a-z ]+) number: (JC-[A-Z]+-[A-Z0-9]+)\nYou can track your [a-z]+ here: (https?:\/\/\S+)$/);
+    if (rm) {
+      const digits = rm[2].replace(/^JC-[A-Z]+-/, '');
+      return '<p class="jc-m" style="margin:4px 0 6px;font-size:13px;line-height:1.5;color:#7d9690">Your ' + rm[1] + ' number</p>' +
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px"><tr><td class="jc-code" bgcolor="#0f2621" style="background:#0f2621;border:1px solid #1f5a4a;border-radius:12px;padding:12px 20px">' +
+        '<span style="font-family:\'Courier New\',Courier,monospace;font-size:24px;line-height:30px;font-weight:700;color:#2BF5C0;letter-spacing:0;-webkit-user-select:all;user-select:all">' + rm[2] + '</span></td></tr></table>' +
+        '<p class="jc-m" style="margin:0 0 14px;font-size:12px;line-height:1.5;color:#7d9690">Keep this number safe. Tap and hold to copy it; the tracker accepts the full number or just the digits (' + digits + ').</p>' +
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px"><tr><td bgcolor="#0DBC94" style="background:#0DBC94;border-radius:10px"><a href="' + rm[3] + '" style="display:inline-block;padding:11px 20px;font-size:14px;font-weight:700;color:#04201a;text-decoration:none;border-radius:10px">Track your ' + (rm[1] === 'hire request' ? 'hire request' : rm[1]) + '</a></td></tr></table>';
+    }
     let out = '<p class="jc-t" style="margin:0 0 14px;line-height:1.6;color:#e8f2ef">' + linkify(p).replace(/\n/g, '<br>') + '</p>';
     if (code && !codeDone && p.includes(code)) {
       codeDone = true;
@@ -110,16 +119,15 @@ export function fill(tpl, vars) { return String(tpl || '').replace(/\{(\w+)\}/g,
 let ORIGIN = '';
 export function setOrigin(o) { if (o) ORIGIN = o; }
 export function trackLine(body, ref) {
+  // Oct 27c: each type links to its OWN tracker, prefilled with the number; the number sits on its own line so it is easy to copy.
   body = String(body || ''); ref = String(ref || '');
   let num = ref, kind = (ref.match(/^JC-([A-Z]+)-/) || [])[1];
   if (kind === 'REF') { const o = body.match(/JC-(ORD|DL)-[A-Z0-9]+/); if (!o) return body; num = o[0]; kind = o[1]; }
-  if (!kind || /\/track(-order)?\?n=/.test(body)) return body;
+  if (!kind || /\/track(-[a-z]+)?\?n=/.test(body)) return body;
   const base = ORIGIN || 'https://jangidcuts.jangidcuts.workers.dev';
-  let line;
-  if (kind === 'TKT') line = `You can track your request anytime using your ticket number ${num} in the Track Request section: ${base}/track?n=${num}`;
-  else if (kind === 'HIRE') line = `You can track your request anytime using your request number ${num} in the Track Request section: ${base}/track?n=${num}`;
-  else if (kind === 'ORD' || kind === 'DL') line = `You can track your order anytime using your order number ${num} in the Track Order section: ${base}/track-order?n=${num}`;
-  else return body;
+  const T = { TKT: ['ticket', 'track-ticket', 'ticket'], HIRE: ['hire request', 'track-hire', 'request'], ORD: ['order', 'track-order', 'order'], DL: ['order', 'track-order', 'order'] }[kind];
+  if (!T) return body;
+  const line = `Your ${T[0]} number: ${num}\nYou can track your ${T[2]} here: ${base}/${T[1]}?n=${encodeURIComponent(num)}`;
   const sig = body.search(/\n\n(Regards,|Best regards|Warm regards|Thanks,|Team Jangid Cuts|Jangid Cuts Support\s*$|Jangid Cuts\s*$|Prashant Jangid)/i);
   return sig > 0 ? body.slice(0, sig) + '\n\n' + line + body.slice(sig) : body + '\n\n' + line;
 }

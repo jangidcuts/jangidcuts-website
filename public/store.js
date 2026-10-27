@@ -106,7 +106,7 @@ function viewCart(){var ids=cartIds().filter(function(id){return prod(id)});
    if(r.paid){done(r.order.number);return}
    if(r.razorpay){payRzp(r);return}
    if(r.test){if(r.canSimulate){if(confirm('Payments are in TEST mode. Simulate a successful payment for '+r.order.number+'? (owner only)'))api('/api/checkout/simulate',{order:r.order.number}).then(function(x){x.ok?done(r.order.number):toast(x.error)})}else toast('Online payment is being set up. Please try again soon or contact us.')}})}}
-function done(num){api('/api/cart',{op:'clear'}).then(function(){toast('Payment confirmed ✓ Order '+num);location.href='/orders'})}
+function done(num){api('/api/cart',{op:'clear'}).then(function(){location.href='/orders?thanks='+encodeURIComponent(num)})}
 function payRzp(r){function go(){var o=r.razorpay;var rz=new window.Razorpay({key:o.key,order_id:o.order_id,amount:o.amount,currency:o.currency,name:o.name,description:o.description,prefill:o.prefill,theme:{color:'#14c79e'},
   handler:function(resp){api('/api/checkout/verify',{order:r.order.number,razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature}).then(function(x){if(x.ok===false){toast(x.error);return}done(r.order.number)})},
   modal:{ondismiss:function(){toast('Payment cancelled. Your cart is saved.')}}});rz.open()}
@@ -116,8 +116,8 @@ function payRzp(r){function go(){var o=r.razorpay;var rz=new window.Razorpay({ke
 function viewOrders(){app.innerHTML=head('My Orders','Your purchases, downloads and order tracking.');if(!U){app.innerHTML+=signInBox('your orders');bindSignIn();return}
  var w=D.createElement('div');w.className='wrap';w.style.paddingBottom='70px';app.appendChild(w);
  var own=(ME.owned||[]).map(function(o){return prod(o.product_id)}).filter(Boolean);
- w.innerHTML='<p class="tk-actions" style="margin-top:14px"><a class="btn btn-ghost" href="/track-order">'+I('bag')+' Track order</a></p><h3 class="h-md" style="margin:18px 0 6px">Downloads</h3>'+(own.length?'<div class="st-list">'+own.map(function(p){var r=ownRow(p.id);return '<div class="li2"><img src="'+esc(p.image)+'" alt=""><div class="t"><b>'+esc(p.title)+'</b><span>'+(p.size_text?esc(p.size_text)+' · ':'')+'lifetime access</span></div><button class="btn btn-primary btn-s" data-dl="'+p.id+'">'+I('download')+(r.downloads?' Again':' Get')+'</button></div>'}).join('')+'</div>':'<div class="st-empty">'+esc(C.store.empty_owned)+'</div>')+
- '<h3 class="h-md" style="margin:26px 0 10px">Orders</h3>'+((ME.orders||[]).length?ME.orders.map(function(o){var ev=o.events||[];var steps=['Order confirmed','Payment confirmed','Delivered'];
+ w.innerHTML='<p class="tk-actions" style="margin-top:14px"><a class="btn btn-ghost" href="/track-order">'+I('bag')+' Track order</a></p><h3 class="h-md" id="dlList" style="margin:18px 0 6px">Downloads</h3>'+(own.length?'<div class="st-list">'+own.map(function(p){var r=ownRow(p.id);return '<div class="li2"><img src="'+esc(p.image)+'" alt=""><div class="t"><b>'+esc(p.title)+'</b><span>'+(p.size_text?esc(p.size_text)+' · ':'')+'lifetime access</span></div><button class="btn btn-primary btn-s" data-dl="'+p.id+'">'+I('download')+(r.downloads?' Again':' Get')+'</button></div>'}).join('')+'</div>':'<div class="st-empty">'+esc(C.store.empty_owned)+'</div>')+
+ '<h3 class="h-md" style="margin:26px 0 10px">Orders</h3>'+((ME.orders||[]).length?ME.orders.map(function(o){if(o.track&&window.JCL&&JCL.tkTimeline)return JCL.tkTimeline(o.track).replace('<div class="tk-card','<div class="tk-card tk-in-orders');var ev=o.events||[];var steps=['Order confirmed','Payment confirmed','Delivered'];
   return '<div class="ord"><div class="ord-h"><b>'+esc(o.number)+'</b><span class="pill2 '+(o.status==='delivered'?'ok':o.status==='created'?'warn':'')+'">'+esc(o.status==='created'?'awaiting payment':o.status)+'</span></div><p class="pm-note">'+o.items.map(function(i){return esc(i.title)}).join(', ')+' · '+(o.total?'₹'+o.total:'Free')+((o.discount||0)+((o.meta&&o.meta.packSave)||0)?' (saved ₹'+((o.discount||0)+((o.meta&&o.meta.packSave)||0))+')':'')+(o.meta&&o.meta.firstOff?' · first order discount ₹'+o.meta.firstOff:'')+'</p>'+
   '<div class="track">'+steps.map(function(sn){var e=ev.find(function(x){return x.s===sn});return '<div class="tr'+(e?' done':'')+'"><i></i><div><b>'+sn+'</b><span>'+(e?fdt(e.t):'—')+'</span></div></div>'}).join('')+'</div></div>'}).join(''):'<div class="st-empty">No orders yet.</div>');
  $$('[data-dl]',w).forEach(function(b){b.onclick=function(){download(+b.dataset.dl,null);b.innerHTML=I('download')+' Again'}})}
@@ -126,9 +126,19 @@ function viewOrders(){app.innerHTML=head('My Orders','Your purchases, downloads 
 function viewWish(){app.innerHTML=head('Wishlist','');if(!U){app.innerHTML+=signInBox('your wishlist');bindSignIn();return}
  var list=ME.wishlist.map(prod).filter(Boolean);app.innerHTML+='<div class="wrap">'+(list.length?'<div class="st-grid">'+list.map(card).join('')+'</div>':'<div class="st-empty">Nothing saved yet. Tap ♡ on any pack to save it.</div>')+'</div>';bindCards(app)}
 
-/* ---------- TICKETS ---------- */
-function viewTickets(){app.innerHTML=head('My Tickets','Problems you reported and their live status.');if(!U){app.innerHTML+=signInBox('your tickets');bindSignIn();return}
- var t=ME.tickets||[],TL=window.JCL&&JCL.tkTimeline;app.innerHTML+='<div class="wrap" style="padding-bottom:70px"><p class="tk-actions"><a class="btn btn-primary" href="/support">'+I('help')+' Report a new issue</a><a class="btn btn-ghost" href="/track">Track request</a></p>'+(t.length?t.map(function(x){return TL?TL(x):'<div class="ord"><b>'+esc(x.number)+'</b> '+esc(x.label||x.status)+'</div>'}).join(''):'<div class="st-empty">No tickets yet. Facing an issue? <a class="tc-link" href="/support">Let us know</a></div>')+'</div>'}
+/* ---------- MY REQUESTS (hire requests, support tickets, orders) ---------- */
+function viewTickets(){app.innerHTML=head('My Requests','Your hire requests, support tickets and orders, with their live status.');if(!U){app.innerHTML+=signInBox('your requests');bindSignIn();return}
+ var TL=window.JCL&&JCL.tkTimeline,H=ME.hires||[],T=ME.tickets||[],O=(ME.orders||[]).filter(function(o){return o.track}).map(function(o){return o.track});
+ var tabs=[['hire','Hire requests',H,'/track-hire','Track hire request'],['ticket','Support tickets',T,'/track-ticket','Track support ticket'],['order','Orders',O,'/track-order','Track order']];
+ var q=new URLSearchParams(location.search).get('tab');var cur=tabs.some(function(t){return t[0]===q})?q:(T.length&&!H.length?'ticket':H.length?'hire':O.length?'order':'hire');
+ var w=D.createElement('div');w.className='wrap';w.style.paddingBottom='70px';app.appendChild(w);
+ var empty={hire:'No hire requests yet. <a class="tc-link" href="/?hire=1">Send a hire request</a>',ticket:'No tickets yet. Have a question or facing a problem? <a class="tc-link" href="/support">Contact support</a>',order:'No orders yet. <a class="tc-link" href="/store">Browse the store</a>'};
+ var draw=function(){var t=tabs.filter(function(x){return x[0]===cur})[0];
+  w.innerHTML='<div class="trk-tabs mr-tabs" role="tablist">'+tabs.map(function(x){return '<a class="trk-tab'+(x[0]===cur?' on':'')+'" role="tab" aria-selected="'+(x[0]===cur)+'" href="/tickets?tab='+x[0]+'" data-tab="'+x[0]+'"><span>'+esc(x[1])+'</span><b class="mr-n">'+x[2].length+'</b></a>'}).join('')+'</div>'+
+   '<p class="tk-actions">'+(cur==='hire'?'<a class="btn btn-primary" href="/?hire=1">'+I('doc')+' New hire request</a>':cur==='ticket'?'<a class="btn btn-primary" href="/support?type=question">'+I('help')+' Ask a question</a><a class="btn btn-ghost" href="/support?type=problem">Report a problem</a>':'<a class="btn btn-primary" href="/orders">'+I('download')+' My downloads</a>')+'<a class="btn btn-ghost" href="'+t[3]+'">'+esc(t[4])+'</a></p>'+
+   (t[2].length?t[2].map(function(x){return TL?TL(x):'<div class="ord"><b>'+esc(x.number)+'</b> '+esc(x.label||x.status)+'</div>'}).join(''):'<div class="st-empty">'+empty[cur]+'</div>');
+  $$('[data-tab]',w).forEach(function(a){a.onclick=function(e){e.preventDefault();cur=a.dataset.tab;try{history.replaceState(null,'','/tickets?tab='+cur)}catch(x){}draw()}})};
+ draw()}
 
 /* ---------- PROFILE ---------- */
 function viewProfile(){app.innerHTML=head('My Profile','');if(!U){app.innerHTML+=signInBox('your profile');bindSignIn();return}
@@ -212,7 +222,7 @@ function shrink(f,max){return new Promise(function(res,rej){var img=new Image();
 
 window.JC_AFTER=function(site,me){S=site;C=site.content;ME=me&&me.user?me:{user:null,cart:[],wishlist:[],owned:[],orders:[],tickets:[]};U=ME.user;PRODS=site.products;CATS=site.categories;app=$('#app');if(!app)return;
  var go=function(){var p=location.pathname.replace(/\/$/,'');var V={'/store':viewStore,'/cart':viewCart,'/orders':viewOrders,'/wishlist':viewWish,'/tickets':viewTickets,'/profile':viewProfile}[p]||viewStore;V();cartBadge();
-  var t={'/store':C.store.title,'/cart':'Cart','/orders':'My Orders','/wishlist':'Wishlist','/tickets':'My Tickets','/profile':'My Profile'}[p];if(t)D.title=t+' | Jangid Cuts';
+  var t={'/store':C.store.title,'/cart':'Cart','/orders':'My Orders','/wishlist':'Wishlist','/tickets':'My Requests','/profile':'My Profile'}[p];if(t)D.title=t+' | Jangid Cuts';
   var pq=new URLSearchParams(location.search).get('p');if(pq&&prod(pq))setTimeout(function(){openProd(+pq)},400);else if(pq)setTimeout(function(){toast('This item is not available right now.')},400)};
  var g=guestCart();if(U&&g.length){api('/api/cart',{ids:g,op:'add'}).then(function(){localStorage.removeItem(GK);return refreshMe()}).then(go)}else go()};
 })();

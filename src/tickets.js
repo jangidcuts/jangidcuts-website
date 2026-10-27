@@ -1,5 +1,5 @@
 // Support tickets: status timeline, client tracking, status emails, AI solution replies (Workers AI).
-import { now, clean, getKey, logEvent } from './lib.js';
+import { now, clean, getKey, logEvent, refClosed } from './lib.js';
 import { sendMail, sendTemplate } from './mail.js';
 
 export const STEPS = ['received', 'read', 'processing', 'solved'];
@@ -34,7 +34,7 @@ export function publicTicket(t, { full = false } = {}) {
   else o.email = maskEmail(t.email);
   return o;
 }
-export function trackUrl(origin, number) { return (origin || '') + '/track?n=' + encodeURIComponent(number); }
+export function trackUrl(origin, number) { return (origin || '') + '/track-ticket?n=' + encodeURIComponent(number); }
 
 // Moves a ticket to a new status, records the time of every step reached, and emails the client (support mailbox).
 export async function setStatus(env, t, status, { origin = '', mail = true, solution = null, by = 'admin' } = {}) {
@@ -49,6 +49,7 @@ export async function setStatus(env, t, status, { origin = '', mail = true, solu
   if (solution !== null) { sets.push('solution = ?' + (vals.length + 1)); vals.push(solution); sets.push('solved_at = ?' + (vals.length + 1)); vals.push(at); }
   vals.push(t.id);
   await env.DB.prepare(`UPDATE tickets SET ${sets.join(', ')} WHERE id = ?${vals.length}`).bind(...vals).run();
+  await refClosed(env, t.number, status === 'solved' || status === 'closed');
   let mailed = null, mailError = null;
   if (mail && cur !== status && status !== 'received') {
     const r = await sendTemplate(env, 'ticket_status', t.email, { name: t.name || 'there', number: t.number, status: LABELS[status], note: STATUS_NOTES[status] || '', track: trackUrl(origin, t.number) }, { account: 'support', ref: t.number });
@@ -95,7 +96,7 @@ export async function aiDraft(env, t) {
     'You write email replies for Jangid Cuts Support. Jangid Cuts is the video editing and graphic design brand of Prashant Jangid (Jaipur, India). The website sells editing packs (free and paid), takes Hire Me project requests and handles support tickets.',
     'Write ONE reply to the customer ticket below. Style: polite, formal, warm and helpful.',
     '- Start with "Dear <first name>," then thank them for reaching out to Jangid Cuts Support.',
-    '- Then solve the problem directly with clear, practical steps that fit THIS problem.',
+    '- If the ticket is a QUESTION: answer it clearly and directly. If it is a PROBLEM report: solve it with clear, practical steps that fit THIS problem.',
     '- Use only facts from the owner instructions and the FAQ. Never invent prices, policies, refund promises, deadlines, links or phone numbers.',
     '- If the information is not enough to solve it, say the team is looking into it and will follow up by email shortly, and ask for any detail you need (for example an order number).',
     '- Never ask for passwords, OTP codes or card details.',
@@ -106,7 +107,7 @@ export async function aiDraft(env, t) {
   ].join('\n');
   const pre = String(t.email || '').split('@')[0];
   let nm = String(t.name || '').trim(); if (!nm || nm === pre || /[0-9+_@.]/.test(nm)) nm = ''; else nm = nm.split(/\s+/)[0].replace(/^./, c => c.toUpperCase());
-  const user = `Ticket ${t.number}\nCustomer first name: ${nm || 'unknown (greet them as "Dear Customer,")'}\nTopic: ${t.topic || 'General'}\nProblem:\n${String(t.message || '').slice(0, 3500)}`;
+  const user = `Ticket ${t.number}\nCustomer first name: ${nm || 'unknown (greet them as "Dear Customer,")'}\nTicket type: ${t.type === 'question' ? 'QUESTION (answer it)' : 'PROBLEM report (solve it)'}\nTopic: ${t.topic || 'General'}\n${t.type === 'question' ? 'Question' : 'Problem'}:\n${String(t.message || '').slice(0, 3500)}`;
   const models = [cfg.model || AI_DEFAULTS.model, '@cf/meta/llama-3.1-8b-instruct'];
   let lastErr = '';
   for (const m of [...new Set(models)]) {

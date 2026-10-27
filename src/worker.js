@@ -100,7 +100,7 @@ export default {
         const res = await env.ASSETS.fetch(new Request(url.origin + '/admin', { headers: req.headers }));
         const r2 = withSec(res); r2.headers.set('cache-control', 'no-store'); r2.headers.set('x-robots-tag', 'noindex'); return r2;
       }
-      if (/^\/(help|faq|support|track|track-order)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/help', { headers: req.headers })); return withSec(res); }
+      if (/^\/(help|faq|support|track|track-order|track-hire|track-ticket)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/help', { headers: req.headers })); return withSec(res); }
       const PAGES = ['/privacy', '/terms', '/contact', '/social', '/licence', '/shipping', '/how-i-work'];
       if (p === '/portfolio.html') return Response.redirect(url.origin + '/portfolio' + url.search, 301);
       if (/^\/(portfolio|services|about)(\/[\w-]+)?\/?$/.test(p) || /^\/watch\/(\d+|p\d+|reel)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/page', { headers: req.headers })); return withSec(res); }
@@ -109,7 +109,7 @@ export default {
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
-        const pages = ['/', '/portfolio', '/services', '/store', '/about', '/resume', '/contact', '/social', '/faq', '/support', '/track', '/track-order', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
+        const pages = ['/', '/portfolio', '/services', '/store', '/about', '/resume', '/contact', '/social', '/faq', '/support', '/track', '/track-hire', '/track-ticket', '/track-order', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
         const { results } = await env.DB.prepare('SELECT id FROM products WHERE visible = 1').all();
         const urls = pages.map(x => `<url><loc>${url.origin}${x}</loc></url>`).concat(results.map(r => `<url><loc>${url.origin}/store?p=${r.id}</loc></url>`));
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } });

@@ -29,7 +29,7 @@ export function withPrice(p, store) { const q = priceOf(p, store); return { ...p
 export function firstOffer(store) { const f = (store && store.first_order) || {}; const pct = Math.min(90, Math.max(0, +f.pct || 0)); return f.on && pct > 0 ? pct : 0; }
 export async function isFirstBuyer(env, userId) {
   if (!userId) return true;
-  const r = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND subtotal > 0 AND status IN ('paid','delivered','refunded') LIMIT 1").bind(userId).first();
+  const r = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND subtotal > 0 AND status IN ('paid','processing','delivered','completed','refunded') LIMIT 1").bind(userId).first();
   return !r;
 }
 
@@ -140,7 +140,7 @@ export async function hmacHex(secret, body) {
 // Mark paid, grant lifetime ownership, deliver big files by email, send thank-you. Idempotent.
 export async function fulfil(env, orderId, { paymentId, origin }) {
   const o = await env.DB.prepare('SELECT * FROM orders WHERE id = ?1').bind(orderId).first();
-  if (!o || o.status === 'delivered' || o.status === 'refunded') return o;
+  if (!o || o.status === 'delivered' || o.status === 'completed' || o.status === 'refunded') return o;
   const events = JSON.parse(o.events || '[]');
   if (o.total > 0) ev(events, 'Payment confirmed');
   const items = JSON.parse(o.items || '[]');

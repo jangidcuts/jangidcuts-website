@@ -1,4 +1,5 @@
-import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef } from './lib.js';
+import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef, refClosed } from './lib.js';
+import { setHireStatus, HIRE_LABELS, hireKind, hireStatus } from './hire.js';
 import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
 import { putFile, deleteFile, storageInfo, storageMeter, driveId, driveMeta, streamDrivePublic } from './storage.js';
@@ -53,11 +54,11 @@ export async function handleAdmin(req, env, ctx, url, s) {
       q('SELECT day, SUM(n) n FROM pv WHERE day >= ?1 GROUP BY day ORDER BY day', d30),
       q('SELECT day, COUNT(*) n FROM visitors WHERE day >= ?1 GROUP BY day ORDER BY day', d30),
       q('SELECT path, SUM(n) n FROM pv WHERE day >= ?1 GROUP BY path ORDER BY n DESC LIMIT 10', d30),
-      q("SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?1 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) today FROM orders WHERE status = 'delivered'", now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
+      q("SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?1 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) today FROM orders WHERE status IN ('delivered','completed','processing','paid')", now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
       q('SELECT status, COUNT(*) n FROM orders GROUP BY status'),
       q('SELECT COUNT(*) n, SUM(CASE WHEN created >= ?1 THEN 1 ELSE 0 END) new7, SUM(CASE WHEN last_login >= ?2 THEN 1 ELSE 0 END) today, SUM(CASE WHEN last_login >= ?1 THEN 1 ELSE 0 END) active7 FROM users', now() - 7 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
       q("SELECT COUNT(*) n FROM tickets WHERE status = 'pending'"),
-      q("SELECT COUNT(*) n FROM hire WHERE status = 'new'"),
+      q("SELECT COUNT(*) n FROM hire WHERE status IN ('new','received')"),
       q('SELECT COALESCE(SUM(downloads),0) n FROM products'),
       q("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible'"),
       q('SELECT number, email, total, status, created FROM orders ORDER BY id DESC LIMIT 8'),
@@ -229,6 +230,18 @@ export async function handleAdmin(req, env, ctx, url, s) {
       return J({ ok: true, refund: refundRef });
     }
     if (b.action === 'note') { await env.DB.prepare('UPDATE orders SET note = ?1 WHERE id = ?2').bind(clean(b.note, 1000), o.id).run(); return J({ ok: true }); }
+    if (b.action === 'status') { // manual override from Admin -> Orders (normally automatic)
+      const OS = { created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
+      const st = String(b.status || ''); if (!OS[st]) fail('Unknown status');
+      if (st === 'delivered' && !o.delivered_at && o.status !== 'delivered') { await fulfil(env, o.id, { paymentId: o.payment_id || 'MANUAL', origin }); }
+      const cur = await env.DB.prepare('SELECT * FROM orders WHERE id = ?1').bind(o.id).first();
+      const ev = JSON.parse(cur.events || '[]'); ev.push({ s: st, at: now(), by: 'admin' });
+      await env.DB.prepare('UPDATE orders SET status = ?1, events = ?2, paid_at = CASE WHEN ?1 IN (\'paid\',\'processing\',\'delivered\',\'completed\') THEN COALESCE(paid_at, ?3) ELSE paid_at END WHERE id = ?4').bind(st, JSON.stringify(ev.slice(-60)), now(), o.id).run();
+      if (['refunded', 'cancelled', 'failed'].includes(st)) await refClosed(env, o.number, true); else await refClosed(env, o.number, false);
+      let mailed = null;
+      if (b.notify !== false && st !== cur.status) { const r = await sendTemplate(env, 'order_status', o.email, { name: 'there', number: o.number, status: OS[st], refund: '', link: origin + '/orders' }, { ref: o.number }); mailed = r.ok; }
+      return J({ ok: true, status: st, mailed });
+    }
     fail('Unknown action');
   }
 
@@ -254,10 +267,18 @@ export async function handleAdmin(req, env, ctx, url, s) {
     const b = await readJson(req, 30000); const h = await env.DB.prepare('SELECT * FROM hire WHERE id = ?1').bind(+mm[1]).first(); if (!h) fail('Not found', 404);
     if (b.action === 'approve') {
       const r = await sendTemplate(env, 'hire_approved', h.email, { name: h.name, number: h.number }, { ref: h.number });
-      await env.DB.prepare("UPDATE hire SET status = 'approved', approved_at = ?1 WHERE id = ?2").bind(now(), h.id).run();
+      await setHireStatus(env, h, 'approved', b.kind);
       return J({ ok: true, mailed: r.ok, mailError: r.error || null });
     }
-    if (b.action === 'reject' || b.action === 'done' || b.action === 'new') { await env.DB.prepare('UPDATE hire SET status = ?1 WHERE id = ?2').bind(b.action === 'new' ? 'new' : b.action === 'done' ? 'done' : 'rejected', h.id).run(); return J({ ok: true }); }
+    if (b.action === 'reject' || b.action === 'done' || b.action === 'new') { b.action = 'status'; b.status = { new: 'received', done: hireKind(h) === 'ongoing' ? 'ended' : 'completed', reject: 'declined' }[b.action]; }
+    if (b.action === 'status' || b.action === 'kind') { // Admin -> Hire requests -> request -> "Project status"
+      let r; try { r = await setHireStatus(env, h, b.action === 'kind' ? hireStatus(h) : String(b.status || ''), b.kind); } catch (e) { fail(e.message); }
+      let mailed = null;
+      if (b.action === 'status' && b.notify && r.status !== hireStatus(h)) {
+        const m2 = await sendTemplate(env, 'hire_status', h.email, { name: h.name || 'there', number: h.number, status: r.label }, { ref: h.number }); mailed = m2.ok;
+      }
+      return J({ ok: true, ...r, mailed });
+    }
     if (b.action === 'note') { await env.DB.prepare('UPDATE hire SET note = ?1 WHERE id = ?2').bind(clean(b.note, 2000), h.id).run(); return J({ ok: true }); }
     if (b.action === 'email') { const r = await sendMail(env, { account: 'main', to: h.email, subject: clean(b.subject, 200) || 'Re: your project ' + h.number, body: clean(b.body, 10000), kind: 'hire_reply', ref: h.number }); return J({ ok: r.ok, error: r.error }); }
     if (b.action === 'delete') { await env.DB.prepare('DELETE FROM hire WHERE id = ?1').bind(h.id).run(); return J({ ok: true }); }
