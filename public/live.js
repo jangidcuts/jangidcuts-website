@@ -139,7 +139,7 @@ function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView
    $('#trkHint').textContent='You can enter the full number (JC-'+k.T+'-12345) or just the digits (12345).';
    $$('.trk-tab',page).forEach(function(a){var on=a.getAttribute('data-t')===ty;a.setAttribute('aria-selected',on?'true':'false');a.classList.toggle('on',on)});
    if(!keep){$('#trkOut').innerHTML='';$('#trkErr').hidden=true;$('#trkHelp').hidden=true;$('#trkNum').classList.remove('is-err')}
-   D.title=k.title+' | Jangid Cuts';mine()};
+   if(helpView()==='track')D.title=k.title+' | Jangid Cuts';mine()};
   var mine=function(){var el=$('#trkMine');if(!el)return;var me=JCL.me||{},L=cur==='hire'?(me.hires||[]):cur==='ticket'?(me.tickets||[]):(me.orders||[]).map(function(o){return null}).filter(Boolean);
    el.innerHTML=L.length?'<h3 class="h-md grad-text" style="margin:28px 0 12px">'+(cur==='hire'?'Your hire requests':'Your tickets')+'</h3>'+L.map(tkTimeline).join(''):''};
   var helper=function(){var o=['hire','ticket','order'].filter(function(x){return x!==cur});

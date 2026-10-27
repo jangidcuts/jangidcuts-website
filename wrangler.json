@@ -46,7 +46,9 @@
       "/track-order",
       "/resume",
       "/resume/",
-      "/resume.pdf"
+      "/resume.pdf",
+      "/track-hire",
+      "/track-ticket"
     ]
   },
   "d1_databases": [

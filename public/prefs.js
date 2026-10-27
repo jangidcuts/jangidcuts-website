@@ -12,3 +12,5 @@ s.textContent='html.jc-gate body>*:not(#loginModal):not(#loader):not(#toast):not
 document.head.appendChild(s);window.JC_UNGATE=function(){d.classList.remove('jc-gate')};setTimeout(window.JC_UNGATE,15000)}catch(e){}})();
 
 (function(){try{var l=localStorage.getItem('jc-lang');if(l&&l!=='en'&&l!=='0'){var d=document.documentElement;d.classList.add('i18n-wait');var s=document.createElement('style');s.textContent='html.i18n-wait body{visibility:hidden}';document.head.appendChild(s);setTimeout(function(){d.classList.remove('i18n-wait')},2500)}}catch(e){}})();
+/* help page: pick the FAQ / Support / Track view before first paint (no flash) */
+(function(){try{var p=location.pathname.replace(/\/$/,''),v='';if(p==='/support'||(/^\/help(\.html)?$/.test(p)&&location.hash==='#issue'))v='support';else if(/^\/track(-hire|-ticket|-order)?$/.test(p))v='track';else if(/^\/(faq|help(\.html)?)$/.test(p))v='faq';if(v){document.documentElement.setAttribute('data-hpv',v);document.title=({faq:'FAQ',support:'Support',track:'Track'})[v]+' | Jangid Cuts'}}catch(e){}})();

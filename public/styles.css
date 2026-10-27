@@ -863,3 +863,4 @@ form .btn-submit,#issueForm>button[type=submit],#hireForm>button[type=submit]{wi
 @media (max-width:1024px){.trk-form{grid-template-columns:1fr 1fr}.trk-form>.btn-submit{grid-column:1/-1}}
 @media (max-width:720px){.trk-form{grid-template-columns:1fr}}
 .trk-form>.btn-submit{margin-top:0}
+html[data-hpv] .hp-view{display:none!important}html[data-hpv=faq] .hp-view[data-view=faq],html[data-hpv=support] .hp-view[data-view=support],html[data-hpv=track] .hp-view[data-view=track]{display:block!important}
