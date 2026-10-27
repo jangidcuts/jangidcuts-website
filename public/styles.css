@@ -857,3 +857,9 @@ html.lang-rtl :is(input,textarea){unicode-bidi:plaintext}
 .cat-pick{display:inline;background:transparent;border:0;color:var(--mint);font-weight:800;cursor:pointer;text-decoration:underline;font-size:inherit;padding:0}
 .cat-other .chip.pulse{border-color:var(--mint);box-shadow:0 0 0 3px rgba(43,245,192,.1)}
 @media(max-width:620px){.trk-tabs{gap:6px}.trk-tab{padding:11px 12px;font-size:12.5px;gap:5px}.trk-tab .icon{width:15px;height:15px}.ty-card{padding:18px 12px}.ty-code{gap:10px}.ty-ref{padding:15px 10px}.cat-list{max-height:260px}}
+
+/* full-width final submit buttons (Oct 27c item O) */
+form .btn-submit,#issueForm>button[type=submit],#hireForm>button[type=submit]{width:100%;justify-content:center;min-height:50px;margin-top:8px}
+@media (max-width:1024px){.trk-form{grid-template-columns:1fr 1fr}.trk-form>.btn-submit{grid-column:1/-1}}
+@media (max-width:720px){.trk-form{grid-template-columns:1fr}}
+.trk-form>.btn-submit{margin-top:0}

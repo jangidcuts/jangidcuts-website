@@ -29,19 +29,20 @@ export async function siteData(env) {
 
 async function meData(env, s) {
   const uid = s.user.id;
-  const [cart, wish, owned, orders, tickets, hires, dld] = await Promise.all([
+  const [cart, wish, owned, orders, tickets, hires, dld, myRev] = await Promise.all([
     env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT number, data, status, kind, events, created, approved_at FROM hire WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
-    env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all()
+    env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all(),
+    env.DB.prepare('SELECT id, product_id, rating, text, status, created FROM reviews WHERE user_id = ?1 AND product_id IS NOT NULL').bind(uid).all()
   ]);
   const dl = new Set((dld.results || []).map(r => r.order_id));
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
-    owned: owned.results, orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); return x; }),
+    owned: owned.results, reviews: myRev.results || [], orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); return x; }),
     firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })), hires: hires.results.map(h => publicHire(h, { full: true })) };
 }
 
@@ -298,8 +299,17 @@ export async function handlePublic(req, env, ctx, url, s) {
     const pid = b.product_id ? +b.product_id : null;
     if (pid) {
       const own = await env.DB.prepare('SELECT 1 FROM owned WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid).first();
-      if (!own) fail('Only buyers can review this item', 403);
-      await env.DB.prepare('DELETE FROM reviews WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid).run();
+      if (!own) fail('Only buyers of this pack can rate it', 403);
+      /* one review per buyer per pack: editing keeps the admin's visibility and home-page choice */
+      const ex = await env.DB.prepare('SELECT id, status FROM reviews WHERE user_id = ?1 AND product_id = ?2 ORDER BY id DESC').bind(s.user.id, pid).all();
+      if (ex.results.length) {
+        const keep = ex.results[0];
+        await env.DB.batch([
+          env.DB.prepare('UPDATE reviews SET rating = ?1, text = ?2, name = ?3, created = ?4 WHERE id = ?5').bind(rating, text, clean(s.user.name || 'Customer', 80), now(), keep.id),
+          env.DB.prepare('DELETE FROM reviews WHERE user_id = ?1 AND product_id = ?2 AND id <> ?3').bind(s.user.id, pid, keep.id)
+        ]);
+        return J({ ok: true, updated: true, status: keep.status, message: keep.status === 'hidden' ? 'Review updated. It is not shown publicly right now.' : 'Your review is updated' });
+      }
     } else {
       const ok = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND status IN ('delivered','completed') UNION SELECT 1 FROM hire WHERE email = ?2 AND status IN ('approved','progress','delivered','completed','active','paused','ended') LIMIT 1").bind(s.user.id, s.user.email).first();
       if (!ok) fail('Reviews are open to clients and buyers', 403);
@@ -307,7 +317,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     }
     await env.DB.prepare("INSERT INTO reviews (user_id, product_id, name, role, rating, text, status, source, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'visible', 'user', ?7)")
       .bind(s.user.id, pid, clean(s.user.name || 'Customer', 80), pid ? 'Verified buyer' : 'Client', rating, text, now()).run();
-    return J({ ok: true });
+    return J({ ok: true, status: 'visible', message: 'Thanks for your review!' });
   }
 
   /* ----- hire / tickets ----- */

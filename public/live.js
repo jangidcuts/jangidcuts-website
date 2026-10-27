@@ -108,7 +108,7 @@ function parseRef(T,s){var t=String(s||'').toUpperCase().replace(/[\s_#:.]+/g,''
 JCL.parseRef=parseRef;
 function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView();
  if(view==='support'&&location.pathname.indexOf('/support')!==0){history.replaceState(null,'','/support'+location.search)}
- $$('.hp-view',page).forEach(function(v){v.hidden=v.getAttribute('data-view')!==view});
+ D.documentElement.setAttribute('data-hpv',view);$$('.hp-view',page).forEach(function(v){v.hidden=v.getAttribute('data-view')!==view});
  D.title=({faq:'FAQ',support:'Support',track:'Track'})[view]+' | Jangid Cuts';
  var h=c.help||{};
  var fq=$('#faq');if(fq&&c.faq)fq.innerHTML=(c.faq||[]).map(function(x,i){return '<details'+(i===0?' open':'')+'><summary>'+esc(x.q)+'</summary><p>'+esc(x.a)+'</p></details>'}).join('');
@@ -118,14 +118,14 @@ function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView
  /* support form: Ask a question / Report a problem -> same JC-TKT ticket */
  var f=$('#issueForm');if(f&&!f._b){f._b=1;if(JCL.user&&$('#isEmail'))$('#isEmail').value=JCL.user.email;
   var qt=new URLSearchParams(location.search).get('type');if(qt==='problem'||qt==='question'){var rb=f.querySelector('input[name=isType][value='+qt+']');if(rb)rb.checked=true}
-  var typ=function(){var r=f.querySelector('input[name=isType]:checked');return r?r.value:'question'};
-  var sync=function(){var q=typ()==='question';$('#isMsgLbl').textContent=q?'Your question':'What\u2019s the problem?';$('#isMsg').placeholder=q?'Type your question':'Describe the issue';var ob=$('#isOrd');if(ob)ob.closest('.field').hidden=q;var bt=f.querySelector('button[type=submit]');if(bt)bt.textContent=q?'Send question':'Report problem'};
-  $$('input[name=isType]',f).forEach(function(r){r.addEventListener('change',sync)});sync();
+  var REFT={'Order / payment':['ORD','Order number (JC-ORD-…)','e.g. JC-ORD-12345 or 12345'],'Download':['ORD','Order number of the pack','e.g. JC-ORD-12345 or 12345'],'Hire Me / project':['HIRE','Hire request number (JC-HIRE-…)','e.g. JC-HIRE-12345 or 12345'],'Account / sign in':['EMAIL','Email on your account','you@example.com']};var typ=function(){var r=f.querySelector('input[name=isType]:checked');return r?r.value:'question'};
+  var sync=function(){var q=typ()==='question';$('#isMsgLbl').textContent=q?'Your question':'What\u2019s the problem?';$('#isMsg').placeholder=q?'Type your question':'Describe the issue';var rt=REFT[($('#isTopic')||{}).value],ob=$('#isOrd');if(ob){ob.closest('.field').hidden=!rt;if(rt){$('#isOrdLbl').textContent=rt[1];ob.placeholder=rt[2];ob.type=rt[0]==='EMAIL'?'email':'text';ob.setAttribute('autocapitalize',rt[0]==='EMAIL'?'off':'characters');ob.setAttribute('autocomplete',rt[0]==='EMAIL'?'email':'off')}}var bt=f.querySelector('button[type=submit]');if(bt)bt.textContent=q?'Send question':'Report problem'};
+  $$('input[name=isType]',f).forEach(function(r){r.addEventListener('change',sync)});var tp=$('#isTopic');tp&&tp.addEventListener('change',sync);sync();
   f.addEventListener('submit',function(e){e.preventDefault();var em=$('#isEmail'),ms=$('#isMsg'),tc=$('#isTc'),ty=typ();$$('.fld-err',f).forEach(function(x){x.remove()});$$('.is-err',f).forEach(function(x){x.classList.remove('is-err')});
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())){fieldErr(em,'Please enter a valid email');return}
    if(ms.value.trim().length<5){fieldErr(ms,ty==='question'?'Please write your question':'Please describe the problem');return}
    if(!tc.checked){toast('Please accept the Terms & Conditions');return}
-   var b=f.querySelector('button[type=submit]');b.disabled=true;var ord=(ty==='problem'&&$('#isOrd')&&$('#isOrd').value.trim())?'Order: '+normRef('ORD',$('#isOrd').value)+'\n\n':'';
+   var b=f.querySelector('button[type=submit]');b.disabled=true;var rt2=REFT[$('#isTopic').value],rv=$('#isOrd')&&$('#isOrd').value.trim(),ord=(rt2&&rv)?rt2[1].replace(/ \(.*\)$/,'')+': '+(rt2[0]==='EMAIL'?rv:normRef(rt2[0],rv))+'\n\n':'';
    api('/api/tickets',{type:ty,email:em.value.trim(),topic:$('#isTopic').value,message:ord+ms.value,tc:true,website:''}).then(function(r){b.disabled=false;
     if(!r.ok){toast(r.error||'Could not send');return}
     var dn=$('#isDone');f.hidden=true;dn.hidden=false;var head=$('#issue h3'),note=$('#issue .is-note');if(head)head.hidden=true;if(note)note.hidden=true;

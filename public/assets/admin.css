@@ -216,3 +216,9 @@ html.side-lock,html.side-lock body{overflow:hidden}
 .chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}.chk input{width:16px;height:16px;accent-color:var(--mint)}
 .tty{display:inline-block;padding:2px 7px;border-radius:6px;font-size:11px;font-weight:700;margin-right:4px}.tty-q{background:rgba(122,168,255,.16);color:#9cbcff}.tty-p{background:rgba(255,193,77,.14);color:#ffc14d}
 @media(max-width:600px){.hbar li{min-width:30%;margin-bottom:6px}}
+
+/* AI assistant on phones: input pinned above the keyboard (Oct 27c item S) */
+@media (max-width:760px){.aic{height:calc(100dvh - 230px);min-height:340px}}
+body.aic-kb{overflow:hidden}
+body.aic-kb .aic{position:fixed;left:0;right:0;top:0;z-index:1000;border-radius:0;border:0;min-height:0;max-height:none}
+body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
