@@ -7,13 +7,13 @@ import { handleAssistant } from './assistant.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
 const TABLES = {
-  products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort', 'video'],
+  products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'price_mode', 'disc_type', 'disc_value', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort', 'video'],
   portfolio: ['kind', 'title', 'description', 'category_id', 'subcategory_id', 'image', 'video', 'url', 'orient', 'featured', 'home', 'sort', 'visible', 'services', 'source'],
   categories: ['section', 'name', 'parent_id', 'sort', 'thumb'],
   coupons: ['code', 'type', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'note'],
   reviews: ['product_id', 'name', 'role', 'rating', 'text', 'status', 'featured', 'source', 'photo']
 };
-const NUM = new Set(['price', 'mrp', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating']);
+const NUM = new Set(['price', 'mrp', 'disc_value', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating']);
 const slugify = (s) => clean(s, 80).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
 
 function rowVals(table, b) {
@@ -24,6 +24,9 @@ function rowVals(table, b) {
     else if (typeof v === 'object' && v !== null) v = JSON.stringify(v);
     else v = clean(v, c === 'description' || c === 'text' ? 20000 : 1000);
     if (c === 'code') v = String(v).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    if (c === 'price_mode' && !['', 'none', 'manual', 'discount'].includes(v)) v = '';
+    if (c === 'disc_type' && !['', 'pct', 'flat'].includes(v)) v = 'pct';
+    if ((c === 'disc_value' || c === 'mrp' || c === 'price') && v !== null) v = Math.max(0, v);
     if ((c === 'image' || c === 'photo' || c === 'thumb') && /drive\.google\.com|docs\.google\.com/.test(v) && driveId(v)) v = 'https://drive.google.com/thumbnail?id=' + driveId(v) + '&sz=w2000';
     cols.push(c); vals.push(v);
   }

@@ -72,7 +72,9 @@ textarea.in{min-height:110px;resize:vertical;line-height:1.5}.in:focus{border-co
 .mobnav{display:none}
 .chart-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:4px}
 pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;font-size:12.5px;white-space:pre-wrap;word-break:break-all}
-@media (max-width:860px){.app{grid-template-columns:1fr}.side{display:none}.side.open{display:block;position:fixed;inset:0 25% 0 0;z-index:95;height:100vh}
+@media (max-width:860px){.app{grid-template-columns:1fr}.side{display:none}.side.open{display:block;position:fixed;inset:0 auto 0 0;width:min(78vw,320px);z-index:95;height:100vh;height:100dvh;box-shadow:12px 0 40px rgba(0,0,0,.55);animation:sideIn .2s ease-out}
+.side-ov.on{display:block;position:fixed;inset:0;z-index:94;background:rgba(0,1,1,.6);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:ovIn .2s ease-out;cursor:pointer}
+html.side-lock,html.side-lock body{overflow:hidden}
 .mobnav{display:flex;position:sticky;top:0;z-index:50;background:var(--bg2);border-bottom:1px solid var(--line);padding:10px 14px;align-items:center;justify-content:space-between}
 .mobnav b{font-family:var(--head);font-size:22px;font-weight:400}.g2,.g3{grid-template-columns:1fr}.kv{grid-template-columns:1fr}.main{padding-top:14px}}
 .hidden{display:none!important}
@@ -166,3 +168,33 @@ pre.code{background:#000;border:1px solid var(--line);border-radius:10px;padding
 .ip-it span:last-child{overflow-wrap:anywhere}
 .so-row .hdr{align-items:center}.so-row .acts{flex-wrap:nowrap;flex:0 0 auto;gap:6px}.so-st{white-space:nowrap;align-self:flex-start}
 @media (max-width:420px){.so-row .acts .ib{width:32px;height:32px}.so-hd{gap:10px}}
+
+.side-ov{display:none}
+@keyframes sideIn{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes ovIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.side.open,.side-ov.on{animation:none}}
+
+/* pricing editor + sale card (Oct 27) */
+.prz{border:1px solid var(--line);border-radius:14px;padding:12px;margin:4px 0 14px;background:rgba(43,245,192,.03)}
+.prz-l{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:10px;max-width:100%}
+.seg button{padding:7px 11px;border-radius:9px;font-size:13px;font-weight:700;color:var(--muted);min-height:34px}
+.seg button.on{background:var(--grad-x);color:#00110D}
+.seg.sm{margin:0;flex:none;flex-wrap:nowrap}.seg.sm button{min-width:38px;padding:6px 10px}
+.prz-prev{border-top:1px dashed var(--line);padding-top:10px;margin-top:2px;display:flex;flex-direction:column;gap:4px}
+.prz-tag{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap}.prz-tag s{color:var(--faint);font-size:14px}.prz-tag b{font-size:20px}
+.prz-tag em{font-style:normal;font-size:11.5px;font-weight:800;letter-spacing:.04em;background:var(--grad-x);color:#00110D;border-radius:6px;padding:2px 7px}
+.warn-t{color:var(--amber)}
+.sale-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:13.5px;color:var(--muted)}
+.sale-strip span{display:inline-flex;align-items:center;gap:6px}.sale-strip svg{width:16px;height:16px;color:var(--mint)}.sale-strip b{color:var(--text)}.sale-strip b.on{color:var(--mint)}.sale-strip .btn{margin-left:auto}
+.sc-blk{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.sc-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.sc-h b{font-size:15px}
+.sc-blk p.muted{margin-bottom:10px}
+.tgl{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:12.5px;letter-spacing:.06em;color:var(--muted)}
+.tgl input{position:absolute;opacity:0;width:1px;height:1px}
+.tgl i{width:44px;height:26px;border-radius:999px;background:rgba(255,255,255,.14);position:relative;transition:background .2s}
+.tgl i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s}
+.tgl input:checked+i{background:var(--mint2)}.tgl input:checked+i::after{transform:translateX(18px)}
+.tgl input:checked~span{color:var(--mint)}
+.tgl input:focus-visible+i{outline:2px solid var(--mint);outline-offset:2px}
+.prz .seg:not(.sm){display:grid;grid-template-columns:repeat(3,1fr);width:100%}.prz .seg:not(.sm) button{padding:7px 6px;text-align:center}

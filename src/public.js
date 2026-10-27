@@ -3,7 +3,7 @@ import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, 
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource } from './storage.js';
-import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig } from './shop.js';
+import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
 
 const needUser = (s) => { if (!s) fail('Please sign in first', 401); return s; };
 const needTc = (b) => { if (!b.tc) fail('Please accept the Terms & Conditions'); };
@@ -14,14 +14,14 @@ export async function siteData(env) {
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
+    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
     env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created, r.photo FROM reviews r WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
     env.DB.prepare("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible' AND product_id IS NULL").first()
   ]);
   const pay = await paymentsConfig(env);
   return { content, categories: cats.results, portfolio: pf.results.map(x => { let sv = []; try { sv = JSON.parse(x.services || '[]'); } catch { } const yt = /youtu\.?be/i.test(x.url || ''); const did = !yt ? driveId(x.url) : '';
     // Drive / direct links stream through /v/<id>; the raw link is not sent to visitors (only YouTube ids are needed client-side)
-    return { ...x, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results, reviews: revs.results,
+    return { ...x, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results.map(x => { const { price_mode, disc_type, disc_value, ...r } = withPrice(x, content.store || {}); return r; }), firstOffer: firstOffer(content.store || {}), reviews: revs.results,
     reviewStats: { count: revStats?.n || 0, avg: revStats?.avg ? Math.round(revStats.avg * 10) / 10 : 0 },
     cfg: { google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), payments: pay.provider, storage: storageInfo(env).backend } };
 }
@@ -32,12 +32,13 @@ async function meData(env, s) {
     env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
-    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
+    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all()
   ]);
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
-    owned: owned.results, orders: orders.results.map(o => ({ ...o, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') })), tickets: tickets.results.map(t => publicTicket(t, { full: true })) };
+    owned: owned.results, orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } return { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; }),
+    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'delivered', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })) };
 }
 
 /* ---------- OTP ---------- */
@@ -103,6 +104,9 @@ export async function handlePublic(req, env, ctx, url, s) {
     const b = await readJson(req); const email = clean(b.email, 200).toLowerCase();
     await limitOrFail(env, 'login:' + email, 8, 15 * 60e3); await limitOrFail(env, 'loginip:' + ip(req), 30, 15 * 60e3);
     const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?1').bind(email).first();
+    // No account yet / account without a password: the client switches to the email-code flow (which creates the account on verify)
+    if (!u && isEmail(email)) return J({ ok: false, reason: 'no_account', error: 'No account with this email yet' }, 404);
+    if (u && !u.disabled && !u.pass_hash) return J({ ok: false, reason: 'no_password', error: 'This account has no password yet' }, 409);
     if (!u || !u.pass_hash || u.disabled || (await hashPw(env, String(b.password || ''), u.salt)) !== u.pass_hash) fail('Wrong email or password', 401);
     const ck = await newSession(env, req, u.id, 0);
     return J({ ok: true }, 200, { 'set-cookie': ck });

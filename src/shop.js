@@ -3,6 +3,36 @@ import { sendTemplate, sendMail, alertOwner, googleToken } from './mail.js';
 
 export const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
+// ---- Pricing (server is the only source of truth) ----
+// Precedence per pack: manual before/after (mrp > price) OR per-pack discount (₹ / %) -> then the
+// site-wide sale (only on packs without their own discount, unless the sale is set to stack).
+// First-order discount is applied in quote() on the cart, after bundle discounts, before coupons.
+export function priceOf(p, store) {
+  const base = Math.max(0, Math.round(+p.price || 0));
+  if (!base) return { price: 0, was: 0, off: 0, src: '' };
+  let after = base, before = 0, src = '';
+  const mode = p.price_mode || ((+p.mrp > base) ? 'manual' : 'none');
+  if (mode === 'manual' && +p.mrp > base) { before = Math.round(+p.mrp); src = 'pack'; }
+  else if (mode === 'discount' && +p.disc_value > 0) {
+    const d = p.disc_type === 'flat' ? Math.round(+p.disc_value) : Math.round(base * Math.min(95, +p.disc_value) / 100);
+    after = Math.max(1, base - d); before = base; src = 'pack';
+  }
+  const sale = (store && store.sale) || {};
+  const spct = Math.min(90, Math.max(0, +sale.pct || 0));
+  if (sale.on && spct > 0 && (!src || sale.stack)) {
+    after = Math.max(1, Math.round(after * (100 - spct) / 100)); if (!before) before = base; src = src ? 'pack+sale' : 'sale';
+  }
+  if (before <= after) { before = 0; src = ''; }
+  return { price: after, was: before, off: before ? Math.round((before - after) * 100 / before) : 0, src };
+}
+export function withPrice(p, store) { const q = priceOf(p, store); return { ...p, base_price: Math.round(+p.price || 0), price: q.price, mrp: q.was, off: q.off, sale: q.src }; }
+export function firstOffer(store) { const f = (store && store.first_order) || {}; const pct = Math.min(90, Math.max(0, +f.pct || 0)); return f.on && pct > 0 ? pct : 0; }
+export async function isFirstBuyer(env, userId) {
+  if (!userId) return true;
+  const r = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND subtotal > 0 AND status IN ('paid','delivered','refunded') LIMIT 1").bind(userId).first();
+  return !r;
+}
+
 export async function loadProducts(env, ids) {
   ids = [...new Set((ids || []).map(Number).filter(Boolean))].slice(0, 50);
   if (!ids.length) return [];
@@ -10,9 +40,10 @@ export async function loadProducts(env, ids) {
   return results;
 }
 
-// Price calculation: bundle discount (by number of paid items) then coupon.
+// Price calculation: pack prices (manual / per-pack discount / site sale) -> bundle discount -> first-order discount -> coupon.
 export async function quote(env, { items, coupon, userId }) {
-  let prods = await loadProducts(env, items);
+  const store = await getKey(env, 'store');
+  let prods = (await loadProducts(env, items)).map(p => withPrice(p, store));
   let ownedIds = new Set();
   if (userId && prods.length) {
     const { results } = await env.DB.prepare('SELECT product_id FROM owned WHERE user_id = ?1').bind(userId).all();
@@ -21,11 +52,19 @@ export async function quote(env, { items, coupon, userId }) {
   const skipped = prods.filter(p => ownedIds.has(p.id)).map(p => p.id);
   prods = prods.filter(p => !ownedIds.has(p.id));
   const subtotal = prods.reduce((s, p) => s + (p.price || 0), 0);
+  const mrpTotal = prods.reduce((s, p) => s + (p.mrp > p.price ? p.mrp : (p.price || 0)), 0);
+  const packSave = Math.max(0, mrpTotal - subtotal);
   const paidCount = prods.filter(p => p.price > 0).length;
-  const store = await getKey(env, 'store');
   let bundlePct = 0;
   for (const b of (store.bundles || [])) if (paidCount >= +b.min_items && +b.pct > bundlePct) bundlePct = Math.min(90, +b.pct);
   const bundle = Math.floor(subtotal * bundlePct / 100);
+  // First pack purchase: only for signed-in buyers with no earlier paid order (guests see it as an offer, applied after sign-in)
+  const fpct = firstOffer(store);
+  let firstPct = 0, firstOff = 0, firstEligible = false;
+  if (fpct && paidCount > 0) {
+    firstEligible = await isFirstBuyer(env, userId);
+    if (firstEligible && userId) { firstPct = fpct; firstOff = Math.floor((subtotal - bundle) * fpct / 100); }
+  }
   let couponOff = 0, couponInfo = null, couponError = null;
   const code = clean(coupon, 40).toUpperCase();
   if (code) {
@@ -38,14 +77,15 @@ export async function quote(env, { items, coupon, userId }) {
     else if (paidCount < (c.min_items || 1)) couponError = `Add at least ${c.min_items} paid items to use this coupon`;
     else if (c.min_total && subtotal < c.min_total) couponError = `Minimum order ${money(c.min_total)} for this coupon`;
     else {
-      const base = subtotal - bundle;
+      const base = subtotal - bundle - firstOff;
       couponOff = c.type === 'flat' ? Math.min(base, c.value) : Math.floor(base * Math.min(100, c.value) / 100);
       couponInfo = { code: c.code, type: c.type, value: c.value };
     }
   }
-  const discount = bundle + couponOff;
+  const discount = bundle + firstOff + couponOff;
   const total = Math.max(0, subtotal - discount);
-  return { items: prods.map(p => ({ id: p.id, title: p.title, price: p.price, image: p.image, delivery: p.delivery, slug: p.slug })), skipped, subtotal, bundlePct, bundle, coupon: couponInfo, couponOff, couponError, discount, total };
+  return { items: prods.map(p => ({ id: p.id, title: p.title, price: p.price, was: p.mrp || 0, off: p.off || 0, image: p.image, delivery: p.delivery, slug: p.slug })), skipped,
+    subtotal, mrpTotal, packSave, bundlePct, bundle, firstPct, firstOff, firstOffer: fpct, firstEligible, coupon: couponInfo, couponOff, couponError, discount, total };
 }
 
 export async function paymentsConfig(env) {
@@ -67,8 +107,9 @@ export async function createOrder(env, req, sess, { items, coupon }) {
   if (q.total > 0 && pay.provider !== 'razorpay' && !sess.adminReady) fail('Online payment is being set up. Please try again soon or contact us.', 503);
   const number = await newRef(env, q.total === 0 ? 'DL' : 'ORD');
   const events = ev([], 'Order confirmed');
-  const row = await env.DB.prepare('INSERT INTO orders (number, user_id, email, items, subtotal, discount, total, coupon, status, provider, events, created) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12) RETURNING id')
-    .bind(number, sess.user.id, sess.user.email, JSON.stringify(q.items), q.subtotal, q.discount, q.total, q.coupon?.code || null, 'created', q.total === 0 ? 'free' : pay.provider, JSON.stringify(events), now()).first();
+  const meta = { mrpTotal: q.mrpTotal, packSave: q.packSave, bundlePct: q.bundlePct, bundle: q.bundle, firstPct: q.firstPct, firstOff: q.firstOff, couponOff: q.couponOff };
+  const row = await env.DB.prepare('INSERT INTO orders (number, user_id, email, items, subtotal, discount, total, coupon, status, provider, events, created, meta) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13) RETURNING id')
+    .bind(number, sess.user.id, sess.user.email, JSON.stringify(q.items), q.subtotal, q.discount, q.total, q.coupon?.code || null, 'created', q.total === 0 ? 'free' : pay.provider, JSON.stringify(events), now(), JSON.stringify(meta)).first();
   const order = { id: row.id, number, total: q.total };
   if (q.total === 0) { await fulfil(env, row.id, { paymentId: 'free', origin: new URL(req.url).origin }); return { order, paid: true }; }
   if (pay.provider === 'razorpay') {

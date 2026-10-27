@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT NOT NULL, short TEXT, description TEXT,
   price INTEGER DEFAULT 0, mrp INTEGER DEFAULT 0, category_id INTEGER, image TEXT, gallery TEXT,
   delivery TEXT DEFAULT 'file', file_key TEXT, file_name TEXT, file_size INTEGER, drive_id TEXT, link_url TEXT, size_text TEXT, video TEXT,
-  badge TEXT, visible INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, downloads INTEGER DEFAULT 0, sales INTEGER DEFAULT 0, created INTEGER, updated INTEGER);
+  badge TEXT, visible INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, downloads INTEGER DEFAULT 0, sales INTEGER DEFAULT 0, created INTEGER, updated INTEGER,
+  price_mode TEXT DEFAULT '', disc_type TEXT DEFAULT '', disc_value INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS prod_cat ON products(category_id, sort);
 CREATE TABLE IF NOT EXISTS cart (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, added INTEGER, PRIMARY KEY (user_id, product_id));
 CREATE TABLE IF NOT EXISTS wishlist (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, added INTEGER, PRIMARY KEY (user_id, product_id));
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, code T
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT UNIQUE, user_id INTEGER, email TEXT, items TEXT,
   subtotal INTEGER, discount INTEGER DEFAULT 0, total INTEGER, coupon TEXT, status TEXT DEFAULT 'created',
-  provider TEXT, provider_order TEXT, payment_id TEXT, events TEXT, created INTEGER, paid_at INTEGER, delivered_at INTEGER, note TEXT);
+  provider TEXT, provider_order TEXT, payment_id TEXT, events TEXT, created INTEGER, paid_at INTEGER, delivered_at INTEGER, note TEXT, meta TEXT);
 CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created);
 CREATE TABLE IF NOT EXISTS owned (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, order_id INTEGER, created INTEGER, downloads INTEGER DEFAULT 0, first_dl INTEGER, last_dl INTEGER, PRIMARY KEY (user_id, product_id));

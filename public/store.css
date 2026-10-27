@@ -73,3 +73,36 @@
 @media (max-width:560px){.st-grid{grid-template-columns:1fr 1fr;gap:12px}.pc-body{padding:10px 11px 12px}.pc-body h3{font-size:19px}.pc-body p{display:none}.price{font-size:15.5px}.pc-foot .btn-s{display:none}.pm-title{font-size:28px}}
 
 .pm-img{position:relative}.pm-play{white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:10px 18px 10px 10px;border-radius:999px;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);color:#fff;text-decoration:none;font-weight:700;border:1px solid rgba(43,245,192,.45)}.pm-play span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#021a14}.pm-play svg{width:18px;height:18px}.pm-play:hover{border-color:#2BF5C0}
+
+/* sale pricing (Oct 27) */
+.off{display:inline-block;font-style:normal;font-family:var(--body,Inter,sans-serif);font-size:11px;font-weight:800;letter-spacing:.05em;line-height:1;padding:4px 7px;border-radius:6px;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#00110D;white-space:nowrap;vertical-align:middle}
+.pc-img .off{position:absolute;right:10px;top:10px;font-size:11.5px;padding:5px 8px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.pm-meta .off{align-self:center}
+.li2 .t s{color:var(--faint);font-size:12.5px}
+.li2 .t .off{font-size:10px;padding:3px 6px;margin-left:2px}
+.pc-foot .price{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:0 2px;min-width:0}
+.sale-bars{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 2px}
+.sale-bar{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:1px solid rgba(43,245,192,.28);background:rgba(43,245,192,.07);font-size:13.5px;color:var(--text);max-width:100%}
+.sale-bar .icon{width:16px;height:16px;flex:none;color:var(--mint)}
+.sale-bar b{color:var(--mint)}
+.save-note{margin-top:8px;color:var(--mint);font-weight:700;font-size:13.5px;text-align:right}
+@media (max-width:420px){.pc-img .off{right:8px;top:8px;font-size:10.5px;padding:4px 7px}.sale-bar{font-size:12.5px;padding:7px 10px}}
+
+/* profile photo crop (Oct 27) */
+html.crop-lock,html.crop-lock body{overflow:hidden}
+.crop-m{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:16px;background:rgba(0,1,1,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .18s}
+.crop-m.on{opacity:1}
+.crop-card{width:min(400px,100%);background:linear-gradient(170deg,#182825,#141A1A);border:1px solid rgba(43,245,192,.18);border-radius:22px;padding:20px 18px 18px;box-shadow:0 30px 80px rgba(0,0,0,.55);color:#fff;text-align:center}
+.crop-card h3{font-family:var(--head,'Anton',sans-serif);font-weight:400;text-transform:uppercase;letter-spacing:.02em;font-size:24px;line-height:1}
+.crop-hint{color:rgba(255,255,255,.6);font-size:13px;margin:6px 0 14px}
+.crop-stage{position:relative;width:min(300px,100%);aspect-ratio:1;margin:0 auto;overflow:hidden;border-radius:16px;background:#000;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.crop-stage:active{cursor:grabbing}
+.crop-stage img{position:absolute;left:50%;top:50%;max-width:none;transform-origin:center;pointer-events:none;will-change:transform}
+.crop-ring{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle closest-side,transparent 0 calc(100% - 1px),rgba(0,1,1,.62) 100%)}.crop-ring::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(43,245,192,.9)}
+.crop-zoom{display:flex;align-items:center;gap:10px;width:min(300px,100%);margin:16px auto 4px}
+.crop-zoom input{flex:1;accent-color:#2BF5C0;height:28px}
+.crop-zb{width:36px;height:36px;border-radius:50%;border:1px solid rgba(43,245,192,.25);background:rgba(255,255,255,.04);color:#fff;font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer}
+.crop-acts{display:flex;gap:10px;margin-top:16px}.crop-acts .btn{flex:1;justify-content:center}
+html[data-theme=light] .crop-card{background:#fff;color:#0b1413;border-color:rgba(7,122,92,.2)}html[data-theme=light] .crop-hint{color:rgba(0,0,0,.6)}html[data-theme=light] .crop-zb{color:#0b1413;border-color:rgba(7,122,92,.3)}
+.sb-dot{font-style:normal;color:var(--faint)}
+.pm-note .icon{width:15px;height:15px;vertical-align:-3px;margin-right:4px;display:inline-block}
