@@ -41,6 +41,9 @@ async function setup(req, env, url) {
     const email = String(env.ADMIN_EMAILS || '').split(/[,\s]+/)[0].toLowerCase();
     const prob = pwProblem(b.password); if (prob) return err(prob);
     const u = await findOrCreateUser(env, email, 'Prashant Jangid', { tc: true });
+    // First-time setup only: once the admin has a password, only the admin can change it (Settings / Forgot password),
+    // so no script or redeploy can ever overwrite a password he chose.
+    if (u.pass_hash) return err('Admin password is already set. Change it from the admin panel.', 409);
     const salt = rand(16);
     await env.DB.prepare("UPDATE users SET pass_hash = ?1, salt = ?2, role = 'admin' WHERE id = ?3").bind(await hashPw(env, b.password, salt), salt, u.id).run();
     return J({ ok: true, email });

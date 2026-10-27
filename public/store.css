@@ -106,3 +106,21 @@ html.crop-lock,html.crop-lock body{overflow:hidden}
 html[data-theme=light] .crop-card{background:#fff;color:#0b1413;border-color:rgba(7,122,92,.2)}html[data-theme=light] .crop-hint{color:rgba(0,0,0,.6)}html[data-theme=light] .crop-zb{color:#0b1413;border-color:rgba(7,122,92,.3)}
 .sb-dot{font-style:normal;color:var(--faint)}
 .pm-note .icon{width:15px;height:15px;vertical-align:-3px;margin-right:4px;display:inline-block}
+
+/* profile photo sheet: upload / ready-made avatars / remove */
+.av-ov{position:fixed;inset:0;z-index:120;background:rgba(0,1,1,.62);display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .2s ease;-webkit-tap-highlight-color:transparent}
+.av-ov.on{opacity:1}
+.av-sheet{width:100%;max-width:520px;max-height:88dvh;overflow:auto;background:#141A1A;border:1px solid rgba(43,245,192,.18);border-radius:22px 22px 0 0;padding:16px 18px calc(18px + env(safe-area-inset-bottom));transform:translateY(24px);transition:transform .24s cubic-bezier(.2,.8,.2,1);display:grid;gap:12px}
+.av-ov.on .av-sheet{transform:none}
+@media (min-width:700px){.av-ov{align-items:center}.av-sheet{border-radius:22px}}
+.av-hd{display:flex;align-items:center;justify-content:space-between}.av-hd b{font-size:17px}
+.av-x{width:38px;height:38px;border:0;border-radius:12px;background:rgba(255,255,255,.06);color:inherit;display:grid;place-items:center;cursor:pointer}.av-x svg{width:18px;height:18px}
+.av-up{width:100%;justify-content:center}
+.av-lbl{margin:4px 0 0;font-weight:600;font-size:14px}.av-lbl span{font-weight:400;color:var(--muted,#9fb3ae)}
+.av-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.av-pick{aspect-ratio:1;padding:0;border:2px solid transparent;border-radius:50%;background:none;cursor:pointer;overflow:hidden;transition:transform .15s,border-color .15s}
+.av-pick img{width:100%;height:100%;display:block;border-radius:50%}
+.av-pick:hover{transform:scale(1.05)}.av-pick.on,.av-pick:focus-visible{border-color:#2BF5C0;outline:none}
+.av-note{margin:0;font-size:12.5px;color:var(--muted,#9fb3ae)}
+.av-rm{justify-self:start}
+html[data-theme="light"] .av-sheet{background:#fff;border-color:#cfe3dd}html[data-theme="light"] .av-x{background:#eef4f2}html[data-theme="light"] .av-pick.on{border-color:#077A5C}

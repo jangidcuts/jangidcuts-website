@@ -61,7 +61,28 @@ function attach(el){if(el.__jcPwm||isConfirm(el))return;el.__jcPwm=1;css();
  function anim(to){cancelAnimationFrame(raf);var from=shown,t0=performance.now();(function st(t){var k=Math.min(1,(t-t0)/450);k=1-Math.pow(1-k,3);shown=Math.round(from+(to-from)*k);pt.textContent=shown+'%';if(k<1)raf=requestAnimationFrame(st)})(t0)}
  function up(){var r=score(el.value||'');box.setAttribute('data-l',r.lvl);arc.style.strokeDashoffset=(C*(1-r.pct/100)).toFixed(2);anim(r.pct);lb.textContent=T(LBL[r.lvl]);hn.textContent=T(HINT[r.lvl]);el.setAttribute('aria-describedby',(el.id||'')+'Pwm')}
  box.id=(el.id||'pw')+'Pwm';el.addEventListener('input',up);el.addEventListener('change',up);up()}
-function scan(root){(root.querySelectorAll?root:D).querySelectorAll('input[type=password][autocomplete="new-password"]').forEach(attach)}
+
+/* show/hide eye on EVERY password box (site + admin): sign in, sign up, reset, change password, admin login */
+var EYE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+var EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function eyeCss(){if(D.getElementById('jcEyeCss'))return;var s=D.createElement('style');s.id='jcEyeCss';
+ s.textContent='.jc-pw-wrap{position:relative;display:block;width:100%}.jc-pw-wrap>input{padding-right:48px!important;width:100%;box-sizing:border-box}'+
+ '.jc-pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;padding:0;margin:0;border:0;border-radius:10px;background:transparent;color:inherit;opacity:.62;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;z-index:2}'+
+ '.jc-pw-eye:hover,.jc-pw-eye:focus-visible{opacity:1}.jc-pw-eye:focus-visible{outline:2px solid #2BF5C0;outline-offset:1px}.jc-pw-eye svg{width:20px;height:20px;display:block}'+
+ '.jc-pw-wrap>input::-ms-reveal,.jc-pw-wrap>input::-ms-clear{display:none}';
+ D.head.appendChild(s)}
+function eye(el){if(!el||el.__jcEye||el.closest('.jc-pw-wrap'))return;el.__jcEye=1;eyeCss();
+ var w=D.createElement('span');w.className='jc-pw-wrap';el.parentNode.insertBefore(w,el);w.appendChild(el);
+ var b=D.createElement('button');b.type='button';b.className='jc-pw-eye';b.tabIndex=0;
+ function set(show){el.type=show?'text':'password';b.innerHTML=show?EYE_OFF:EYE;var l=T(show?'Hide password':'Show password');b.setAttribute('aria-label',l);b.title=l;b.setAttribute('aria-pressed',show?'true':'false')}
+ set(false);
+ b.addEventListener('mousedown',function(e){e.preventDefault()});/* keep the keyboard/focus on the field */
+ b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var s=el.selectionStart,en=el.selectionEnd;set(el.type==='password');try{el.focus({preventScroll:true});if(s!=null)el.setSelectionRange(s,en)}catch(x){}});
+ /* a form submit always sends it hidden again next time */
+ var f=el.form;if(f&&!f.__jcEyeR){f.__jcEyeR=1;f.addEventListener('submit',function(){f.querySelectorAll('.jc-pw-wrap>input').forEach(function(i){if(i.type==='text'&&i.__jcEye){i.type='password';var bb=i.parentNode.querySelector('.jc-pw-eye');if(bb){bb.innerHTML=EYE;bb.setAttribute('aria-pressed','false')}}})},true)}
+ w.appendChild(b)}
+function eyes(root){(root.querySelectorAll?root:D).querySelectorAll('input[type=password]').forEach(eye)}
+function scan(root){eyes(root);(root.querySelectorAll?root:D).querySelectorAll('input[type=password][autocomplete="new-password"]').forEach(attach)}
 window.JC_PWM={score:score,attach:attach,scan:function(){scan(D)}};
-function start(){scan(D);if(window.MutationObserver)new MutationObserver(function(ms){for(var i=0;i<ms.length;i++)for(var j=0;j<ms[i].addedNodes.length;j++){var n=ms[i].addedNodes[j];if(n.nodeType===1){if(n.matches&&n.matches('input[type=password][autocomplete="new-password"]'))attach(n);else if(n.querySelector&&n.querySelector('input[type=password]'))scan(n)}}}).observe(D.body,{childList:true,subtree:true})}
+function start(){scan(D);if(window.MutationObserver)new MutationObserver(function(ms){for(var i=0;i<ms.length;i++)for(var j=0;j<ms[i].addedNodes.length;j++){var n=ms[i].addedNodes[j];if(n.nodeType===1){if(n.matches&&n.matches('input[type=password]')){eye(n);if(n.matches('[autocomplete="new-password"]'))attach(n)}else if(n.querySelector&&n.querySelector('input[type=password]'))scan(n)}}}).observe(D.body,{childList:true,subtree:true})}
 if(D.readyState==='loading')D.addEventListener('DOMContentLoaded',start);else start()})();

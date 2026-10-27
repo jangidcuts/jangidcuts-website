@@ -31,16 +31,46 @@ export async function googleToken(env, account) {
 function encodeHeader(s) { return /^[\x20-\x7e]*$/.test(s) ? s : '=?UTF-8?B?' + b64std(enc.encode(s)) + '?='; }
 function htmlEscape(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function linkify(s) { return s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#0DBC94">$1</a>'); }
-export function htmlMail(text, brand) {
-  const paras = htmlEscape(text).split(/\n{2,}/).map(p => '<p style="margin:0 0 14px;line-height:1.55">' + linkify(p).replace(/\n/g, '<br>') + '</p>').join('');
-  return `<!doctype html><html><body style="margin:0;background:#000101;padding:24px 12px;font-family:Inter,Arial,sans-serif;color:#e8f2ef">
-<div style="max-width:560px;margin:0 auto;background:#0b1414;border:1px solid #1d3a34;border-radius:16px;overflow:hidden">
-<div style="padding:18px 24px;border-bottom:1px solid #1d3a34;font:700 22px/1 Impact,'Arial Narrow',sans-serif;letter-spacing:1px;color:#2BF5C0">${htmlEscape(brand || 'JANGID CUTS')}</div>
-<div style="padding:22px 24px;font-size:15px">${paras}</div>
-<div style="padding:14px 24px;border-top:1px solid #1d3a34;font-size:12px;color:#7d9690">Jangid Cuts · Video Editor & Graphic Designer · Jaipur, India</div>
-</div></body></html>`;
+export function htmlMail(text, brand, opts = {}) {
+  // Branded HTML email (real text, no images): table layout for Outlook, inline styles for Gmail,
+  // dark theme by default with a light fallback for clients that prefer light mode.
+  const kind = opts.kind || '';
+  const code = /^otp/.test(kind) ? ((String(text).match(/\b(\d{6})\b/) || [])[1] || '') : '';
+  let codeDone = false;
+  const paras = htmlEscape(text).split(/\n{2,}/).map(p => {
+    let out = '<p class="jc-t" style="margin:0 0 14px;line-height:1.6;color:#e8f2ef">' + linkify(p).replace(/\n/g, '<br>') + '</p>';
+    if (code && !codeDone && p.includes(code)) {
+      codeDone = true;
+      // The code sits alone as plain digits (no letter-spacing, no per-digit boxes) so a long-press / double-tap copies exactly the 6 digits.
+      out += '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 8px"><tr><td class="jc-code" bgcolor="#0f2621" style="background:#0f2621;border:1px solid #1f5a4a;border-radius:12px;padding:14px 22px">' +
+        '<span style="font-family:\'Courier New\',Courier,monospace;font-size:34px;line-height:40px;font-weight:700;color:#2BF5C0;letter-spacing:0;-webkit-user-select:all;user-select:all">' + code + '</span></td></tr></table>' +
+        '<p class="jc-m" style="margin:0 0 16px;font-size:12px;line-height:1.5;color:#7d9690">Tap and hold (or double-tap) the code to copy it.</p>';
+    }
+    return out;
+  }).join('');
+  const pre = code ? code + ' is your Jangid Cuts code. It expires in 10 minutes.' : String(text).replace(/\s+/g, ' ').slice(0, 110);
+  const b = htmlEscape(brand || 'JANGID CUTS');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light"><title>${b}</title>
+<style>
+@media (prefers-color-scheme: light){
+ .jc-bg{background:#eef4f2!important}.jc-card{background:#ffffff!important;border-color:#cfe3dd!important}
+ .jc-t{color:#14201e!important}.jc-m{color:#4f6661!important}.jc-brand{color:#077A5C!important}
+ .jc-code{background:#e6f5f0!important;border-color:#9fd8c6!important}.jc-code span{color:#066B51!important}
+ .jc-line{border-color:#dcebe6!important}a{color:#077A5C!important}
 }
-function buildRaw({ from, fromName, to, subject, text, replyTo }) {
+@media only screen and (max-width:600px){.jc-pad{padding-left:18px!important;padding-right:18px!important}}
+</style></head>
+<body class="jc-bg" style="margin:0;padding:0;background:#000101">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">${htmlEscape(pre)}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<table role="presentation" class="jc-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000101" style="background:#000101"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" class="jc-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b1414" style="max-width:560px;background:#0b1414;border:1px solid #1d3a34;border-radius:16px;font-family:Inter,'Segoe UI',Arial,sans-serif">
+<tr><td height="4" bgcolor="#0DBC94" style="height:4px;line-height:4px;font-size:0;border-radius:16px 16px 0 0;background:#0DBC94;background-image:linear-gradient(90deg,#2BF5C0,#4DCBB0 35%,#0DBC94 65%,#196453)">&nbsp;</td></tr>
+<tr><td class="jc-pad jc-line jc-brand" style="padding:18px 24px;border-bottom:1px solid #1d3a34;font-family:Impact,'Arial Narrow Bold','Arial Narrow',Arial,sans-serif;font-size:24px;line-height:26px;font-weight:700;letter-spacing:1px;color:#2BF5C0;white-space:nowrap">${b}</td></tr>
+<tr><td class="jc-pad" style="padding:22px 24px 8px;font-size:15px">${paras}</td></tr>
+<tr><td class="jc-pad jc-line jc-m" style="padding:14px 24px 18px;border-top:1px solid #1d3a34;font-size:12px;line-height:1.5;color:#7d9690">Jangid Cuts · Video Editor &amp; Graphic Designer · Jaipur, India</td></tr>
+</table></td></tr></table></body></html>`;
+}
+function buildRaw({ from, fromName, to, subject, text, replyTo, kind }) {
   const boundary = 'jc' + Math.random().toString(36).slice(2);
   const lines = [
     `From: ${encodeHeader(fromName)} <${from}>`, `To: ${to}`, `Subject: ${encodeHeader(subject)}`,
@@ -49,7 +79,7 @@ function buildRaw({ from, fromName, to, subject, text, replyTo }) {
   if (replyTo) lines.push(`Reply-To: ${replyTo}`);
   const body = [
     '', `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64std(enc.encode(text)).replace(/.{76}/g, '$&\r\n'),
-    `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64std(enc.encode(htmlMail(text, fromName.toUpperCase()))).replace(/.{76}/g, '$&\r\n'),
+    `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64std(enc.encode(htmlMail(text, fromName.toUpperCase(), { kind }))).replace(/.{76}/g, '$&\r\n'),
     `--${boundary}--`, ''
   ];
   return lines.join('\r\n') + '\r\n' + body.join('\r\n');
@@ -66,7 +96,7 @@ async function deliver(env, row) {
   }
   if (!token) throw new Error('Mail account not connected yet');
   const acc = await getKey(env, ACCOUNTS[account].key);
-  const raw = buildRaw({ from: acc.email, fromName: label, to: row.to_addr, subject: row.subject, text: row.body, replyTo });
+  const raw = buildRaw({ from: acc.email, fromName: label, to: row.to_addr, subject: row.subject, text: row.body, replyTo, kind: row.kind });
   const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ raw: b64url(enc.encode(raw)) }) });
   if (!r.ok) { const t = await r.text(); if (r.status === 401 && env.CACHE) await env.CACHE.delete('gtok:' + account); throw new Error('Gmail ' + r.status + ': ' + t.slice(0, 200)); }
   return true;
@@ -115,7 +145,10 @@ export async function sendMail(env, { account = 'main', to, subject, body, kind 
 export async function sendTemplate(env, name, to, vars, opts = {}) {
   const tpls = await getKey(env, 'mail_templates');
   const t = (tpls && tpls[name]) || DEFAULTS.mail_templates[name]; if (!t) return { ok: false, error: 'no template ' + name };
-  return sendMail(env, { account: opts.account || accountFor(name), to, subject: fill(t.subject, vars), body: fill(t.body, vars), kind: name, ref: opts.ref || '' });
+  let subject = fill(t.subject, vars);
+  // Code mails: the code leads the subject so phones show/offer it straight from the notification.
+  if (name === 'otp' && vars.code && !subject.startsWith(vars.code)) subject = vars.code + ' is your Jangid Cuts code';
+  return sendMail(env, { account: opts.account || accountFor(name), to, subject, body: fill(t.body, vars), kind: name, ref: opts.ref || '' });
 }
 export async function retryOutbox(env) {
   const { results } = await env.DB.prepare("SELECT * FROM outbox WHERE status = 'failed' AND tries < 6 AND created > ?1 ORDER BY id LIMIT 20").bind(now() - 3 * 864e5).all();

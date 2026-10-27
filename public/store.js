@@ -28,8 +28,12 @@ function bindSignIn(){var b=$('#siBtn');b&&(b.onclick=function(){JC_UI.open($('#
 function offTag(p){return p.price&&p.mrp>p.price&&p.off?'<em class="off">'+p.off+'% OFF</em>':''}
 function priceHTML(p){return p.price?'<span class="price">'+money(p.price)+(p.mrp>p.price?'<s>'+money(p.mrp)+'</s>':'')+'</span>':'<span class="price free">'+esc(C.store.free_label||'Free')+'</span>'}
 function saleBar(){var s=C.store.sale||{},fo=+S.firstOffer||0,h='';
- if(s.on&&+s.pct>0)h+='<div class="sale-bar">'+I('tag')+(s.label?'<b>'+esc(s.label)+'</b><i class="sb-dot">·</i>':'')+'<span>Up to '+(+s.pct)+'% off on packs</span></div>';
- if(fo&&(!U||ME.firstBuyer))h+='<div class="sale-bar first">'+I('bag')+'<b>First order?</b><span>Get an extra '+fo+'% off at checkout.</span></div>';
+ /* banners are managed in Admin → Store settings → Store banners; without a saved list the two classic ones show */
+ var list=Array.isArray(C.store.banners)?C.store.banners:[{title:'{label}',text:'Up to {pct}% off on packs',icon:'tag',when:'sale',show:true},{title:'First order?',text:'Get an extra {first}% off at checkout.',icon:'bag',when:'first',show:true}];
+ var saleOn=!!(s.on&&+s.pct>0),firstOn=!!(fo&&(!U||ME.firstBuyer));
+ function f(t){return String(t||'').replace(/\{pct\}/g,+s.pct||0).replace(/\{label\}/g,s.label||(window.JC_I18N&&JC_I18N.t?JC_I18N.t('Sale'):'Sale')).replace(/\{first\}/g,fo)}
+ list.forEach(function(b){if(!b||!b.show)return;if(b.when==='sale'&&!saleOn)return;if(b.when==='first'&&!firstOn)return;var t=f(b.title).trim(),x=f(b.text).trim();if(!t&&!x)return;
+  h+='<div class="sale-bar'+(b.when==='first'?' first':'')+'">'+I(b.icon||'tag')+(t?'<b>'+esc(t)+'</b>':'')+(t&&x?'<i class="sb-dot">·</i>':'')+(x?'<span>'+esc(x)+'</span>':'')+'</div>'});
  return h?'<div class="sale-bars">'+h+'</div>':''}
 function card(p){var o=owned(p.id);var price=priceHTML(p);
  return '<article class="pc" data-p="'+p.id+'" tabindex="0"><div class="pc-img"><img src="'+esc(p.image||'/img/t1.jpg')+'" alt="" loading="lazy">'+(p.badge?'<span class="tag">'+esc(p.badge)+'</span>':'')+(o?'':offTag(p))+'</div><div class="pc-body"><h3>'+esc(p.title)+'</h3><p>'+esc(p.short||'')+'</p><div class="pc-foot">'+(o?'<span class="own-b">'+I('check')+' Owned</span>':price)+'<button class="btn btn-ghost btn-s" data-q="'+p.id+'">'+(o||!p.price?I('download')+' Get':'View')+'</button></div></div></article>'}
@@ -137,8 +141,24 @@ function viewProfile(){app.innerHTML=head('My Profile','');if(!U){app.innerHTML+
   '<div class="pf-card"><h3>Your data</h3><div class="row2b"><a class="btn btn-ghost btn-s" href="/api/me/export">'+I('download')+' Download my data</a><button class="btn btn-ghost btn-s" id="loAll">'+I('logout')+' Sign out everywhere</button><button class="btn btn-ghost btn-s" id="lo">'+I('logout')+' Sign out</button></div></div>'+
   '<div class="pf-card"><h3>Delete account</h3><p class="pm-note" style="margin:-4px 0 10px">Removes your account and lifetime access to purchases. This cannot be undone.</p><div id="del"><button class="btn btn-ghost btn-s danger" id="delSend">Delete my account</button></div></div>';
  $('#pfSave').onclick=function(){api('/api/me/profile',{name:$('#pfName').value}).then(function(r){toast(r.ok?'Saved ✓':r.error)})};
- $('#avBtn').onclick=function(){var i=D.createElement('input');i.type='file';i.accept='image/*';i.onchange=function(){var f=i.files[0];if(!f)return;if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(f.name)){toast('Please choose a photo');return}
+ function avUpload(){var i=D.createElement('input');i.type='file';i.accept='image/*';i.onchange=function(){var f=i.files[0];if(!f)return;if(!/^image\//.test(f.type)&&!/\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(f.name)){toast('Please choose a photo');return}
   cropPhoto(f,function(bl,done){fetch('/api/me/avatar',{method:'POST',headers:{'content-type':bl.type||'image/jpeg','x-jc':'1'},body:bl}).then(function(r){return r.json()}).then(function(r){if(r.ok===false){toast(r.error);done(false);return}$('#avPh').innerHTML='<img src="'+esc(r.url)+'" alt="">';if(U)U.avatar=r.url;var dp=$('#dpAv');if(dp)dp.innerHTML='<img src="'+esc(r.url)+'" alt="">';toast('Photo updated ✓');done(true)}).catch(function(){toast('Upload failed. Check your connection and try again.');done(false)})})};i.click()};
+ function avSet(url,msg){api('/api/me/profile',{avatar:url}).then(function(r){if(r.ok===false){toast(r.error);return}if(U)U.avatar=url;var ini2=esc((U.name||U.email).trim()[0].toUpperCase());var html=url?'<img src="'+esc(url)+'" alt="">':ini2;$('#avPh').innerHTML=html;var dp=$('#dpAv');if(dp)dp.innerHTML=html;try{window.JCL&&JCL.user&&(JCL.user.avatar=url)}catch(e){}toast(msg)})}
+ /* one tidy photo sheet: Upload photo / ready-made avatars (no face, for privacy) / Remove photo */
+ $('#avBtn').onclick=function(){var ov=D.createElement('div');ov.className='av-ov';var cur=U.avatar||'';
+  var AV=[];for(var k=1;k<=10;k++)AV.push('/img/av/'+k+'.svg');
+  ov.innerHTML='<div class="av-sheet" role="dialog" aria-modal="true" aria-labelledby="avT"><div class="av-hd"><b id="avT">Profile photo</b><button class="av-x" aria-label="Close">'+I('x')+'</button></div>'+
+   '<button class="btn btn-primary av-up" type="button">'+I('download')+' Upload a photo</button>'+
+   '<p class="av-lbl">Or pick a ready-made avatar <span>· no face, keeps you private</span></p><div class="av-grid">'+AV.map(function(u,n){return '<button type="button" class="av-pick'+(cur===u?' on':'')+'" data-u="'+u+'" aria-label="Avatar '+(n+1)+'"><img src="'+u+'" alt="" loading="lazy"></button>'}).join('')+'</div>'+
+   '<p class="av-note">Your photo and name show on your reviews.</p>'+
+   (cur?'<button class="btn btn-ghost btn-s danger av-rm" type="button">'+I('trash')+' Remove photo</button>':'')+'</div>';
+  D.body.appendChild(ov);requestAnimationFrame(function(){ov.classList.add('on')});
+  function close(){ov.classList.remove('on');D.removeEventListener('keydown',esc1);setTimeout(function(){ov.remove()},220)}
+  function esc1(e){if(e.key==='Escape')close()}D.addEventListener('keydown',esc1);
+  ov.addEventListener('click',function(e){if(e.target===ov)close()});$('.av-x',ov).onclick=close;
+  $('.av-up',ov).onclick=function(){close();avUpload()};
+  $$('.av-pick',ov).forEach(function(b){b.onclick=function(){avSet(b.dataset.u,'Avatar set ✓');close()}});
+  var rm=$('.av-rm',ov);if(rm)rm.onclick=function(){avSet('','Photo removed');close()}};
  $('#cpSend').onclick=function(){api('/api/auth/otp',{email:U.email,purpose:'change'}).then(function(r){if(r.ok===false){toast(r.error);return}
   $('#cpw').innerHTML='<div class="field"><label>Code from your email</label><input class="input st-in" id="cpC" inputmode="numeric" maxlength="6"></div><div class="field"><label>New password</label><input class="input st-in" id="cp1" type="password" autocomplete="new-password"></div><div class="field"><label>Confirm new password</label><input class="input st-in" id="cp2" type="password" autocomplete="new-password"></div><button class="btn btn-primary btn-s" id="cpGo2">Change password</button>';
   $('#cpGo2').onclick=function(){api('/api/auth/reset',{email:U.email,purpose:'change',code:$('#cpC').value,password:$('#cp1').value,confirm:$('#cp2').value}).then(function(x){toast(x.ok===false?x.error:'Password changed ✓');if(x.ok!==false)viewProfile()})}})};

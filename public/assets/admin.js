@@ -105,8 +105,8 @@ function loginView(msg){var root=$('#root');var step='main',email='';
   $('#back')&&($('#back').onclick=function(){step='main';draw()});
   $('#cs')&&($('#cs').onclick=function(){email=$('#ce').value;req('/api/auth/otp',{body:{email:email,purpose:step==='reset'?'reset':'login',tc:true}}).then(function(){toast('Code sent to '+email)})});
   var cf=$('#cf');if(cf)cf.onsubmit=function(e){e.preventDefault();email=$('#ce').value;if(step==='reset')req('/api/auth/reset',{body:{email:email,code:$('#cc').value,password:$('#np').value,confirm:$('#np2').value}}).then(boot);else req('/api/auth/verify',{body:{email:email,code:$('#cc').value,tc:true}}).then(boot)};
-  var mf=$('#mf'),mfm='totp';if(mf)mf.onsubmit=function(e){e.preventDefault();req('/api/auth/mfa',{body:{code:$('#mc').value,method:mfm}}).then(boot)};
-  $('#ms')&&($('#ms').onclick=function(){mfm='email';req('/api/auth/otp',{body:{email:ST.me.email,purpose:'admin2fa'}}).then(function(){toast('Code sent to '+ST.me.email);$('#mc').focus()})});
+  var mf=$('#mf'),mfm='email';if(mf)mf.onsubmit=function(e){e.preventDefault();if(mf.dataset.busy==='1')return;mf.dataset.busy='1';req('/api/auth/mfa',{body:{code:$('#mc').value,method:mfm}}).then(boot).finally(function(){mf.dataset.busy='0'})};
+  $('#ms')&&($('#ms').onclick=function(){mfm='email';$('#mc').value='';req('/api/auth/otp',{body:{email:ST.me.email,purpose:'admin2fa'}}).then(function(){toast('Code sent to '+ST.me.email);$('#mc').focus()})});
   $('#lo')&&($('#lo').onclick=function(){req('/api/auth/logout',{body:{}}).then(function(){step='main';draw()})})}
  loginView.mfa=function(){step='mfa';draw()};draw();return loginView}
 
@@ -437,12 +437,40 @@ function bindSaleCard(v){var c=$('#saleCard',v);if(!c)return;$$('.tgl input',c).
   if(son&&(sp<1||sp>90)){toast('Enter a sale % between 1 and 90',true);return}if(fon&&(fp<1||fp>90)){toast('Enter a first order % between 1 and 90',true);return}
   saveContent('store',Object.assign({},ST.content.store,{sale:{on:son,pct:sp,label:$('#saLbl',c).value.trim().slice(0,40),stack:$('#saStack',c).checked},first_order:{on:fon,pct:fp}}))}}
 
+
+/* ---------- Store banners (announcement strip on the store page) ---------- */
+var BAN_DEF=[{title:'{label}',text:'Up to {pct}% off on packs',icon:'tag',when:'sale',show:true},{title:'First order?',text:'Get an extra {first}% off at checkout.',icon:'bag',when:'first',show:true}];
+var BAN_ICONS=[['tag','Price tag'],['bag','Shopping bag'],['star','Star'],['bolt','Lightning'],['clock','Clock'],['heart','Heart']];
+var BAN_WHEN=[['always','Always (while “Show” is on)'],['sale','Only while the site-wide sale is ON'],['first','Only while the first order discount is ON']];
+function banFill(t,s){var sa=s.sale||{},fo=s.first_order||{};return String(t||'').replace(/\{pct\}/g,+sa.pct||0).replace(/\{label\}/g,sa.label||'Sale').replace(/\{first\}/g,+fo.pct||0)}
+function banLive(b,s){var sa=s.sale||{},fo=s.first_order||{};if(!b.show)return false;if(b.when==='sale')return !!(sa.on&&+sa.pct>0);if(b.when==='first')return !!(fo.on&&+fo.pct>0);return true}
+function bannersCardHTML(){return '<div class="card" id="banCard"><h2>Store banners<button class="btn p s" id="svBan">Save</button></h2>'+
+ '<p class="muted small mb">The coloured strips at the top of the Store (for example “Diwali Sale · Up to 20% off” or “First order? Get an extra 10% off”). Add, edit, hide or remove them here. In the text you can write <b>{pct}</b> for the sale %, <b>{label}</b> for the sale name and <b>{first}</b> for the first order %.</p>'+
+ '<div id="banList"></div><button class="btn g s" type="button" id="banAdd">+ Add banner</button><div class="ban-prev"><div class="faint small">Preview — what clients see on the Store right now</div><div id="banPrev"></div></div></div>'}
+function bindBanners(v){var c=$('#banCard',v);if(!c)return;var s=ST.content.store||{},list=JSON.parse(JSON.stringify(Array.isArray(s.banners)?s.banners:BAN_DEF));
+ function cur(){var st=Object.assign({},ST.content.store);var sc=$('#saleCard',v);if(sc){st.sale={on:$('#saOn',sc).checked,pct:+$('#saPct',sc).value||0,label:$('#saLbl',sc).value.trim()};st.first_order={on:$('#foOn',sc).checked,pct:+$('#foPct',sc).value||0}}return st}
+ function prev(){var st=cur(),h=list.filter(function(b){return banLive(b,st)}).map(function(b){var t=banFill(b.title,st),x=banFill(b.text,st);return '<div class="ban-pv">'+I(b.icon||'tag')+(t?'<b>'+esc(t)+'</b>':'')+(t&&x?'<i>·</i>':'')+'<span>'+esc(x)+'</span></div>'}).join('');$('#banPrev',c).innerHTML=h||'<p class="faint small">No banner is showing on the Store right now.</p>'}
+ function draw(){$('#banList',c).innerHTML=list.length?list.map(function(b,i){var st=cur(),live=banLive(b,st);
+  return '<div class="ban-row" data-i="'+i+'"><div class="ban-top"><span class="pill '+(live?'ok':'')+'">'+(live?'Showing on store':(b.show?'Waiting — its switch is OFF':'Hidden'))+'</span><span class="ban-act"><button class="ib" data-mv="-1" title="Move up" aria-label="Move up"'+(i?'':' disabled')+'>↑</button><button class="ib" data-mv="1" title="Move down" aria-label="Move down"'+(i<list.length-1?'':' disabled')+'>↓</button><button class="btn g s" data-rm>Remove</button></span></div>'+
+  '<div class="g2"><div class="f"><label>Title <span class="faint">· bold part, optional</span></label><input class="in" data-k="title" maxlength="40" value="'+esc(b.title||'')+'" placeholder="e.g. Diwali Sale"></div><div class="f"><label>Text</label><input class="in" data-k="text" maxlength="90" value="'+esc(b.text||'')+'" placeholder="e.g. Up to {pct}% off on packs"></div></div>'+
+  '<div class="g2"><div class="f"><label>Shows when</label><select class="in" data-k="when">'+BAN_WHEN.map(function(o){return '<option value="'+o[0]+'"'+(b.when===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div><div class="f"><label>Icon</label><select class="in" data-k="icon">'+BAN_ICONS.map(function(o){return '<option value="'+o[0]+'"'+(b.icon===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div></div>'+
+  '<label class="tgl"><input type="checkbox" data-k="show"'+(b.show?' checked':'')+'><i></i><span>Show on store</span></label></div>'}).join(''):'<p class="faint small mb">No banners. Tap “Add banner” to create one.</p>';
+  $$('.ban-row',c).forEach(function(r){var i=+r.dataset.i;$$('[data-k]',r).forEach(function(inp){var ev=inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input';inp.addEventListener(ev,function(){list[i][inp.dataset.k]=inp.type==='checkbox'?inp.checked:inp.value;if(ev==='change')draw();else prev()})});
+   $('[data-rm]',r).onclick=function(){if(confirm('Remove this banner from the store?')){list.splice(i,1);draw()}};
+   $$('[data-mv]',r).forEach(function(b){b.onclick=function(){var j=i+(+b.dataset.mv);if(j<0||j>=list.length)return;var t=list[i];list[i]=list[j];list[j]=t;draw()}})});prev()}
+ $('#banAdd',c).onclick=function(){if(list.length>=6){toast('Up to 6 banners',true);return}list.push({title:'',text:'',icon:'star',when:'always',show:true});draw();var ins=$$('.ban-row [data-k=title]',c);ins.length&&ins[ins.length-1].focus()};
+ var sc=$('#saleCard',v);if(sc)$$('input',sc).forEach(function(x){x.addEventListener('input',function(){draw()});x.addEventListener('change',function(){draw()})});
+ $('#svBan',c).onclick=function(){var bad=list.find(function(b){return !String(b.text||'').trim()&&!String(b.title||'').trim()});if(bad){toast('Each banner needs a title or a text (or remove it)',true);return}
+  var clean=list.map(function(b){return {title:String(b.title||'').trim().slice(0,40),text:String(b.text||'').trim().slice(0,90),icon:BAN_ICONS.some(function(o){return o[0]===b.icon})?b.icon:'tag',when:['always','sale','first'].indexOf(b.when)>=0?b.when:'always',show:!!b.show}});
+  saveContent('store',Object.assign({},ST.content.store,{banners:clean})).then(function(){list=JSON.parse(JSON.stringify(clean));draw()})};
+ draw()}
+
 VIEWS.storeset=function(v){withContent(function(c){var s=c.store;
  var F=[{k:'title',label:'Store title'},{k:'intro',label:'Intro'},{k:'free_label',label:'Free tab'},{k:'paid_label',label:'Paid tab'},{k:'owned_label',label:'Owned filter'},{k:'empty_owned',label:'Owned empty message'},{k:'empty',label:'Empty store message'},{k:'big_file_msg',label:'Big file message'},{k:'first_download_msg',label:'First download message'},{k:'usd_rate',label:'₹ per $1 (for USD view)',type:'number'}];
- v.innerHTML=top('Store settings')+saleCardHTML(s)+'<div class="card" data-obj="store"><h2>Texts<button class="btn p s" data-save="store">Save</button></h2>'+formHTML(F,s,'st')+'</div>'+
+ v.innerHTML=top('Store settings')+saleCardHTML(s)+bannersCardHTML()+'<div class="card" data-obj="store"><h2>Texts<button class="btn p s" data-save="store">Save</button></h2>'+formHTML(F,s,'st')+'</div>'+
  '<div class="card"><h2>Price filter ranges<button class="btn p s" id="svp">Save</button></h2><p class="muted small mb">Max 0 = no upper limit.</p><div id="pf"></div></div>'+
  '<div class="card"><h2>Bundle discounts (2–3 items together)<button class="btn p s" id="svb">Save</button></h2><p class="muted small mb">Buying this many paid items together gets this % off automatically.</p><div id="bd"></div></div>';
- objCardBind(v,'store',F);bindObjCards(v);bindSaleCard(v);
+ objCardBind(v,'store',F);bindObjCards(v);bindSaleCard(v);bindBanners(v);
  var pf=listEditor($('#pf'),s.price_filters,[{k:'label',label:'Label'},{k:'min',label:'Min ₹',type:'number'},{k:'max',label:'Max ₹',type:'number'}],{label:'Range'});
  var bd=listEditor($('#bd'),s.bundles,[{k:'min_items',label:'Items',type:'number'},{k:'pct',label:'% off',type:'number'}],{label:'Bundle rule'});
  $('#svp').onclick=function(){saveContent('store',Object.assign({},ST.content.store,{price_filters:pf.get()}))};$('#svb').onclick=function(){saveContent('store',Object.assign({},ST.content.store,{bundles:bd.get()}))}})};

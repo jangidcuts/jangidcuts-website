@@ -198,3 +198,6 @@ html.side-lock,html.side-lock body{overflow:hidden}
 .tgl input:checked~span{color:var(--mint)}
 .tgl input:focus-visible+i{outline:2px solid var(--mint);outline-offset:2px}
 .prz .seg:not(.sm){display:grid;grid-template-columns:repeat(3,1fr);width:100%}.prz .seg:not(.sm) button{padding:7px 6px;text-align:center}
+
+/* store banners editor */
+.ban-row{border:1px solid var(--line,#1d3a34);border-radius:14px;padding:12px 12px 10px;margin:0 0 12px}.ban-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap}.ban-act{display:flex;gap:6px;align-items:center}.ban-act .ib[disabled]{opacity:.35}.ban-prev{margin-top:14px}.ban-pv{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,rgba(43,245,192,.14),rgba(13,188,148,.08));border:1px solid rgba(43,245,192,.28);font-size:14px}.ban-pv svg{width:18px;height:18px;flex:none}.ban-pv i{opacity:.6;font-style:normal}

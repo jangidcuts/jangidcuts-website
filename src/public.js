@@ -15,7 +15,7 @@ export async function siteData(env) {
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
-    env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created, r.photo FROM reviews r WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
+    env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created, COALESCE(NULLIF(r.photo, ''), NULLIF(u.avatar, '')) photo FROM reviews r LEFT JOIN users u ON u.id = r.user_id WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
     env.DB.prepare("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible' AND product_id IS NULL").first()
   ]);
   const pay = await paymentsConfig(env);
@@ -44,16 +44,24 @@ async function meData(env, s) {
 /* ---------- OTP ---------- */
 async function issueOtp(env, email, purpose, name) {
   const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  const h = await sha256(email + '|' + code);
+  // Keep up to 3 recent unexpired codes valid, so a second "send code" tap (or a second tab/device)
+  // never makes the code already sitting in the inbox fail as "Wrong code".
+  const prev = await env.DB.prepare('SELECT code_hash, exp FROM otps WHERE email = ?1 AND purpose = ?2').bind(email, purpose).first();
+  const keep = prev && prev.exp > now() ? String(prev.code_hash || '').split(',').filter(Boolean).slice(0, 2) : [];
+  const hashes = [h, ...keep].join(',');
   await env.DB.prepare('INSERT INTO otps (email, purpose, code_hash, exp, tries, created) VALUES (?1, ?2, ?3, ?4, 0, ?5) ON CONFLICT(email, purpose) DO UPDATE SET code_hash = ?3, exp = ?4, tries = 0, created = ?5')
-    .bind(email, purpose, await sha256(email + '|' + code), now() + 10 * 60e3, now()).run();
+    .bind(email, purpose, hashes, now() + 10 * 60e3, now()).run();
   const r = await sendTemplate(env, 'otp', email, { code, name: name || 'there' }, { ref: purpose });
   if (!r.ok) { await logEvent(env, 'otp', 'OTP mail failed: ' + r.error); await alertOwner(env, 'otp-fail', 'Login code emails are failing: ' + r.error, { throttleMin: 30 }); fail('We could not send the email right now. Please try again in a few minutes or use Google sign-in.', 503); }
 }
 async function checkOtp(env, email, purpose, code) {
   const row = await env.DB.prepare('SELECT * FROM otps WHERE email = ?1 AND purpose = ?2').bind(email, purpose).first();
-  if (!row || row.exp < now()) fail('The code has expired. Please request a new one.');
+  if (!row) fail('No active code. Please request a new one.');
+  if (row.exp < now()) fail('The code has expired. Please request a new one.');
   if (row.tries >= 5) fail('Too many wrong codes. Please request a new one.', 429);
-  const ok = row.code_hash === await sha256(email + '|' + String(code || '').replace(/\D/g, ''));
+  const digits = String(code ?? '').replace(/\D/g, '');
+  const ok = digits.length === 6 && String(row.code_hash || '').split(',').includes(await sha256(email + '|' + digits));
   if (!ok) { await env.DB.prepare('UPDATE otps SET tries = tries + 1 WHERE email = ?1 AND purpose = ?2').bind(email, purpose).run(); fail('Wrong code. Please check your email and try again.'); }
   await env.DB.prepare('DELETE FROM otps WHERE email = ?1 AND purpose = ?2').bind(email, purpose).run();
 }
@@ -129,8 +137,10 @@ export async function handlePublic(req, env, ctx, url, s) {
   if (p === '/api/auth/mfa' && m === 'POST') {
     needUser(s); const b = await readJson(req);
     await limitOrFail(env, 'mfa:' + s.user.id, 6, 10 * 60e3);
-    if (b.method === 'email') await checkOtp(env, s.user.email, 'admin2fa', b.code);
-    else if (!s.user.totp_on || !(await totpOk(s.user.totp_secret, b.code))) fail('Wrong code', 401);
+    // Accept whichever second factor matches: authenticator app code (if set up) or the emailed code.
+    // (Before: the method came from the page's memory and defaulted to 'totp', so a correct emailed code was refused.)
+    const totpPass = s.user.totp_on && b.method !== 'email' && await totpOk(s.user.totp_secret, b.code);
+    if (!totpPass) await checkOtp(env, String(s.user.email || '').toLowerCase(), 'admin2fa', b.code);
     await env.DB.prepare('UPDATE sessions SET mfa = 1 WHERE token_hash = ?1').bind(s.th).run();
     return J({ ok: true });
   }
@@ -151,7 +161,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     if (b.email_notif !== undefined) { sets.push('email_notif = ?'); vals.push(b.email_notif ? 1 : 0); }
     if (b.lang !== undefined) { sets.push('lang = ?'); vals.push(clean(b.lang, 5)); }
     if (b.currency !== undefined) { sets.push('currency = ?'); vals.push(b.currency === 'USD' ? 'USD' : 'INR'); }
-    if (b.avatar !== undefined) { const a = clean(b.avatar, 300); if (a && !a.startsWith('/u/avatars/')) fail('Bad avatar'); sets.push('avatar = ?'); vals.push(a); }
+    if (b.avatar !== undefined) { const a = clean(b.avatar, 300); if (a && !a.startsWith('/u/avatars/') && !/^\/img\/av\/(10|[1-9])\.svg$/.test(a)) fail('Bad avatar'); sets.push('avatar = ?'); vals.push(a); }
     if (sets.length) await env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, s.user.id).run();
     return J({ ok: true });
   }
