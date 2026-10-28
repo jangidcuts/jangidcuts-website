@@ -914,3 +914,23 @@ html[data-hpv] .hp-view{display:none!important}html[data-hpv=faq] .hp-view[data-
 .tk-ongoing .tk-steps li.fin.cur .tk-dot{box-shadow:0 0 0 3px var(--panel),0 0 0 4px rgba(43,245,192,.5)}
 [data-theme="light"] .tk-ongoing .tk-steps li.fin.cur .tk-dot{box-shadow:0 0 0 3px var(--panel),0 0 0 4px rgba(7,122,92,.45)}
 @media (prefers-reduced-motion:reduce){.tk-chk path{animation:none}}
+
+/* Oct 29 fixes (Prashant, phone): Settings animation control stays inside its card on small screens */
+.setting{flex-wrap:wrap;row-gap:10px;min-width:0}
+.setting > span,.setting > label{min-width:0}
+.seg{max-width:100%;min-width:0;flex:0 1 auto}
+.seg button{flex:1 1 auto;min-width:0;white-space:nowrap;text-align:center}
+@media (max-width:560px){
+ .setting:has(> .seg){flex-direction:column;align-items:stretch}
+ .setting > .seg{width:100%}
+ .seg button{flex:1 1 0;padding:8px 6px;font-size:13px}
+}
+/* Oct 29: final-state line in trackers = one compact pill (no oversized box, no empty space), same mint theme */
+.tk-final{display:inline-flex;align-items:center;gap:8px;max-width:100%;margin:2px 0 16px;padding:6px 14px 6px 6px;border-radius:999px}
+.tk-final-ic{width:22px;height:22px}
+.tk-final-ic .tk-chk{width:12px;height:12px}
+.tk-final p{font-size:13.5px;font-weight:650;line-height:1.25}
+.tk-final p span{white-space:nowrap}
+.tk-pill{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1.2;flex:none}
+.tk-head > div{min-width:0}
+@media (max-width:360px){.tk-pill{font-size:12px;padding:5px 10px}.tk-final p{font-size:12.5px}}

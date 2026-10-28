@@ -194,8 +194,10 @@ if(hf){
  $$('[data-single]',hf).forEach(function(g){$$('.chip',g).forEach(function(c){c.addEventListener('click',function(){$$('.chip',g).forEach(function(x){x.setAttribute('aria-pressed',x===c?'true':'false')});
   if(g.dataset.single==='agency')$('#agencyFields').classList.toggle('hidden',c.dataset.v!=='yes');
   if(g.dataset.single==='perday')$('#perdayCustom').classList.toggle('hidden',c.dataset.v!=='custom')})})});
- $$('#catList .chip').forEach(function(c){c.addEventListener('click',function(){var on=c.getAttribute('aria-pressed')!=='true';c.setAttribute('aria-pressed',on?'true':'false');if(c.textContent==='Other')$('#catOther').classList.toggle('hidden',!on)})});
- $('#catSearch').addEventListener('input',function(e){var q=e.target.value.toLowerCase();$$('#catList .chip').forEach(function(c){c.classList.toggle('hidden',q&&c.textContent.toLowerCase().indexOf(q)<0&&c.textContent!=='Other')})});
+ /* Oct 29 fix: category chips are toggled ONLY by one delegated handler (live.js renders the grouped chips and owns the click).
+    The old per-chip listener here toggled a second time, so a tap selected and unselected the same chip (nothing could be picked). */
+ (function(){var cl=$('#catList');if(!cl)return;cl.addEventListener('click',function(e){if(cl._b)return;var c=e.target.closest('.chip');if(!c)return;var on=c.getAttribute('aria-pressed')!=='true';c.setAttribute('aria-pressed',on?'true':'false');if(/^other$/i.test(c.textContent.trim()))$('#catOther').classList.toggle('hidden',!on)});
+  $('#catSearch').addEventListener('input',function(e){if(cl._b)return;var q=e.target.value.toLowerCase();$$('#catList .chip').forEach(function(c){c.classList.toggle('hidden',q&&c.textContent.toLowerCase().indexOf(q)<0&&c.textContent!=='Other')})})})();
  var desc=$('#hDesc'),wc=$('#wordCount');
  function words(){return (desc.value.trim().match(/\S+/g)||[]).length}
  desc.addEventListener('input',function(){var n=words();if(n>500){desc.value=desc.value.trim().split(/\s+/).slice(0,500).join(' ');n=500}wc.textContent=n+' / 500 words';wc.classList.toggle('over',n>=500)});
@@ -207,7 +209,12 @@ if(hf){
   if(!$('#hTc').checked){$('#hTc').focus();toast('Please tick the Terms & Conditions box');return}
   var btn=hf.querySelector('[type=submit]');btn&&(btn.disabled=true);
   window.JCL.submitHire(hf).then(function(r){btn&&(btn.disabled=false);if(!r.ok){toast(r.error||'Could not send, please try again');return}
-   toast((window.JCL.c.hire_form.thanks||'Request sent!')+' ('+r.number+')');hf.reset();$$('#catList .chip').forEach(function(c){c.setAttribute('aria-pressed','false')});wc.textContent='0 / 500 words';setTimeout(function(){closeLayer()},1200)})})}
+   var emv=em.value.trim();hf.reset();$$('#catList .chip').forEach(function(c){c.setAttribute('aria-pressed','false')});wc.textContent='0 / 500 words';
+   /* Thank-you card with the number, copy and track buttons (Oct 27c B) inside the Hire me window; closes only when the user closes it. */
+   if(window.JCL&&JCL.thanks){var dn=$('#hireDone');if(!dn){dn=D.createElement('div');dn.id='hireDone';hf.parentNode.insertBefore(dn,hf.nextSibling)}
+    dn.innerHTML=JCL.thanks({kind:'hire',number:r.number,email:emv,extra:'<button class="btn btn-ghost" type="button" data-close>Close</button>'});dn.hidden=false;hf.hidden=true;
+    var mb=dn.closest('.modal-body,.modal');if(mb)mb.scrollTop=0;$$('[data-close]',dn).forEach(function(b){b.addEventListener('click',function(){closeLayer()})})}
+   else{toast((window.JCL.c.hire_form.thanks||'Request sent!')+' ('+r.number+')');setTimeout(function(){closeLayer()},1200)}})})}
 
 /* ---------- soon page ---------- */
 var st=$('#soonName');if(st){var h=(location.hash||'').replace('#','').replace(/-/g,' ');if(h){var nm=h.charAt(0).toUpperCase()+h.slice(1);$('#soonTitle').textContent=nm;st.textContent='The '+nm+' page'}}
@@ -218,4 +225,4 @@ var st=$('#soonName');if(st){var h=(location.hash||'').replace('#','').replace(/
 function show(on){dr.classList.toggle('settings-open',on);sub.setAttribute('aria-hidden',on?'false':'true');var f=on?cl:o;setTimeout(function(){f&&f.focus()},30)}
 o.addEventListener('click',function(){show(true)});cl&&cl.addEventListener('click',function(){show(false)});
 new MutationObserver(function(){if(!dr.classList.contains('on')&&dr.classList.contains('settings-open'))dr.classList.remove('settings-open')}).observe(dr,{attributes:true,attributeFilter:['class']});
-if(location.hash==='#settings'){var b=document.getElementById('openMenu');b&&b.click();show(true)}})();
+if(location.hash==='#settings'){var b=document.getElementById('openMenu');b&&b.click();show(true);try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}}})();

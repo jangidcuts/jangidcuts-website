@@ -333,8 +333,8 @@ var dataReady=function(){if(window.JC_DATA_READY)return;window.JC_DATA_READY=1;t
  try{applyHome(s.content,s);applyFooter(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
  window.JC_RUN();avatar();syncSettings();
  try{window.JC_AFTER&&window.JC_AFTER(s,me)}catch(e){console.error(e)}
- try{ads(s.content);welcome(s.content);if(new URLSearchParams(location.search).get('hire')==='1'){var hb=$('#hireBtn');hb&&setTimeout(function(){hb.click()},800)}}catch(e){console.error(e)}
- var err=new URLSearchParams(location.search).get('error');if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is not ready yet. Please use email for now.'}[err]||'Sign-in problem: '+err)},2300);
+ try{ads(s.content);welcome(s.content);var hq=new URLSearchParams(location.search);if(hq.get('hire')==='1'){hq.delete('hire');try{history.replaceState(history.state,'',location.pathname+(hq.toString()?'?'+hq:'')+location.hash)}catch(e){}var hb=$('#hireBtn');hb&&setTimeout(function(){hb.click()},800)}}catch(e){console.error(e)}
+ var eq=new URLSearchParams(location.search),err=eq.get('error');if(err){eq.delete('error');try{history.replaceState(history.state,'',location.pathname+(eq.toString()?'?'+eq:'')+location.hash)}catch(e){}}if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is not ready yet. Please use email for now.'}[err]||'Sign-in problem: '+err)},2300);
  
  if('serviceWorker' in navigator){var swReg=function(){setTimeout(function(){navigator.serviceWorker.register('/sw.js').catch(function(){})},3500)};if(D.readyState==='complete')swReg();else addEventListener('load',swReg,{once:true})}/* offline cache warms up after the page has painted, so it never competes with the first load on slow networks */
  api('/api/t',{p:location.pathname+(location.pathname.indexOf('soon')>-1?location.hash:'')})});

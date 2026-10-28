@@ -72,7 +72,7 @@ export function htmlMail(text, brand, opts = {}) {
 @media only screen and (max-width:600px){.jc-pad{padding-left:18px!important;padding-right:18px!important}}
 </style></head>
 <body class="jc-bg" style="margin:0;padding:0;background:#000101">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">${htmlEscape(pre)}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">${htmlEscape(pre)}</div>
 <table role="presentation" class="jc-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000101" style="background:#000101"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" class="jc-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b1414" style="max-width:560px;background:#0b1414;border:1px solid #1d3a34;border-radius:16px;font-family:Inter,'Segoe UI',Arial,sans-serif">
 <tr><td height="4" bgcolor="#0DBC94" style="height:4px;line-height:4px;font-size:0;border-radius:16px 16px 0 0;background:#0DBC94;background-image:linear-gradient(90deg,#2BF5C0,#4DCBB0 35%,#0DBC94 65%,#196453)">&nbsp;</td></tr>
@@ -120,13 +120,22 @@ export function fill(tpl, vars) { return String(tpl || '').replace(/\{(\w+)\}/g,
 // Every client email that carries a reference gets the "track it" line (Prashant 8:29 PM Oct 26).
 let ORIGIN = '';
 export function setOrigin(o) { if (o) ORIGIN = o; }
+// Oct 29: own domain. Once a request has reached the site on https://jangidcuts.dpdns.org (proof the domain + HTTPS are live),
+// every email link and the sitemap use it; until then they use the address the visitor used (workers.dev keeps working).
+export const PUBLIC_HOST = 'jangidcuts.dpdns.org';
+export const WORKERS_ORIGIN = 'https://jangidcuts.jangidcuts.workers.dev';
+let PUB_LIVE = false;
+export async function markPublicLive(env) { if (PUB_LIVE) return; PUB_LIVE = true; try { if (env.CACHE && !(await env.CACHE.get('pub_live'))) await env.CACHE.put('pub_live', '1'); } catch { } }
+export async function publicLive(env) { if (PUB_LIVE) return true; try { if (env && env.CACHE && (await env.CACHE.get('pub_live'))) PUB_LIVE = true; } catch { } return PUB_LIVE; }
+export async function publicOrigin(env, fallback) { return (await publicLive(env)) ? 'https://' + PUBLIC_HOST : (fallback || ORIGIN || WORKERS_ORIGIN); }
+function toPublic(s, base) { if (!base || base === WORKERS_ORIGIN) return s; s = String(s).split(WORKERS_ORIGIN).join(base); if (ORIGIN && ORIGIN !== base && /^https:\/\/[\w.-]+$/.test(ORIGIN)) s = s.split(ORIGIN + '/').join(base + '/'); return s; }
 export function trackLine(body, ref, force = false) {
   // Oct 27c: each type links to its OWN tracker, prefilled with the number; the number sits on its own line so it is easy to copy.
   body = String(body || ''); ref = String(ref || '');
   let num = ref, kind = (ref.match(/^JC-([A-Z]+)-/) || [])[1];
   if (kind === 'REF') { const o = body.match(/JC-(ORD|DL)-[A-Z0-9]+/); if (!o) return body; num = o[0]; kind = o[1]; }
   if (!kind || (!force && /\/track(-[a-z]+)?\?n=/.test(body))) return body;
-  const base = ORIGIN || 'https://jangidcuts.jangidcuts.workers.dev';
+  const base = PUB_LIVE ? 'https://' + PUBLIC_HOST : (ORIGIN || WORKERS_ORIGIN);
   const T = { TKT: ['ticket', 'track-ticket', 'ticket'], HIRE: ['hire request', 'track-hire', 'request'], ORD: ['order', 'track-order', 'order'], DL: ['order', 'track-order', 'order'] }[kind];
   if (!T) return body;
   const line = `Your ${T[0]} number: ${num}\nYou can track your ${T[2]} here: ${base}/${T[1]}?n=${encodeURIComponent(num)}`;
@@ -139,6 +148,7 @@ export async function sendMail(env, { account = 'main', to, subject, body, kind 
   // Every client mail carries its reference number (JC-ORD-…, JC-TKT-…) in the subject and the body.
   // hire_review = the ONE email a one-time hire gets at Completed (Oct 28 8:21 AM): status + rate button, and the usual number + track link too.
   if (/^JC-[A-Z]+-/.test(ref) && !/^alert/.test(kind) && (!REVIEW_MAILS.has(kind) || kind === 'hire_review')) body = trackLine(body, ref, kind === 'hire_review');
+  if (await publicLive(env)) body = toPublic(body, 'https://' + PUBLIC_HOST);
   if (/^JC-[A-Z]+-/.test(ref)) {
     if (!String(subject).includes(ref)) subject = subject + ' [' + ref + ']';
     if (!String(body).includes(ref)) body = body + '\n\nReference: ' + ref;

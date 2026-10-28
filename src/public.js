@@ -44,7 +44,7 @@ async function meData(env, s) {
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
-    env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
+    env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution, type FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all(),
     env.DB.prepare('SELECT id, product_id, rating, text, status, created FROM reviews WHERE user_id = ?1 AND product_id IS NOT NULL').bind(uid).all()
@@ -53,7 +53,7 @@ async function meData(env, s) {
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
     owned: owned.results, reviews: myRev.results || [], orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); return x; }),
-    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })), hires: hires.results.map(h => ({ ...publicHire(h, { full: true }), review: hireReviewView(h) })) };
+    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => ({ ...publicTicket(t, { full: true }), kind: t.type === 'question' ? 'question' : 'problem' })), hires: hires.results.map(h => ({ ...publicHire(h, { full: true }), review: hireReviewView(h) })) };
 }
 
 /* ---------- OTP ---------- */
@@ -402,7 +402,9 @@ export async function handlePublic(req, env, ctx, url, s) {
     if (type === 'ticket') {
       const t = await env.DB.prepare('SELECT * FROM tickets WHERE number = ?1').bind(pr.ref).first();
       if (!own(t)) return notFound();
-      return J({ ok: true, type, ticket: { ...publicTicket(t, { full: false }), kind: t.type === 'question' ? 'question' : 'problem' } });
+      const st6 = norm(t.status);
+      // Oct 29: the tracker (number + matching email) also shows the support reply, so a solved ticket never shows "Solution delivered" without the solution.
+      return J({ ok: true, type, ticket: { ...publicTicket(t, { full: false }), kind: t.type === 'question' ? 'question' : 'problem', solution: (st6 === 'solved' || st6 === 'closed') ? String(t.solution || '') : '' } });
     }
     const refs = [pr.wrong ? null : pr.ref, prDl && !prDl.wrong ? prDl.ref : null].filter(Boolean);
     const { results } = await env.DB.prepare('SELECT * FROM orders WHERE number IN (?1, ?2)').bind(refs[0], refs[1] || refs[0]).all();

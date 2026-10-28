@@ -2,7 +2,7 @@ import { J, err, HttpError, now, rand, clean, readJson, cookie, sessionOf, newSe
 import { serveFile } from './storage.js';
 import { handlePublic } from './public.js';
 import { handleAdmin, handleGoogle } from './admin.js';
-import { retryOutbox, alertOwner, setOrigin } from './mail.js';
+import { retryOutbox, alertOwner, setOrigin, markPublicLive, publicOrigin, PUBLIC_HOST } from './mail.js';
 import { SEED_CATEGORIES, SEED_PORTFOLIO, SEED_PRODUCTS, SEED_REVIEWS } from './defaults.js';
 
 const CSP = "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com https://checkout.razorpay.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://*.googletagservices.com https://*.adtrafficquality.google; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.googlesyndication.com https://*.doubleclick.net https://*.google.com https://*.adtrafficquality.google; frame-src https://*.doubleclick.net https://*.googlesyndication.com https://*.google.com https://*.adtrafficquality.google https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com; object-src 'none'";
@@ -65,6 +65,9 @@ function withSec(res, extra = {}) {
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url); const p = url.pathname; setOrigin(url.origin);
+    // Oct 29: own domain. www -> main domain; the first visit on the main domain switches email links + sitemap to it.
+    if (url.hostname === 'www.' + PUBLIC_HOST) return Response.redirect('https://' + PUBLIC_HOST + p + url.search, 301);
+    if (url.hostname === PUBLIC_HOST) ctx.waitUntil(markPublicLive(env));
     try {
       // CSRF: every state-changing API call must come from our own pages (custom header + same origin).
       if (p.startsWith('/api/') && req.method !== 'GET' && req.method !== 'HEAD' && p !== '/api/webhooks/razorpay') {
@@ -107,11 +110,12 @@ export default {
       const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile'];
       if (APPP.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers })); return withSec(res); }
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
-      if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + url.origin + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
+      if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + (await publicOrigin(env, url.origin)) + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
         const pages = ['/', '/portfolio', '/services', '/store', '/about', '/resume', '/contact', '/social', '/faq', '/support', '/track', '/track-hire', '/track-ticket', '/track-order', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
         const { results } = await env.DB.prepare('SELECT id FROM products WHERE visible = 1').all();
-        const urls = pages.map(x => `<url><loc>${url.origin}${x}</loc></url>`).concat(results.map(r => `<url><loc>${url.origin}/store?p=${r.id}</loc></url>`));
+        const base = await publicOrigin(env, url.origin);
+        const urls = pages.map(x => `<url><loc>${base}${x}</loc></url>`).concat(results.map(r => `<url><loc>${base}/store?p=${r.id}</loc></url>`));
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } });
       }
       const rg = req.headers.get('range');

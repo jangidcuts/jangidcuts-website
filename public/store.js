@@ -227,6 +227,6 @@ function shrink(f,max){return new Promise(function(res,rej){var img=new Image();
 window.JC_AFTER=function(site,me){S=site;C=site.content;ME=me&&me.user?me:{user:null,cart:[],wishlist:[],owned:[],orders:[],tickets:[]};U=ME.user;PRODS=site.products;CATS=site.categories;app=$('#app');if(!app)return;
  var go=function(){var p=location.pathname.replace(/\/$/,'');var V={'/store':viewStore,'/cart':viewCart,'/orders':viewOrders,'/wishlist':viewWish,'/tickets':viewTickets,'/profile':viewProfile}[p]||viewStore;V();cartBadge();
   var t={'/store':C.store.title,'/cart':'Cart','/orders':'My Orders','/wishlist':'Wishlist','/tickets':'My Requests','/profile':'My Profile'}[p];if(t)D.title=t+' | Jangid Cuts';
-  var pq=new URLSearchParams(location.search).get('p');if(pq&&prod(pq))setTimeout(function(){openProd(+pq)},400);else if(pq)setTimeout(function(){toast('This item is not available right now.')},400)};
+  var pqs=new URLSearchParams(location.search),pq=pqs.get('p');if(pq){pqs.delete('p');try{history.replaceState(history.state,'',location.pathname+(pqs.toString()?'?'+pqs:'')+location.hash)}catch(e){}}if(pq&&prod(pq))setTimeout(function(){openProd(+pq)},400);else if(pq)setTimeout(function(){toast('This item is not available right now.')},400)};
  var g=guestCart();if(U&&g.length){api('/api/cart',{ids:g,op:'add'}).then(function(){localStorage.removeItem(GK);return refreshMe()}).then(go)}else go()};
 })();
