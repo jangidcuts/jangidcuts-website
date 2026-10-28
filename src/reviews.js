@@ -26,13 +26,15 @@ export function statsOf(list) {
 // Can this hire's client rate it right now? One-time: automatically once Completed. Ongoing: when the admin sent the review option.
 export function reviewOpen(h) { return +h.review_open === 1 || (hireKind(h) === 'once' && hireStatus(h) === 'completed'); }
 
-export async function reviewInvite(env, h, origin) {
+// tpl: hire_review (one-time Completed), hire_ongoing_review (status set to Active (ongoing) with "Also send review option"),
+// hire_review_followup (the "Send review option" button later on an ongoing hire).
+export async function reviewInvite(env, h, origin, tpl = 'hire_review') {
   let token = h.review_token;
   if (!token || token.length < 20) token = rand(16);
   const base = origin || 'https://jangidcuts.jangidcuts.workers.dev';
   const link = `${base}/track-hire?n=${encodeURIComponent(h.number)}&r=${token}`;
   const first = String(h.name || '').trim().split(/\s+/)[0] || 'there';
-  const r = await sendTemplate(env, 'hire_review', h.email, { name: first, number: h.number, link }, { ref: h.number });
+  const r = await sendTemplate(env, tpl, h.email, { name: first, number: h.number, link, status: 'Active (ongoing)' }, { ref: h.number });
   await env.DB.prepare('UPDATE hire SET review_token = ?1, review_open = 1, review_sent_at = ?2 WHERE id = ?3').bind(token, r.ok ? now() : (h.review_sent_at || null), h.id).run();
   return { ok: r.ok, error: r.error || null };
 }

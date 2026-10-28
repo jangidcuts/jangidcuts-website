@@ -81,6 +81,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     const a = c._alerts || {}; c._alerts = { email: a.email || '', telegram_chat_id: a.telegram_chat_id || '', telegram_set: !!a.telegram_bot_token_enc };
     const pay = c._payments || {}; c._payments = { provider: pay.provider || 'test', key_id: pay.key_id || '', secret_set: !!pay.key_secret_enc, webhook_set: !!pay.webhook_secret_enc };
     delete c._mail_main; delete c._mail_support;
+    c.mail_templates = { ...DEFAULTS.mail_templates, ...(c.mail_templates || {}) };
     return J({ ok: true, content: c, defaults: Object.keys(DEFAULTS) });
   }
   if ((mm = p.match(/^\/api\/admin\/content\/([a-z_]+)$/)) && m === 'PUT') {
@@ -292,17 +293,25 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (b.action === 'reject' || b.action === 'done' || b.action === 'new') { b.action = 'status'; b.status = { new: 'received', done: hireKind(h) === 'ongoing' ? 'ended' : 'completed', reject: 'declined' }[b.action]; }
     if (b.action === 'status' || b.action === 'kind') { // Admin -> Hire requests -> request -> "Project status"
       let r; try { r = await setHireStatus(env, h, b.action === 'kind' ? hireStatus(h) : String(b.status || ''), b.kind); } catch (e) { fail(e.message); }
-      let mailed = null;
+      let mailed = null, reviewMailed = null;
+      const toActive = b.action === 'status' && r.kind === 'ongoing' && r.status === 'active';
+      if (toActive && b.review) { // "Also send review option" ticked: ONE email = ongoing status + any problem tell us + rate us now link; Rate us opens in the tracker
+        const rv = await reviewInvite(env, h, new URL(req.url).origin, 'hire_ongoing_review'); mailed = rv.ok; reviewMailed = rv.ok;
+        return J({ ok: true, ...r, mailed, reviewMailed, mailError: rv.error || null });
+      }
+      if (toActive && b.notify && r.status !== hireStatus(h)) { // not ticked: only the ongoing status email, no rating
+        const m2 = await sendTemplate(env, 'hire_ongoing', h.email, { name: String(h.name || '').trim().split(/\s+/)[0] || 'there', number: h.number, status: r.label }, { ref: h.number });
+        return J({ ok: true, ...r, mailed: m2.ok, reviewMailed: null, mailError: m2.error || null });
+      }
       if (b.action === 'status' && b.notify && r.status !== hireStatus(h)) {
         const m2 = await sendTemplate(env, 'hire_status', h.email, { name: h.name || 'there', number: h.number, status: r.label }, { ref: h.number }); mailed = m2.ok;
       }
       /* one-time project reaches Completed -> the review link goes out once, automatically (Rate us also opens in the tracker) */
-      let reviewMailed = null;
       if (r.kind === 'once' && r.status === 'completed' && hireStatus(h) !== 'completed' && !h.review_sent_at) { const rv = await reviewInvite(env, h, new URL(req.url).origin); reviewMailed = rv.ok; }
       return J({ ok: true, ...r, mailed, reviewMailed });
     }
     if (b.action === 'review_invite') { // Admin -> Client Desk -> hire request -> "Send review option"
-      const rv = await reviewInvite(env, h, new URL(req.url).origin);
+      const rv = await reviewInvite(env, h, new URL(req.url).origin, hireKind(h) === 'ongoing' ? 'hire_review_followup' : 'hire_review');
       return J({ ok: true, mailed: rv.ok, mailError: rv.error });
     }
     if (b.action === 'note') { await env.DB.prepare('UPDATE hire SET note = ?1 WHERE id = ?2').bind(clean(b.note, 2000), h.id).run(); return J({ ok: true }); }

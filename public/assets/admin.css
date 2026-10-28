@@ -237,3 +237,6 @@ body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 .rvc-a .btn.s svg{width:15px;height:15px}
 .hrv-box{display:flex;flex-direction:column;gap:6px}
 .hrv-note{border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--muted);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.5}
+
+/* Oct 28b: "Also send review option" under Project status (ongoing -> Active) */
+.hs-rv[hidden]{display:none!important}.hs-rv{margin:-2px 0 12px;padding:10px 12px;border:1px solid #1f5a4a;border-radius:10px;background:#0f2621}.hs-rv .chk{margin-bottom:4px;color:var(--text,#e8f2ef);font-weight:600}.hs-rv .faint{line-height:1.45}

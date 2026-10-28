@@ -47,8 +47,8 @@ export function htmlMail(text, brand, opts = {}) {
         '<p class="jc-m" style="margin:0 0 14px;font-size:12px;line-height:1.5;color:#7d9690">Keep this number safe. Tap and hold to copy it; the tracker accepts the full number or just the digits (' + digits + ').</p>' +
         '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px"><tr><td bgcolor="#0DBC94" style="background:#0DBC94;border-radius:10px"><a href="' + rm[3] + '" style="display:inline-block;padding:11px 20px;font-size:14px;font-weight:700;color:#04201a;text-decoration:none;border-radius:10px">Track your ' + (rm[1] === 'hire request' ? 'hire request' : rm[1]) + '</a></td></tr></table>';
     }
-    const rv = !code && p.match(/^Rate your project: (https?:\/\/\S+)$/);
-    if (rv) return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px"><tr><td bgcolor="#0DBC94" style="background:#0DBC94;background-image:linear-gradient(90deg,#2BF5C0,#0DBC94);border-radius:10px"><a class="jc-btn" href="' + rv[1] + '" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#04201a;text-decoration:none;border-radius:10px">&#9733;&nbsp; Rate your project</a></td></tr></table>';
+    const rv = !code && p.match(/^(Rate (?:us|your project)[^:\n]{0,30}): (https?:\/\/\S+)$/i);
+    if (rv) return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px"><tr><td bgcolor="#0DBC94" style="background:#0DBC94;background-image:linear-gradient(90deg,#2BF5C0,#0DBC94);border-radius:10px"><a class="jc-btn" href="' + rv[2] + '" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#04201a;text-decoration:none;border-radius:10px">&#9733;&nbsp; ' + rv[1] + '</a></td></tr></table>';
     let out = '<p class="jc-t" style="margin:0 0 14px;line-height:1.6;color:#e8f2ef">' + linkify(p).replace(/\n/g, '<br>') + '</p>';
     if (code && !codeDone && p.includes(code)) {
       codeDone = true;
@@ -133,10 +133,11 @@ export function trackLine(body, ref) {
   const sig = body.search(/\n\n(Regards,|Best regards|Warm regards|Thanks,|Team Jangid Cuts|Jangid Cuts Support\s*$|Jangid Cuts\s*$|Prashant Jangid)/i);
   return sig > 0 ? body.slice(0, sig) + '\n\n' + line + body.slice(sig) : body + '\n\n' + line;
 }
+const REVIEW_MAILS = new Set(['hire_review', 'hire_ongoing_review', 'hire_review_followup']); // these carry their own one-tap rating link
 export async function sendMail(env, { account = 'main', to, subject, body, kind = 'mail', ref = '' }) {
   if (!isEmail(to)) return { ok: false, error: 'bad address' };
   // Every client mail carries its reference number (JC-ORD-…, JC-TKT-…) in the subject and the body.
-  if (/^JC-[A-Z]+-/.test(ref) && !/^alert/.test(kind) && kind !== 'hire_review') body = trackLine(body, ref);
+  if (/^JC-[A-Z]+-/.test(ref) && !/^alert/.test(kind) && !REVIEW_MAILS.has(kind)) body = trackLine(body, ref);
   if (/^JC-[A-Z]+-/.test(ref)) {
     if (!String(subject).includes(ref)) subject = subject + ' [' + ref + ']';
     if (!String(body).includes(ref)) body = body + '\n\nReference: ' + ref;
