@@ -10,7 +10,7 @@ export function hireSteps(h) {
   let ev=[];try{ev=JSON.parse(h.events||'[]')||[]}catch{};
   const at=s=>ev.filter(e=>e.s===s).slice(-1)[0]?.at||null;
   const idx=base.indexOf(st), complete=idx>=0?idx:base.indexOf(st==='paused'||st==='ended'?'active':st==='declined'?'received':'received');
-  const steps=base.map((s,i)=>({s,label:HIRE_LABELS[s],at:at(s)||(s==='received'?h.created:s==='approved'?h.approved_at:null),done:i<=complete,current:st===s}));
+  const steps=base.map((s,i)=>({s,label:HIRE_LABELS[s],at:at(s)||(s==='received'?h.created:s==='approved'?h.approved_at:st===s?h.updated||null:null),done:i<=complete,current:st===s}));
   if(['paused','ended','declined'].includes(st)) steps.push({s:st,label:HIRE_LABELS[st],at:at(st),done:true,current:true});
   return steps;
 }

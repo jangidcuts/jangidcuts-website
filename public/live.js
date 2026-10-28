@@ -86,11 +86,20 @@ document.addEventListener('click',function(e){var sb=e.target.closest&&e.target.
  var body=Object.assign({number:num},JCL._hrAuth[num]||{},{rating:r,name:$('.hr-name',b).value,text:$('.hr-text',b).value});bt.disabled=true;
  api('/api/hire-review',body).then(function(x){bt.disabled=false;if(!x.ok){toast(x.error||'Could not save your review');return}
   toast(x.message||'Thank you for your review!');$('.hr-h',b).textContent='Your review';$('.hr-sub',b).textContent='Thank you for rating your project. You can change it any time.';bt.textContent='Update review'})});
+/* Final state (Oct 28): the last step of a finished timeline gets a filled mint dot with a drawn check, and one line under the
+   timeline says when it finished. No emoji anywhere in the tracker. */
+var TK_FIN={hire:{completed:'Project completed',active:'Collaboration active',delivered:'Project delivered'},order:{completed:'Order completed'},ticket:{closed:'Ticket closed',solved:'Solution delivered'}};
+var TK_CHK='<svg class="tk-chk" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.6l3.6 3.6 7.4-8.2"/></svg>';
+function fdd(t){if(!t)return '';var d=new Date(t);try{return d.toLocaleDateString(JCL.locale||'en-IN',{day:'numeric',month:'short',year:'numeric'})}catch(e){return d.toDateString()}}
 function tkTimeline(t){var ty=tkType(t),ong=ty==='hire'&&t.kind==='ongoing';
  var kind=ty==='order'?'Order':ty==='hire'?(ong?'Ongoing collaboration':'Hire request'):(t.kind==='question'?'Question':'Support ticket');
  var lbl=ty==='ticket'?(TK_LABEL[t.status]||t.label||t.status):(t.label||t.status);
- return '<div class="tk-card tk-'+ty+(ong?' tk-ongoing':'')+'"><div class="tk-head"><div><small>'+esc(kind)+'</small><b class="tk-ref">'+esc(t.number)+'</b></div><span class="tk-pill tk-'+esc(t.status)+'">'+esc(lbl)+'</span></div>'+
-  '<ol class="tk-steps">'+(t.steps||[]).map(function(s){return '<li class="'+(s.done?'done':'')+(s.current?' cur':'')+' st-'+esc(s.s)+'"><span class="tk-dot">'+(s.done?ICON('check'):'')+'</span><div><b>'+esc(s.label||TK_LABEL[s.s])+'</b><small>'+(s.at?esc(fdt(s.at)):(s.done?'':'Waiting'))+'</small></div></li>'}).join('')+'</ol>'+
+ var steps=t.steps||[],cs=null;steps.forEach(function(s){if(s.current)cs=s});
+ var finTxt=cs&&cs.done&&(TK_FIN[ty]||{})[cs.s],last=steps.length?steps[steps.length-1]:null,finStep=!!(finTxt&&last===cs&&cs.s!=='delivered'&&cs.s!=='solved');
+ var final=finTxt?'<div class="tk-final'+(finStep?' is-end':'')+'"><span class="tk-final-ic">'+TK_CHK+'</span><p>'+esc(finTxt)+(cs.at?' <span>'+(cs.s==='active'?'since ':'on ')+esc(fdd(cs.at))+'</span>':'')+'</p></div>':'';
+ return '<div class="tk-card tk-'+ty+(ong?' tk-ongoing':'')+'"><div class="tk-head"><div><small>'+esc(kind)+'</small><b class="tk-ref">'+esc(t.number)+'</b></div><span class="tk-pill tk-'+esc(t.status)+(finStep?' fin':'')+'">'+(finStep?'<i aria-hidden="true"></i>':'')+esc(lbl)+'</span></div>'+
+  '<ol class="tk-steps" style="--n:'+Math.max(steps.length,1)+'">'+steps.map(function(s){var isFin=finStep&&s===cs,alt=/^(paused|ended|declined)$/.test(s.s);
+   return '<li class="'+(s.done?'done':'')+(s.current?' cur':'')+(isFin?' fin':'')+(alt?' alt':'')+' st-'+esc(s.s)+'"><span class="tk-dot">'+(isFin?TK_CHK:s.done?ICON('check'):'')+'</span><div><b>'+esc(s.label||TK_LABEL[s.s])+'</b><small>'+(s.at?esc(fdt(s.at)):(s.done?'':'Waiting'))+'</small></div></li>'}).join('')+'</ol>'+final+
   '<div class="tk-meta"><span><small>'+(ty==='order'?'Items':ty==='hire'?'Type':'Category')+'</small>'+esc(ty==='order'?t.items.join(', '):ty==='hire'?(ong?'Ongoing / monthly work':'One-time project'):(t.topic||'General'))+'</span><span><small>'+(ty==='order'?'Placed':ty==='hire'?'Sent':'Raised')+'</small>'+esc(fdt(t.created))+'</span>'+(t.email?'<span><small>Email</small>'+esc(t.email)+'</span>':'')+'</div>'+
   (ty==='hire'?'<p class="tk-note">Replies about your project come by email from jangidcuts@gmail.com.</p>':'')+
   (ty==='hire'&&t.review&&t.review.open?hrBox(t):'')+
