@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created);
 CREATE TABLE IF NOT EXISTS owned (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, order_id INTEGER, created INTEGER, downloads INTEGER DEFAULT 0, first_dl INTEGER, last_dl INTEGER, PRIMARY KEY (user_id, product_id));
-CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, name TEXT, role TEXT, rating INTEGER NOT NULL, text TEXT, status TEXT DEFAULT 'visible', featured INTEGER DEFAULT 0, source TEXT DEFAULT 'user', created INTEGER, photo TEXT);
+CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, product_id INTEGER, name TEXT, role TEXT, rating INTEGER NOT NULL, text TEXT, status TEXT DEFAULT 'visible', featured INTEGER DEFAULT 0, source TEXT DEFAULT 'user', created INTEGER, photo TEXT, hire_id INTEGER, pick INTEGER DEFAULT 0, reply TEXT, reply_at INTEGER, updated INTEGER);
 CREATE INDEX IF NOT EXISTS reviews_prod ON reviews(product_id, status);
 CREATE TABLE IF NOT EXISTS hire (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT, user_id INTEGER, name TEXT, email TEXT, data TEXT, status TEXT DEFAULT 'new', note TEXT, created INTEGER, approved_at INTEGER, ip TEXT);
 CREATE INDEX IF NOT EXISTS hire_status ON hire(status, created);

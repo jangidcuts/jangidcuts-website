@@ -1,5 +1,6 @@
 import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef, refClosed } from './lib.js';
 import { setHireStatus, HIRE_LABELS, hireKind, hireStatus } from './hire.js';
+import { rankTop, homeSet, reviewOpen, reviewInvite } from './reviews.js';
 import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
 import { putFile, deleteFile, storageInfo, storageMeter, driveId, driveMeta, streamDrivePublic } from './storage.js';
@@ -12,9 +13,9 @@ const TABLES = {
   portfolio: ['kind', 'title', 'description', 'category_id', 'subcategory_id', 'image', 'video', 'url', 'orient', 'featured', 'home', 'sort', 'visible', 'services', 'source'],
   categories: ['section', 'name', 'parent_id', 'sort', 'thumb'],
   coupons: ['code', 'type', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'note'],
-  reviews: ['product_id', 'name', 'role', 'rating', 'text', 'status', 'featured', 'source', 'photo']
+  reviews: ['product_id', 'name', 'role', 'rating', 'text', 'status', 'featured', 'source', 'photo', 'pick', 'reply']
 };
-const NUM = new Set(['price', 'mrp', 'disc_value', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating']);
+const NUM = new Set(['price', 'mrp', 'disc_value', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating', 'pick']);
 const slugify = (s) => clean(s, 80).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
 
 function rowVals(table, b) {
@@ -138,6 +139,24 @@ export async function handleAdmin(req, env, ctx, url, s) {
   }
 
   /* ----- generic CRUD ----- */
+  /* Reviews v2: Admin -> Reviews lists every review with where it shows (top 4 on home / in the pack window) */
+  if (p === '/api/admin/reviews' && m === 'GET') {
+    const { results } = await env.DB.prepare("SELECT r.*, p.title product_title, h.number hire_number, h.kind hire_kind FROM reviews r LEFT JOIN products p ON p.id = r.product_id LEFT JOIN hire h ON h.id = r.hire_id ORDER BY COALESCE(r.updated, r.created) DESC, r.id DESC LIMIT 2000").all();
+    const top = new Set(), hs = homeSet(results), byProd = {};
+    rankTop(hs.list).forEach(r => top.add(r.id));
+    for (const r of results) if (r.product_id) (byProd[r.product_id] = byProd[r.product_id] || []).push(r);
+    for (const k in byProd) rankTop(byProd[k]).forEach(r => top.add(r.id));
+    return J({ ok: true, homeReal: hs.real, items: results.map(r => ({ ...r, top: top.has(r.id), onHome: !r.product_id && r.status === 'visible' && (r.source === 'demo' ? !hs.real : true) })) });
+  }
+  if ((mm = p.match(/^\/api\/admin\/reviews\/(\d+)$/)) && m === 'PUT') {
+    const b = await readJson(req, 300000);
+    if (b.reply !== undefined) { const t = clean(b.reply, 1000); await env.DB.prepare('UPDATE reviews SET reply = ?1, reply_at = ?2 WHERE id = ?3').bind(t || null, t ? now() : null, +mm[1]).run(); delete b.reply; }
+    if (b.pick !== undefined) b.pick = +b.pick === 1 ? 1 : +b.pick === -1 ? -1 : 0;
+    if (b.status !== undefined && !['visible', 'hidden'].includes(b.status)) fail('Bad status');
+    const { cols, vals } = rowVals('reviews', b);
+    if (cols.length) await env.DB.prepare(`UPDATE reviews SET ${cols.map(c => c + ' = ?').join(', ')} WHERE id = ?`).bind(...vals, +mm[1]).run();
+    return J({ ok: true });
+  }
   if ((mm = p.match(/^\/api\/admin\/(products|portfolio|categories|coupons|reviews)(?:\/(\d+))?$/))) {
     const table = mm[1], id = mm[2] ? +mm[2] : null;
     if (m === 'GET' && !id) {
@@ -260,8 +279,8 @@ export async function handleAdmin(req, env, ctx, url, s) {
 
   /* ----- client desk: hire + tickets ----- */
   if (p === '/api/admin/hire' && m === 'GET') {
-    const { results } = await env.DB.prepare('SELECT * FROM hire ORDER BY id DESC LIMIT 1000').all();
-    return J({ ok: true, items: results.map(h => ({ ...h, data: JSON.parse(h.data || '{}') })) });
+    const { results } = await env.DB.prepare('SELECT h.*, r.id rv_id, r.rating rv_rating, r.text rv_text, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.id = (SELECT MAX(id) FROM reviews WHERE hire_id = h.id) ORDER BY h.id DESC LIMIT 1000').all();
+    return J({ ok: true, items: results.map(h => { const { review_token, rv_id, rv_rating, rv_text, rv_status, ...x } = h; return { ...x, data: JSON.parse(h.data || '{}'), review: { open: reviewOpen(h), sent_at: h.review_sent_at || null, id: rv_id || null, rating: rv_rating || 0, text: rv_text || '', status: rv_status || '' } }; }) });
   }
   if ((mm = p.match(/^\/api\/admin\/hire\/(\d+)$/)) && m === 'POST') {
     const b = await readJson(req, 30000); const h = await env.DB.prepare('SELECT * FROM hire WHERE id = ?1').bind(+mm[1]).first(); if (!h) fail('Not found', 404);
@@ -277,7 +296,14 @@ export async function handleAdmin(req, env, ctx, url, s) {
       if (b.action === 'status' && b.notify && r.status !== hireStatus(h)) {
         const m2 = await sendTemplate(env, 'hire_status', h.email, { name: h.name || 'there', number: h.number, status: r.label }, { ref: h.number }); mailed = m2.ok;
       }
-      return J({ ok: true, ...r, mailed });
+      /* one-time project reaches Completed -> the review link goes out once, automatically (Rate us also opens in the tracker) */
+      let reviewMailed = null;
+      if (r.kind === 'once' && r.status === 'completed' && hireStatus(h) !== 'completed' && !h.review_sent_at) { const rv = await reviewInvite(env, h, new URL(req.url).origin); reviewMailed = rv.ok; }
+      return J({ ok: true, ...r, mailed, reviewMailed });
+    }
+    if (b.action === 'review_invite') { // Admin -> Client Desk -> hire request -> "Send review option"
+      const rv = await reviewInvite(env, h, new URL(req.url).origin);
+      return J({ ok: true, mailed: rv.ok, mailError: rv.error });
     }
     if (b.action === 'note') { await env.DB.prepare('UPDATE hire SET note = ?1 WHERE id = ?2').bind(clean(b.note, 2000), h.id).run(); return J({ ok: true }); }
     if (b.action === 'email') { const r = await sendMail(env, { account: 'main', to: h.email, subject: clean(b.subject, 200) || 'Re: your project ' + h.number, body: clean(b.body, 10000), kind: 'hire_reply', ref: h.number }); return J({ ok: r.ok, error: r.error }); }

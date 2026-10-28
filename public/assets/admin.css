@@ -222,3 +222,18 @@ html.side-lock,html.side-lock body{overflow:hidden}
 body.aic-kb{overflow:hidden}
 body.aic-kb .aic{position:fixed;left:0;right:0;top:0;z-index:1000;border-radius:0;border:0;min-height:0;max-height:none}
 body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+
+/* Reviews v2 (Oct 28) */
+.rvc{border:1px solid var(--line);border-radius:14px;background:var(--bg2);padding:12px 14px;margin-bottom:10px;min-width:0}
+.rvc-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.rvc-h b{font-size:15px;overflow-wrap:anywhere}
+.rvs{color:#2BF5C0;letter-spacing:1px;font-size:15px;white-space:nowrap}.rvs i{font-style:normal;opacity:.25}
+.rvc-m{color:var(--faint);font-size:12.5px;margin-top:4px;overflow-wrap:anywhere}
+.rvc-t{margin:8px 0 0;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.rvc-r{margin-top:8px;padding:8px 10px;border-left:3px solid #0DBC94;background:rgba(13,188,148,.08);border-radius:0 10px 10px 0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.rvc-r b{display:block;font-size:11.5px;color:var(--mint);margin-bottom:2px}
+.rvc-s{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+.rvc-a{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+.rvc-a .btn.s svg{width:15px;height:15px}
+.hrv-box{display:flex;flex-direction:column;gap:6px}
+.hrv-note{border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--muted);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.5}

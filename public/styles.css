@@ -864,3 +864,26 @@ form .btn-submit,#issueForm>button[type=submit],#hireForm>button[type=submit]{wi
 @media (max-width:720px){.trk-form{grid-template-columns:1fr}}
 .trk-form>.btn-submit{margin-top:0}
 html[data-hpv] .hp-view{display:none!important}html[data-hpv=faq] .hp-view[data-view=faq],html[data-hpv=support] .hp-view[data-view=support],html[data-hpv=track] .hp-view[data-view=track]{display:block!important}
+
+/* Reviews v2 (Oct 28): Rate us in the hire tracker, verified tag + reply on home reviews */
+.hr-rate{margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);display:flex;flex-direction:column;gap:10px;min-width:0}
+.hr-h{font-family:var(--head);font-size:22px;letter-spacing:.5px;text-transform:uppercase;line-height:1.1}
+.hr-sub{color:var(--muted);font-size:13.5px;margin:-4px 0 0}
+.hr-stars{display:flex;gap:6px}
+.hr-stars button{width:44px;height:44px;display:grid;place-items:center;color:var(--faint);border-radius:10px;transition:transform .15s,color .15s}
+.hr-stars button.on{color:#ffc94d}
+.hr-stars button:active{transform:scale(.9)}
+.hr-stars svg{width:32px;height:32px;fill:currentColor}
+.hr-lbl{display:block;font-size:13px;font-weight:600;color:var(--text)}
+.hr-lbl .input{display:block;margin-top:6px}
+.hr-lbl small{font-weight:400;color:var(--faint)}
+.hr-rate .hr-name{min-height:46px}
+.hr-rate .hr-text{min-height:96px;resize:vertical}
+.hr-send{width:100%;justify-content:center}
+.hr-note{font-size:12.5px;color:var(--faint)}
+.rev-vc{display:inline-flex;align-items:center;gap:4px;margin-top:3px;font-style:normal;font-size:11.5px;font-weight:700;color:var(--mint,#2BF5C0)}
+.rev-vc .icon{width:12px;height:12px}
+.rev-who em.rev-vc{display:flex}
+.rev-reply{padding:10px 12px;border-left:3px solid #0DBC94;background:rgba(13,188,148,.08);border-radius:0 10px 10px 0;font-size:13.5px;color:var(--muted);overflow-wrap:anywhere}
+.rev-reply b{display:block;font-size:11.5px;color:var(--text);margin-bottom:2px;letter-spacing:.3px}
+.rev p{overflow-wrap:anywhere}

@@ -1,29 +1,39 @@
 import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, newRef, limitOrFail, rateLimit,
   newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt, normRef, parseRef, refClosed } from './lib.js';
-import { publicHire, hireKind } from './hire.js';
+import { publicHire, hireKind, hireStatus } from './hire.js';
+import { rankTop, homeSet, statsOf, reviewOpen } from './reviews.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource } from './storage.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
 
+/* what the client sees of their own project review (never the private link token) */
+const hireReviewView = (h) => ({ open: reviewOpen(h), name: h.rv_name || h.name || '', rating: h.rv_rating || 0, text: h.rv_text || '', hidden: h.rv_status === 'hidden' });
 const needUser = (s) => { if (!s) fail('Please sign in first', 401); return s; };
 const needTc = (b) => { if (!b.tc) fail('Please accept the Terms & Conditions'); };
 
 /* ---------- public site data ---------- */
 export async function siteData(env) {
-  const [content, cats, pf, prods, revs, revStats] = await Promise.all([
+  const [content, cats, pf, prods, revs] = await Promise.all([
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
-    env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.featured, r.created, COALESCE(NULLIF(r.photo, ''), NULLIF(u.avatar, '')) photo FROM reviews r LEFT JOIN users u ON u.id = r.user_id WHERE r.status = 'visible' ORDER BY r.featured DESC, r.id DESC LIMIT 200").all(),
-    env.DB.prepare("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible' AND product_id IS NULL").first()
+    env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.status, r.source, r.pick, r.reply, r.created, r.updated, COALESCE(NULLIF(r.photo, ''), NULLIF(u.avatar, '')) photo FROM reviews r LEFT JOIN users u ON u.id = r.user_id WHERE r.status = 'visible' ORDER BY r.id DESC LIMIT 1000").all()
   ]);
+  /* Reviews v2: the server picks every "top" list (pinned first, then most stars, then latest) and every average */
+  const pubRev = r => ({ id: r.id, product_id: r.product_id, name: r.name, role: r.role, rating: r.rating, text: r.text, reply: r.reply || '', created: r.updated || r.created, photo: r.photo, verified: r.source === 'client' ? 'client' : r.source === 'user' && r.product_id ? 'buyer' : '' });
+  const allRev = revs.results || [], hs = homeSet(allRev), byProd = {};
+  for (const r of allRev) if (r.product_id) (byProd[r.product_id] = byProd[r.product_id] || []).push(r);
+  const prodRev = [];
+  for (const k in byProd) for (const r of byProd[k]) prodRev.push(pubRev(r));
+  const revStats = statsOf(hs.list);
   const pay = await paymentsConfig(env);
   return { content, categories: cats.results, portfolio: pf.results.map(x => { let sv = []; try { sv = JSON.parse(x.services || '[]'); } catch { } const yt = /youtu\.?be/i.test(x.url || ''); const did = !yt ? driveId(x.url) : '';
     // Drive / direct links stream through /v/<id>; the raw link is not sent to visitors (only YouTube ids are needed client-side)
-    return { ...x, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results.map(x => { const { price_mode, disc_type, disc_value, ...r } = withPrice(x, content.store || {}); return r; }), firstOffer: firstOffer(content.store || {}), reviews: revs.results,
-    reviewStats: { count: revStats?.n || 0, avg: revStats?.avg ? Math.round(revStats.avg * 10) / 10 : 0 },
+    return { ...x, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results.map(x => { const { price_mode, disc_type, disc_value, ...r } = withPrice(x, content.store || {}); const pr = byProd[x.id] || []; const st = statsOf(pr); r.rating = st.count ? st : null; r.top = rankTop(pr).map(v => v.id); return r; }), firstOffer: firstOffer(content.store || {}),
+    reviews: prodRev, homeReviews: rankTop(hs.list).map(pubRev), homeReal: hs.real,
+    reviewStats: { count: revStats.count, avg: revStats.avg },
     cfg: { google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), payments: pay.provider, storage: storageInfo(env).backend } };
 }
 
@@ -35,7 +45,7 @@ async function meData(env, s) {
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
-    env.DB.prepare('SELECT number, data, status, kind, events, created, approved_at FROM hire WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
+    env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all(),
     env.DB.prepare('SELECT id, product_id, rating, text, status, created FROM reviews WHERE user_id = ?1 AND product_id IS NOT NULL').bind(uid).all()
   ]);
@@ -43,7 +53,7 @@ async function meData(env, s) {
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
     owned: owned.results, reviews: myRev.results || [], orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); return x; }),
-    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })), hires: hires.results.map(h => publicHire(h, { full: true })) };
+    firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => publicTicket(t, { full: true })), hires: hires.results.map(h => ({ ...publicHire(h, { full: true }), review: hireReviewView(h) })) };
 }
 
 /* ---------- OTP ---------- */
@@ -311,13 +321,42 @@ export async function handlePublic(req, env, ctx, url, s) {
         return J({ ok: true, updated: true, status: keep.status, message: keep.status === 'hidden' ? 'Review updated. It is not shown publicly right now.' : 'Your review is updated' });
       }
     } else {
-      const ok = await env.DB.prepare("SELECT 1 FROM orders WHERE user_id = ?1 AND status IN ('delivered','completed') UNION SELECT 1 FROM hire WHERE email = ?2 AND status IN ('approved','progress','delivered','completed','active','paused','ended') LIMIT 1").bind(s.user.id, s.user.email).first();
-      if (!ok) fail('Reviews are open to clients and buyers', 403);
-      await env.DB.prepare('DELETE FROM reviews WHERE user_id = ?1 AND product_id IS NULL').bind(s.user.id).run();
+      fail('To review your project, open the rating link in your email or rate it from Track hire request', 403);
     }
     await env.DB.prepare("INSERT INTO reviews (user_id, product_id, name, role, rating, text, status, source, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'visible', 'user', ?7)")
       .bind(s.user.id, pid, clean(s.user.name || 'Customer', 80), pid ? 'Verified buyer' : 'Client', rating, text, now()).run();
     return J({ ok: true, status: 'visible', message: 'Thanks for your review!' });
+  }
+
+  /* ----- client (hire) reviews: private email link (?r=token) or the hire tracker (number + email) or the signed-in owner ----- */
+  if (p === '/api/hire-review') {
+    const b = m === 'POST' ? await readJson(req) : Object.fromEntries(url.searchParams);
+    await limitOrFail(env, 'hrev:' + ip(req), 30, 600e3, 'Too many tries. Please wait a few minutes and try again.');
+    let h = null;
+    if (b.t) { const t = String(b.t).replace(/[^a-f0-9]/gi, ''); if (t.length >= 20) h = await env.DB.prepare('SELECT * FROM hire WHERE review_token = ?1').bind(t).first(); }
+    else {
+      const pr = parseRef('HIRE', b.number || ''); const em = String(b.email || '').trim().toLowerCase();
+      if (pr.ok && !pr.wrong) h = await env.DB.prepare('SELECT * FROM hire WHERE number = ?1').bind(pr.ref).first();
+      const mine = h && s && (h.user_id === s.user.id || String(h.email || '').toLowerCase() === String(s.user.email || '').toLowerCase());
+      if (h && !mine && String(h.email || '').toLowerCase() !== em) h = null;
+    }
+    if (!h) return J({ ok: false, notFound: true, error: b.t ? 'This rating link is not valid. Please use the latest email from Jangid Cuts, or Track hire request.' : 'No hire request found for this number and email.' }, 404);
+    const cur = await env.DB.prepare('SELECT id, rating rv_rating, text rv_text, name rv_name, status rv_status FROM reviews WHERE hire_id = ?1 ORDER BY id DESC').bind(h.id).first();
+    if (m === 'GET') return J({ ok: true, hire: { ...publicHire(h), email: maskEmail(h.email), review: hireReviewView({ ...h, ...(cur || {}) }) } });
+    if (m !== 'POST') fail('Method not allowed', 405);
+    if (!reviewOpen(h)) fail('Rating opens when your project is completed', 403);
+    const rating = Math.max(0, Math.min(5, parseInt(b.rating) || 0)); if (!rating) fail('Tap the stars to rate');
+    const text = clean(b.text, 1000), name = clean(b.name, 60) || clean(h.name, 60) || 'Client';
+    let cats = []; try { cats = JSON.parse(h.data || '{}').categories || []; } catch { }
+    const role = (cats[0] ? clean(cats[0], 40) + ' · ' : '') + (hireKind(h) === 'ongoing' ? 'Monthly client' : 'Client');
+    await limitOrFail(env, 'hrevw:' + h.id, 10, 3600e3, 'Too many changes. Please try again in an hour.');
+    if (cur) {
+      await env.DB.prepare('UPDATE reviews SET rating = ?1, text = ?2, name = ?3, updated = ?4 WHERE id = ?5').bind(rating, text, name, now(), cur.id).run();
+      await env.DB.prepare('DELETE FROM reviews WHERE hire_id = ?1 AND id <> ?2').bind(h.id, cur.id).run();
+      return J({ ok: true, updated: true, message: cur.rv_status === 'hidden' ? 'Review updated. It is not shown publicly right now.' : 'Your review is updated. Thank you!' });
+    }
+    await env.DB.prepare("INSERT INTO reviews (user_id, product_id, hire_id, name, role, rating, text, status, source, created) VALUES (?1, NULL, ?2, ?3, ?4, ?5, ?6, 'visible', 'client', ?7)").bind(h.user_id || null, h.id, name, role, rating, text, now()).run();
+    return J({ ok: true, message: 'Thank you for your review!' });
   }
 
   /* ----- hire / tickets ----- */
@@ -357,7 +396,8 @@ export async function handlePublic(req, env, ctx, url, s) {
     if (type === 'hire') {
       const h = await env.DB.prepare('SELECT * FROM hire WHERE number = ?1').bind(pr.ref).first();
       if (!own(h)) return notFound();
-      return J({ ok: true, type, hire: { ...publicHire(h), email: maskEmail(h.email) } });
+      const rv = await env.DB.prepare('SELECT rating rv_rating, text rv_text, name rv_name, status rv_status FROM reviews WHERE hire_id = ?1 ORDER BY id DESC').bind(h.id).first();
+      return J({ ok: true, type, hire: { ...publicHire(h), email: maskEmail(h.email), review: hireReviewView({ ...h, ...(rv || {}) }) } });
     }
     if (type === 'ticket') {
       const t = await env.DB.prepare('SELECT * FROM tickets WHERE number = ?1').bind(pr.ref).first();

@@ -50,11 +50,11 @@ function applyHome(c,s){var h=c.hero;
  var pb=$('#pfBanner'),bn=home.pf_banner||{};if(pb){pb.hidden=!bn.show;pb.innerHTML='<div class="wrap"><a class="pf-banner rv" href="/portfolio"><img src="'+esc(bn.image||'/img/f2_0.jpg')+'" alt="" loading="lazy"><div class="pfb-shade"></div><div class="pfb-tx"><span class="eyebrow">'+esc(bn.eyebrow||'Portfolio')+'</span><h2 class="h-lg">'+esc(bn.title||'')+'</h2><p>'+esc(bn.sub||'')+'</p><span class="btn btn-primary">'+esc(bn.btn||'Open Portfolio')+' '+ICON('arrow')+'</span></div></a></div>'}
  var wb2=$('#work .sec-head .btn');if(wb2)wb2.setAttribute('href','/portfolio');window.JC_WATCH=true;
  var rv=$('#reviews');if(rv){rv.hidden=!home.show_reviews;$('#reviews .eyebrow').textContent=home.rev_eyebrow;$('#revTitle').textContent=home.rev_title;
-  var list=s.reviews.filter(function(r){return !r.product_id}).sort(function(a,b){return b.featured-a.featured}).slice(0,6);
+  var list=(s.homeReviews||[]).slice(0,4);
   var star=function(n){var o='';for(var i=0;i<5;i++)o+='<svg class="'+(i<n?'':'off')+'" aria-hidden="true"'+(i<n?'':' style="opacity:.25"')+'><use href="#i-star"/></svg>';return o};
   var ini=function(n){return String(n||'?').split(/\s+/).map(function(w){return w[0]}).join('').slice(0,2).toUpperCase()};
   var avg=s.reviewStats.avg||5;$('.rev-score .big').textContent=avg.toFixed?avg.toFixed(1):avg;$('.rev-score .stars').innerHTML=star(Math.round(avg));$('.rev-score .lead').textContent=(home.rev_note||'Average from client reviews')+' ('+s.reviewStats.count+')';
-  $('.rev-list').innerHTML=list.map(function(r){return '<article class="rev rv"><div class="stars" aria-label="'+r.rating+' out of 5 stars">'+star(r.rating)+'</div><p>“'+esc(r.text)+'”</p><div class="rev-who"><i>'+(r.photo?'<img src="'+esc(r.photo)+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(ini(r.name)))+'</i><div><b>'+esc(r.name)+'</b><span>'+esc(r.role||'')+'</span></div></div></article>'}).join('')}
+  $('.rev-list').innerHTML=list.map(function(r){return '<article class="rev rv"><div class="stars" aria-label="'+r.rating+' out of 5 stars">'+star(r.rating)+'</div>'+(r.text?'<p>“'+esc(r.text)+'”</p>':'')+'<div class="rev-who"><i>'+(r.photo?'<img src="'+esc(r.photo)+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(ini(r.name)))+'</i><div><b>'+esc(r.name)+'</b><span>'+esc(r.role||'')+'</span>'+(r.verified==='client'?'<em class="rev-vc">'+ICON('check')+' Verified client</em>':'')+'</div></div>'+(r.reply?'<div class="rev-reply"><b>Reply from Prashant</b>'+esc(r.reply)+'</div>':'')+'</article>'}).join('')}
  var lb=$('.l-brand');if(lb){var t=(c.brand.bigword||'JANGID CUTS');lb.innerHTML=t.split('').map(function(ch,i){return '<span style="animation-delay:'+(i*30)+'ms">'+(ch===' '?'&nbsp;':esc(ch))+'</span>'}).join('')}
  
  var br=$('.brand');if(br)br.textContent=c.brand.name||'Jangid Cuts';
@@ -70,6 +70,22 @@ function supMail(c){var h=c.help||{},se=h.support_email||'supportjangidcuts@gmai
 var TK_LABEL={received:'Received',read:'Read',processing:'Processing',solved:'Solution delivered',closed:'Closed'};
 function fdt(t){if(!t)return '';var d=new Date(t);try{return d.toLocaleDateString(JCL.locale||'en-IN',{day:'numeric',month:'short',year:'numeric'})+', '+d.toLocaleTimeString(JCL.locale||'en-IN',{hour:'numeric',minute:'2-digit'})}catch(e){return d.toLocaleString()}}
 function tkType(t){return t.items?'order':/HIRE/.test(t.number||'')?'hire':'ticket'}
+/* Rate us (Oct 28): client review of the project, inside the hire tracker. Opens automatically for a completed one-time project,
+   or when Prashant sends the review option for ongoing work. One review per project, editable. */
+function hrBox(t){var rv=t.review||{},n=+rv.rating||0;
+ return '<div class="hr-rate" data-n="'+esc(t.number)+'" data-r="'+n+'"><b class="hr-h">'+(n?'Your review':'Rate us')+'</b><p class="hr-sub">'+(n?'Thank you for rating your project. You can change it any time.':'How was working with Jangid Cuts? Your rating and a few words help other creators decide.')+'</p>'+
+  '<div class="hr-stars" role="group" aria-label="Your rating">'+[1,2,3,4,5].map(function(k){return '<button type="button" data-v="'+k+'" aria-label="'+k+' star'+(k>1?'s':'')+'" aria-pressed="'+(k<=n?'true':'false')+'"'+(k<=n?' class="on"':'')+'><svg aria-hidden="true"><use href="#i-star"/></svg></button>'}).join('')+'</div>'+
+  '<label class="hr-lbl">Your name <small>(shown with your review)</small><input class="input hr-name" maxlength="60" value="'+esc(rv.name||'')+'" autocomplete="name"></label>'+
+  '<label class="hr-lbl">Your review <small>(optional)</small><textarea class="input hr-text" maxlength="1000" placeholder="What did you like about the edit?">'+esc(rv.text||'')+'</textarea></label>'+
+  '<button class="btn btn-primary hr-send" type="button">'+(n?'Update review':'Post review')+'</button>'+(rv.hidden?'<p class="hr-note">Your review is not shown publicly right now.</p>':'')+'</div>'}
+JCL._hrAuth={};
+document.addEventListener('click',function(e){var sb=e.target.closest&&e.target.closest('.hr-stars button');
+ if(sb){var box=sb.closest('.hr-rate'),v=+sb.getAttribute('data-v');box.setAttribute('data-r',v);$$('.hr-stars button',box).forEach(function(x){var on=+x.getAttribute('data-v')<=v;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on?'true':'false')});return}
+ var bt=e.target.closest&&e.target.closest('.hr-send');if(!bt)return;var b=bt.closest('.hr-rate'),r=+b.getAttribute('data-r'),num=b.getAttribute('data-n');
+ if(!r){toast('Tap the stars to rate');return}
+ var body=Object.assign({number:num},JCL._hrAuth[num]||{},{rating:r,name:$('.hr-name',b).value,text:$('.hr-text',b).value});bt.disabled=true;
+ api('/api/hire-review',body).then(function(x){bt.disabled=false;if(!x.ok){toast(x.error||'Could not save your review');return}
+  toast(x.message||'Thank you for your review!');$('.hr-h',b).textContent='Your review';$('.hr-sub',b).textContent='Thank you for rating your project. You can change it any time.';bt.textContent='Update review'})});
 function tkTimeline(t){var ty=tkType(t),ong=ty==='hire'&&t.kind==='ongoing';
  var kind=ty==='order'?'Order':ty==='hire'?(ong?'Ongoing collaboration':'Hire request'):(t.kind==='question'?'Question':'Support ticket');
  var lbl=ty==='ticket'?(TK_LABEL[t.status]||t.label||t.status):(t.label||t.status);
@@ -77,6 +93,7 @@ function tkTimeline(t){var ty=tkType(t),ong=ty==='hire'&&t.kind==='ongoing';
   '<ol class="tk-steps">'+(t.steps||[]).map(function(s){return '<li class="'+(s.done?'done':'')+(s.current?' cur':'')+' st-'+esc(s.s)+'"><span class="tk-dot">'+(s.done?ICON('check'):'')+'</span><div><b>'+esc(s.label||TK_LABEL[s.s])+'</b><small>'+(s.at?esc(fdt(s.at)):(s.done?'':'Waiting'))+'</small></div></li>'}).join('')+'</ol>'+
   '<div class="tk-meta"><span><small>'+(ty==='order'?'Items':ty==='hire'?'Type':'Category')+'</small>'+esc(ty==='order'?t.items.join(', '):ty==='hire'?(ong?'Ongoing / monthly work':'One-time project'):(t.topic||'General'))+'</span><span><small>'+(ty==='order'?'Placed':ty==='hire'?'Sent':'Raised')+'</small>'+esc(fdt(t.created))+'</span>'+(t.email?'<span><small>Email</small>'+esc(t.email)+'</span>':'')+'</div>'+
   (ty==='hire'?'<p class="tk-note">Replies about your project come by email from jangidcuts@gmail.com.</p>':'')+
+  (ty==='hire'&&t.review&&t.review.open?hrBox(t):'')+
   (ty==='order'&&t.download?'<div class="tk-actions"><a class="btn btn-primary" href="/orders">'+ICON('download')+' Go to downloads</a></div>':'')+
   (t.message?'<details class="tk-msg"><summary>'+(ty==='hire'?'Your brief':'Your message')+'</summary><p>'+esc(t.message)+'</p></details>':'')+
   (ty==='ticket'&&t.solution?'<div class="tk-sol"><b>'+(t.kind==='question'?'Our answer':'Solution')+'</b><p>'+esc(t.solution)+'</p></div>':'')+'</div>'}
@@ -152,10 +169,17 @@ function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView
    var b=tf.querySelector('button[type=submit]');b.disabled=true;
    api('/api/track',{type:cur,number:raw.trim(),email:em}).then(function(r){b.disabled=false;
     if(!r.ok){er.textContent=r.notFound?('No '+k.word+' found for this number and email.'):(r.error||'Could not find it');er.hidden=false;$('#trkOut').innerHTML='';if(r.notFound)helper();return}
-    var d=r.hire||r.ticket||r.order;$('#trkOut').innerHTML=tkTimeline(d);try{history.replaceState(null,'','/track-'+cur+'?n='+encodeURIComponent(d.number))}catch(e){}
+    var d=r.hire||r.ticket||r.order;if(r.hire)JCL._hrAuth[d.number]={email:em};$('#trkOut').innerHTML=tkTimeline(d);try{history.replaceState(null,'','/track-'+cur+'?n='+encodeURIComponent(d.number))}catch(e){}
     try{$('#trkOut').scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){}})};
   setT(cur,true);if(q.get('n'))$('#trkNum').value=q.get('n');
-  tf.addEventListener('submit',function(e){e.preventDefault();run()});if(q.get('n')&&$('#trkEmail').value)run();
+  tf.addEventListener('submit',function(e){e.preventDefault();run()});
+  var rtok=cur==='hire'&&String(q.get('r')||'').replace(/[^a-f0-9]/gi,'');
+  if(rtok){api('/api/hire-review?t='+encodeURIComponent(rtok)).then(function(r){var er=$('#trkErr');
+    if(!r.ok){er.textContent=r.error||'This rating link is not valid.';er.hidden=false;return}
+    var d=r.hire;JCL._hrAuth[d.number]={t:rtok};$('#trkNum').value=d.number;$('#trkOut').innerHTML=tkTimeline(d);try{history.replaceState(null,'','/track-hire?n='+encodeURIComponent(d.number))}catch(e){}
+    if(!d.review||!d.review.open){er.textContent='Rating for this project is not open yet.';er.hidden=false}
+    setTimeout(function(){var x=$('#trkOut .hr-rate')||$('#trkOut');try{x.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}},120)})}
+  else if(q.get('n')&&$('#trkEmail').value)run();
   JCL._trkMine=mine}
  else if(JCL._trkMine)JCL._trkMine();
 }
