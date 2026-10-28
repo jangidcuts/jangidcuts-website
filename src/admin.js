@@ -303,11 +303,14 @@ export async function handleAdmin(req, env, ctx, url, s) {
         const m2 = await sendTemplate(env, 'hire_ongoing', h.email, { name: String(h.name || '').trim().split(/\s+/)[0] || 'there', number: h.number, status: r.label }, { ref: h.number });
         return J({ ok: true, ...r, mailed: m2.ok, reviewMailed: null, mailError: m2.error || null });
       }
+      /* one-time project reaches Completed -> ONE email only (Prashant Oct 28 8:21 AM): status Completed + number/track link + "Rate us now" button; Rate us opens in the tracker */
+      if (r.kind === 'once' && r.status === 'completed' && hireStatus(h) !== 'completed' && !h.review_sent_at) {
+        const rv = await reviewInvite(env, h, new URL(req.url).origin, 'hire_review', r.label);
+        return J({ ok: true, ...r, mailed: rv.ok, reviewMailed: rv.ok, merged: true, mailError: rv.error || null });
+      }
       if (b.action === 'status' && b.notify && r.status !== hireStatus(h)) {
         const m2 = await sendTemplate(env, 'hire_status', h.email, { name: h.name || 'there', number: h.number, status: r.label }, { ref: h.number }); mailed = m2.ok;
       }
-      /* one-time project reaches Completed -> the review link goes out once, automatically (Rate us also opens in the tracker) */
-      if (r.kind === 'once' && r.status === 'completed' && hireStatus(h) !== 'completed' && !h.review_sent_at) { const rv = await reviewInvite(env, h, new URL(req.url).origin); reviewMailed = rv.ok; }
       return J({ ok: true, ...r, mailed, reviewMailed });
     }
     if (b.action === 'review_invite') { // Admin -> Client Desk -> hire request -> "Send review option"

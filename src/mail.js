@@ -120,12 +120,12 @@ export function fill(tpl, vars) { return String(tpl || '').replace(/\{(\w+)\}/g,
 // Every client email that carries a reference gets the "track it" line (Prashant 8:29 PM Oct 26).
 let ORIGIN = '';
 export function setOrigin(o) { if (o) ORIGIN = o; }
-export function trackLine(body, ref) {
+export function trackLine(body, ref, force = false) {
   // Oct 27c: each type links to its OWN tracker, prefilled with the number; the number sits on its own line so it is easy to copy.
   body = String(body || ''); ref = String(ref || '');
   let num = ref, kind = (ref.match(/^JC-([A-Z]+)-/) || [])[1];
   if (kind === 'REF') { const o = body.match(/JC-(ORD|DL)-[A-Z0-9]+/); if (!o) return body; num = o[0]; kind = o[1]; }
-  if (!kind || /\/track(-[a-z]+)?\?n=/.test(body)) return body;
+  if (!kind || (!force && /\/track(-[a-z]+)?\?n=/.test(body))) return body;
   const base = ORIGIN || 'https://jangidcuts.jangidcuts.workers.dev';
   const T = { TKT: ['ticket', 'track-ticket', 'ticket'], HIRE: ['hire request', 'track-hire', 'request'], ORD: ['order', 'track-order', 'order'], DL: ['order', 'track-order', 'order'] }[kind];
   if (!T) return body;
@@ -137,7 +137,8 @@ const REVIEW_MAILS = new Set(['hire_review', 'hire_ongoing_review', 'hire_review
 export async function sendMail(env, { account = 'main', to, subject, body, kind = 'mail', ref = '' }) {
   if (!isEmail(to)) return { ok: false, error: 'bad address' };
   // Every client mail carries its reference number (JC-ORD-…, JC-TKT-…) in the subject and the body.
-  if (/^JC-[A-Z]+-/.test(ref) && !/^alert/.test(kind) && !REVIEW_MAILS.has(kind)) body = trackLine(body, ref);
+  // hire_review = the ONE email a one-time hire gets at Completed (Oct 28 8:21 AM): status + rate button, and the usual number + track link too.
+  if (/^JC-[A-Z]+-/.test(ref) && !/^alert/.test(kind) && (!REVIEW_MAILS.has(kind) || kind === 'hire_review')) body = trackLine(body, ref, kind === 'hire_review');
   if (/^JC-[A-Z]+-/.test(ref)) {
     if (!String(subject).includes(ref)) subject = subject + ' [' + ref + ']';
     if (!String(body).includes(ref)) body = body + '\n\nReference: ' + ref;
