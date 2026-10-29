@@ -18,7 +18,13 @@ function md(t){var out=[],list=false;String(t||'').split(/\n/).forEach(function(
  return out.join('\n').replace(/<\/p>\n<p style="margin:0 0 14px">/g,'</p>\n<p style="margin:0 0 14px">')}
 /* jc-early loader */
 (function(){var ld=D.getElementById('loader');if(!ld)return;var seen=false,low=D.documentElement.classList.contains('anim-low');try{seen=sessionStorage.getItem('jc-seen')==='1';sessionStorage.setItem('jc-seen','1')}catch(e){}
- if(seen||low){ld.classList.add('done');D.body.classList.add('ready');return}ld.classList.add('go');setTimeout(function(){ld.classList.add('done');D.body.classList.add('ready')},700)})();
+ if(seen||low){ld.classList.add('done');D.body.classList.add('ready');return}
+ /* Oct 29: this intro is the ONLY loading screen on a first open of home - it lifts once the page content is drawn (jc:ready), never
+    before a short minimum (~0.5 s, was a fixed 0.7 s), then the sections rise in. script.js leaves it alone (JC_INTRO). */
+ window.JC_INTRO=1;ld.classList.add('go');var H=D.documentElement,t0=Date.now(),MIN=H.classList.contains('anim-high')?520:420,done=false;
+ var fin=function(){if(done)return;done=true;ld.classList.add('done');D.body.classList.add('ready');if(!H.classList.contains('jc-gate')&&window.JC_ENTER)window.JC_ENTER()};
+ var go=function(){setTimeout(function(){requestAnimationFrame(fin)},Math.max(0,MIN-(Date.now()-t0)))};
+ if(window.JC_PAGE_READY)go();else D.addEventListener('jc:ready',go,{once:true});setTimeout(fin,H.classList.contains('jc-gate')?7000:5000)})();
 var JCL=window.JCL={c:null,user:null,site:null};
 function toast(m){window.JC_UI&&JC_UI.toast?JC_UI.toast(m):alert(m)}
 
@@ -55,7 +61,7 @@ function applyHome(c,s){var h=c.hero;
   var ini=function(n){return String(n||'?').split(/\s+/).map(function(w){return w[0]}).join('').slice(0,2).toUpperCase()};
   var avg=s.reviewStats.avg||5;$('.rev-score .big').textContent=avg.toFixed?avg.toFixed(1):avg;$('.rev-score .stars').innerHTML=star(Math.round(avg));$('.rev-score .lead').textContent=(home.rev_note||'Average from client reviews')+' ('+s.reviewStats.count+')';
   $('.rev-list').innerHTML=list.map(function(r){return '<article class="rev rv"><div class="stars" aria-label="'+r.rating+' out of 5 stars">'+star(r.rating)+'</div>'+(r.text?'<p>“'+esc(r.text)+'”</p>':'')+'<div class="rev-who"><i>'+(r.photo?'<img src="'+esc(r.photo)+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">':esc(ini(r.name)))+'</i><div><b>'+esc(r.name)+'</b><span>'+esc(r.role||'')+'</span>'+(r.verified==='client'?'<em class="rev-vc">'+ICON('check')+' Verified client</em>':'')+'</div></div>'+(r.reply?'<div class="rev-reply"><b>Reply from Prashant</b>'+esc(r.reply)+'</div>':'')+'</article>'}).join('')}
- var lb=$('.l-brand');if(lb){var t=(c.brand.bigword||'JANGID CUTS');lb.innerHTML=t.split('').map(function(ch,i){return '<span style="animation-delay:'+(i*30)+'ms">'+(ch===' '?'&nbsp;':esc(ch))+'</span>'}).join('')}
+ var lb=$('.l-brand');if(lb){var t=(c.brand.bigword||'JANGID CUTS');lb.innerHTML=t.split('').map(function(ch,i){return '<span style="animation-delay:'+(i*18)+'ms">'+(ch===' '?'&nbsp;':esc(ch))+'</span>'}).join('')}
  
  var br=$('.brand');if(br)br.textContent=c.brand.name||'Jangid Cuts';
  if(c.seo&&c.seo.title&&/index|^\/$/.test(location.pathname+'')){D.title=c.seo.title}}
@@ -327,12 +333,15 @@ function avatar(){var u=JCL.user,av=$('#dpAv'),dp=$('#dProfile');var p=location.
  if(u.isAdmin){$('#dAdmin').innerHTML='<a class="d-link d-admin" href="/admin"><span class="d-ic">'+ICON('shield')+'</span><span class="d-tx">Admin Panel<small>Client Desk, edits, orders</small></span>'+ICON('right').replace('class="icon"','class="icon d-chev"')+'</a>'}}
 
 var dataReady=function(){if(window.JC_DATA_READY)return;window.JC_DATA_READY=1;try{D.dispatchEvent(new Event('jc:data'))}catch(e){}};setTimeout(dataReady,6000);
- Promise.all([api('/api/site'),api('/api/me')]).then(function(r){dataReady();var s=r[0],me=r[1];
- if(!s||!s.content){endEntry();var sc=D.createElement('script');sc.src='data.js';sc.onload=function(){window.JC_RUN()};D.body.appendChild(sc);return}
+ var pageReady=function(){if(window.JC_PAGE_READY)return;window.JC_PAGE_READY=1;try{D.dispatchEvent(new Event('jc:ready'))}catch(e){}};
+ var pre=window.JC_PRE;window.JC_PRE=null;
+ Promise.all(pre&&pre.length===2?pre:[api('/api/site'),api('/api/me')]).then(function(r){dataReady();var s=r[0],me=r[1];
+ if(!s||!s.content){endEntry();var sc=D.createElement('script');sc.src='data.js';sc.onload=function(){try{window.JC_RUN()}catch(e){console.error(e)}pageReady()};sc.onerror=pageReady;D.body.appendChild(sc);return}
  JCL.site=s;JCL.c=s.content;JCL.user=me&&me.user;JCL.me=me&&me.user?me:null;window.JC=buildJC(s);
  try{applyHome(s.content,s);applyFooter(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
- window.JC_RUN();avatar();syncSettings();
+ try{window.JC_RUN();avatar();syncSettings()}catch(e){console.error(e)}
  try{window.JC_AFTER&&window.JC_AFTER(s,me)}catch(e){console.error(e)}
+ pageReady();/* this page's own content is drawn: the brand loader may lift now */
  try{ads(s.content);welcome(s.content);var hq=new URLSearchParams(location.search);if(hq.get('hire')==='1'){hq.delete('hire');try{history.replaceState(history.state,'',location.pathname+(hq.toString()?'?'+hq:'')+location.hash)}catch(e){}var hb=$('#hireBtn');hb&&setTimeout(function(){hb.click()},800)}}catch(e){console.error(e)}
  var eq=new URLSearchParams(location.search),err=eq.get('error');if(err){eq.delete('error');try{history.replaceState(history.state,'',location.pathname+(eq.toString()?'?'+eq:'')+location.hash)}catch(e){}}if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is not ready yet. Please use email for now.'}[err]||'Sign-in problem: '+err)},2300);
  

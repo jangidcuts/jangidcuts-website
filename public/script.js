@@ -67,7 +67,7 @@ function ready(){D.body.classList.add('ready')}
  var hxEls=[].slice.call(hero.querySelectorAll('.hx')),wasGated=H.classList.contains('jc-gate'),hxT=0;
  function play(){requestAnimationFrame(function(){requestAnimationFrame(function(){D.body.classList.add('hero-go');
    clearTimeout(hxT);hxT=setTimeout(function(){hxEls.forEach(function(e){e.style.transition='none';e.classList.remove('hx')})},2400)})})}
- function go(){if(fired||!D.body.classList.contains('ready')||H.classList.contains('jc-gate')||H.classList.contains('i18n-wait')||!dec)return;fired=true;
+ function go(){if(fired||!D.body.classList.contains('ready')||H.classList.contains('jc-gate')||H.classList.contains('jc-busy')||H.classList.contains('i18n-wait')||!dec)return;fired=true;
   /* coming out of the welcome/sign-in sheet ("Start without sign in"): wait until the sheet has slid away so the entrance is actually seen */
   if(wasGated){var lm=D.getElementById('loginModal');setTimeout(play,lm&&lm.classList.contains('on')?520:360)}else play()}
  /* replay the entrance whenever home is shown again (browser back / restored tab) */
@@ -77,12 +77,14 @@ function ready(){D.body.classList.add('ready')}
  if(ph){var done=function(){dec=true;go()};if(ph.complete&&ph.naturalWidth){(ph.decode?ph.decode():Promise.resolve()).then(done,done)}else{ph.addEventListener('load',function(){(ph.decode?ph.decode():Promise.resolve()).then(done,done)},{once:true});ph.addEventListener('error',done,{once:true})}setTimeout(done,2500)}
  new MutationObserver(go).observe(H,{attributes:true,attributeFilter:['class']});new MutationObserver(go).observe(D.body,{attributes:true,attributeFilter:['class']});
  setTimeout(function(){dec=true;if(!H.classList.contains('jc-gate'))D.body.classList.add('ready');go()},5000)})();
-if(loader){var lv=anim(),seen=false;try{seen=sessionStorage.getItem('jc-seen')==='1';sessionStorage.setItem('jc-seen','1')}catch(e){}
+if(loader&&window.JC_INTRO){/* the home intro is run by live.js (lifts at jc:ready) */}else if(loader){var lv=anim(),seen=false;try{seen=sessionStorage.getItem('jc-seen')==='1';sessionStorage.setItem('jc-seen','1')}catch(e){}
  if(lv==='low'||seen){loader.classList.add('done');ready()}
  else{loader.classList.add('go');setTimeout(function(){
-   /* first visit behind the welcome gate: keep the brand loader on screen until the site data has arrived (slow tablet/mobile networks), never a blank page */
-   var fin=function(){loader.classList.add('done');ready()};
-   if(D.documentElement.classList.contains('jc-gate')&&!window.JC_DATA_READY){var t=setTimeout(fin,7000);D.addEventListener('jc:data',function(){clearTimeout(t);fin()},{once:true})}else fin()},lv==='high'?750:600)}
+   /* Oct 29: the brand loader is the only loading screen - it stays until the page content is drawn (jc:ready), then lifts and the
+      sections rise in; shorter intro than before (~0.5 s instead of ~0.75 s) */
+   var gate=D.documentElement.classList.contains('jc-gate'),done=false;
+   var fin=function(){if(done)return;done=true;loader.classList.add('done');ready();if(!gate&&window.JC_ENTER)window.JC_ENTER()};
+   if(!window.JC_PAGE_READY){var t=setTimeout(fin,gate?7000:5000);D.addEventListener('jc:ready',function(){clearTimeout(t);requestAnimationFrame(fin)},{once:true})}else fin()},lv==='high'?520:420)}
 }else ready();
 
 /* ---------- reveal on scroll ---------- */

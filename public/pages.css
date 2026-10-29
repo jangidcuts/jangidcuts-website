@@ -73,13 +73,13 @@
 .jp-big .icon{width:30px;height:30px;margin-left:4px}
 .jp-err{position:relative;color:#fff;padding:20px;text-align:center}
 .jp-bar{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .25s}
-.jp.started .jp-bar,.jp:hover .jp-bar,.jp:not(.playing).started .jp-bar{opacity:1}
+.jp{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.jp-bar{pointer-events:none}.jp.started.ui .jp-bar,.jp.started:not(.playing) .jp-bar{opacity:1;pointer-events:auto}.jp:not(.ui) .jp-shield{bottom:0}.jp.playing:not(.ui){cursor:none}.jp.playing:not(.ui) .jp-shield{cursor:none}
+.jp-buf{position:absolute;left:50%;top:50%;z-index:3;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#2BF5C0;opacity:0;pointer-events:none;transition:opacity .2s}.jp.buf.started .jp-buf{opacity:1;animation:jpSpin .8s linear infinite}@keyframes jpSpin{to{transform:rotate(360deg)}}
 .jp-b{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:15px;flex:none}
 .jp-b .icon{width:18px;height:18px}
 .jp-t{color:#fff;font-size:12.5px;font-variant-numeric:tabular-nums;min-width:38px;text-align:center}
 .jp-seek{flex:1;accent-color:#2bf5c0;height:4px}
 .jp:fullscreen{width:100vw;height:100vh}
-@media (hover:none){.jp.started .jp-bar{opacity:1}}
 .jp-poster[hidden],.jp-bar[hidden],.jp-big[hidden]{display:none!important}
 
 .jp-sk{width:38px}.jp-sk .icon{width:22px;height:22px}

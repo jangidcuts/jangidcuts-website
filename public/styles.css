@@ -521,10 +521,10 @@ html[data-theme="light"] .drawer{background:var(--bg2)}
 
 /* loader v2: smaller, shorter, skipped on repeat visits */
 .l-brand{font-size:min(12vw,104px)!important}
-.loader.go .l-brand span,.l-brand span{animation-duration:.45s!important}
-.loader.go .l-bar i,.l-bar i{animation:fill .55s .05s ease-out forwards!important}
+.loader.go .l-brand span,.l-brand span{animation-duration:.36s!important}
+.loader.go .l-bar i,.l-bar i{animation:fill .45s .04s ease-out forwards!important}
 .l-bar{margin-top:18px!important;width:120px!important}
-.loader{transition:opacity .3s ease,visibility .3s!important}
+.loader{transition:opacity .28s ease,visibility .28s!important}
 .l-role{display:none!important}
 
 /* ===== v4 header (option A): premium bar ===== */
