@@ -118,6 +118,7 @@ function payUpi(r){var u=r.upi,num=(r.order&&r.order.number)||u.number;
  m.innerHTML='<div class="crop-card upi-card"><button type="button" class="upi-x" aria-label="Close">×</button><h3>Pay with UPI</h3>'+
   '<div class="upi-amt">'+esc(u.amountText)+'</div><p class="crop-hint">Order '+esc(num)+'</p>'+
   '<div class="upi-qr" aria-label="UPI QR code"></div><p class="crop-hint">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM). The amount fills in by itself.</p>'+
+  (u.name?'<div class="upi-id upi-name"><span><small>Pay to</small><b>'+esc(u.name)+'</b></span></div>':'')+
   '<div class="upi-id"><span><small>UPI ID</small><b>'+esc(u.id)+'</b></span><button type="button" class="btn btn-ghost btn-s" data-copy>Copy</button></div>'+
   '<a class="btn btn-primary upi-app" href="'+esc(u.link)+'">Pay with UPI app</a>'+
   '<div class="upi-step"><label for="upiUtr">After paying, enter the UTR / transaction ID</label><input id="upiUtr" class="input st-in" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="12-digit UTR number"><small>Find it in your UPI app under payment details (also called UPI Ref No. or UPI transaction ID).</small></div>'+
