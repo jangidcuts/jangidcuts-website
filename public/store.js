@@ -107,9 +107,35 @@ function viewCart(){var ids=cartIds().filter(function(id){return prod(id)});
  $('#payBtn').onclick=function(){if(!U)return needLogin('Sign in to complete your purchase');if(!$('#cTc').checked){toast('Please tick the Terms & Conditions box');return}var b=this;b.disabled=true;
   api('/api/checkout/create',{items:ids,coupon:coupon,tc:true}).then(function(r){b.disabled=false;if(r.ok===false){toast(r.error);return}
    if(r.paid){done(r.order.number);return}
+   if(r.upi){payUpi(r);return}
    if(r.razorpay){payRzp(r);return}
    if(r.test){if(r.canSimulate){if(confirm('Payments are in TEST mode. Simulate a successful payment for '+r.order.number+'? (owner only)'))api('/api/checkout/simulate',{order:r.order.number}).then(function(x){x.ok?done(r.order.number):toast(x.error)})}else toast('Online payment is being set up. Please try again soon or contact us.')}})}}
 function done(num){api('/api/cart',{op:'clear'}).then(function(){location.href='/orders?thanks='+encodeURIComponent(num)})}
+/* ---------- manual UPI payment (Oct 30) — swap for Razorpay later: the server stops sending r.upi ---------- */
+function loadQr(cb){if(window.qrcode)return cb();var s=D.createElement('script');s.src='/vendor/qrcode.js?v=1';s.onload=cb;s.onerror=cb;D.body.appendChild(s)}
+function payUpi(r){var u=r.upi,num=(r.order&&r.order.number)||u.number;
+ var m=D.createElement('div');m.className='crop-m upi-m';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-label','Pay with UPI');
+ m.innerHTML='<div class="crop-card upi-card"><button type="button" class="upi-x" aria-label="Close">×</button><h3>Pay with UPI</h3>'+
+  '<div class="upi-amt">'+esc(u.amountText)+'</div><p class="crop-hint">Order '+esc(num)+'</p>'+
+  '<div class="upi-qr" aria-label="UPI QR code"></div><p class="crop-hint">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM). The amount fills in by itself.</p>'+
+  '<div class="upi-id"><span><small>UPI ID</small><b>'+esc(u.id)+'</b></span><button type="button" class="btn btn-ghost btn-s" data-copy>Copy</button></div>'+
+  '<a class="btn btn-primary upi-app" href="'+esc(u.link)+'">Pay with UPI app</a>'+
+  '<div class="upi-step"><label for="upiUtr">After paying, enter the UTR / transaction ID</label><input id="upiUtr" class="input st-in" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="12-digit UTR number"><small>Find it in your UPI app under payment details (also called UPI Ref No. or UPI transaction ID).</small></div>'+
+  '<div class="crop-acts"><button type="button" class="btn btn-ghost" data-later>Pay later</button><button type="button" class="btn btn-primary" data-sub>Submit</button></div></div>';
+ D.body.appendChild(m);D.documentElement.classList.add('crop-lock');requestAnimationFrame(function(){m.classList.add('on')});
+ var box=$('.upi-qr',m);
+ loadQr(function(){try{var q=window.qrcode(0,'M');q.addData(u.link);q.make();box.innerHTML=q.createSvgTag({cellSize:6,margin:3,scalable:true})}catch(e){box.innerHTML=u.qr?'<img src="'+esc(u.qr)+'" alt="UPI QR code">':''}});
+ function close(){m.remove();D.documentElement.classList.remove('crop-lock')}
+ $('.upi-x',m).onclick=close;$('[data-later]',m).onclick=function(){close();toast('Your order '+num+' is saved. You can pay any time from My Orders.')};
+ $('[data-copy]',m).onclick=function(){var b=this;function ok(){b.textContent='Copied ✓';setTimeout(function(){b.textContent='Copy'},1800)}
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u.id).then(ok,function(){prompt('Copy the UPI ID',u.id)});else prompt('Copy the UPI ID',u.id)};
+ var inp=$('#upiUtr',m);inp.oninput=function(){var v=inp.value.replace(/\D/g,'').slice(0,12);if(v!==inp.value)inp.value=v};
+ $('[data-sub]',m).onclick=function(){var b=this,v=inp.value.replace(/\D/g,'');if(v.length!==12){toast('Please enter the 12-digit UTR / transaction ID from your UPI app.');inp.focus();return}
+  b.disabled=true;b.textContent='Submitting…';
+  api('/api/checkout/upi-submit',{order:num,utr:v}).then(function(x){b.disabled=false;b.textContent='Submit';if(x.ok===false){toast(x.error);return}
+   try{localStorage.removeItem(GK)}catch(e){}if(ME)ME.cart=[];
+   $('.upi-card',m).innerHTML='<div class="upi-ok">'+I('check')+'</div><h3>Payment processing</h3><p class="upi-msg">Your payment is being verified (Payment processing). You\u2019ll get access once confirmed.</p><p class="crop-hint">Order '+esc(num)+' · UTR '+esc(v)+'<br>We\u2019ve emailed you too. You can track this order in My Orders.</p><div class="crop-acts"><a class="btn btn-ghost" href="/store">Keep browsing</a><a class="btn btn-primary" href="/orders">Track order</a></div>'})}}
+function upiReopen(num){api('/api/checkout/upi',{order:num}).then(function(r){if(r.ok===false){toast(r.error);return}payUpi(r)})}
 function payRzp(r){function go(){var o=r.razorpay;var rz=new window.Razorpay({key:o.key,order_id:o.order_id,amount:o.amount,currency:o.currency,name:o.name,description:o.description,prefill:o.prefill,theme:{color:'#14c79e'},
   handler:function(resp){api('/api/checkout/verify',{order:r.order.number,razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature}).then(function(x){if(x.ok===false){toast(x.error);return}done(r.order.number)})},
   modal:{ondismiss:function(){toast('Payment cancelled. Your cart is saved.')}}});rz.open()}
@@ -120,10 +146,11 @@ function viewOrders(){app.innerHTML=head('My Orders','Your purchases, downloads 
  var w=D.createElement('div');w.className='wrap';w.style.paddingBottom='70px';app.appendChild(w);
  var own=(ME.owned||[]).map(function(o){return prod(o.product_id)}).filter(Boolean);
  w.innerHTML='<p class="tk-actions" style="margin-top:14px"><a class="btn btn-ghost" href="/track-order">'+I('bag')+' Track order</a></p><h3 class="h-md" id="dlList" style="margin:18px 0 6px">Downloads</h3>'+(own.length?'<div class="st-list">'+own.map(function(p){var r=ownRow(p.id);return '<div class="li2"><img src="'+esc(p.image)+'" alt=""><div class="t"><b>'+esc(p.title)+'</b><span>'+(p.size_text?esc(p.size_text)+' · ':'')+'lifetime access</span>'+rateTag(p)+'</div><button class="btn btn-primary btn-s" data-dl="'+p.id+'">'+I('download')+(r.downloads?' Again':' Get')+'</button><button class="btn btn-ghost btn-s" data-rate="'+p.id+'">Rate this pack</button></div>'}).join('')+'</div>':'<div class="st-empty">'+esc(C.store.empty_owned)+'</div>')+
- '<h3 class="h-md" style="margin:26px 0 10px">Orders</h3>'+((ME.orders||[]).length?ME.orders.map(function(o){var rateActions=(o.items||[]).filter(function(i){return owned(i.id||i.product_id)}).map(function(i){return '<button class="btn btn-ghost btn-s" data-rate="'+(i.id||i.product_id)+'">Rate '+esc(i.title||'this pack')+'</button>'}).join('');if(o.track&&window.JCL&&JCL.tkTimeline)return JCL.tkTimeline(o.track).replace('<div class="tk-card','<div class="tk-card tk-in-orders')+(rateActions?'<div class="order-rate-actions">'+rateActions+'</div>':'');var ev=o.events||[];var steps=['Order confirmed','Payment confirmed','Delivered'];
+ '<h3 class="h-md" style="margin:26px 0 10px">Orders</h3>'+((ME.orders||[]).length?ME.orders.map(function(o){var rateActions=(o.items||[]).filter(function(i){return owned(i.id||i.product_id)}).map(function(i){return '<button class="btn btn-ghost btn-s" data-rate="'+(i.id||i.product_id)+'">Rate '+esc(i.title||'this pack')+'</button>'}).join('');if(o.track&&window.JCL&&JCL.tkTimeline)return JCL.tkTimeline(o.track).replace('<div class="tk-card','<div class="tk-card tk-in-orders')+(o.track.payable?'<div class="order-rate-actions"><button class="btn btn-primary btn-s" data-upipay="'+esc(o.number)+'">Pay with UPI</button></div>':'')+(o.track.utr&&o.status==='verifying'?'<p class="pm-note">UTR '+esc(o.track.utr)+' · your payment is being verified. You\u2019ll get access once confirmed.</p>':'')+(rateActions?'<div class="order-rate-actions">'+rateActions+'</div>':'');var ev=o.events||[];var steps=['Order confirmed','Payment confirmed','Delivered'];
   return '<div class="ord"><div class="ord-h"><b>'+esc(o.number)+'</b><span class="pill2 '+(o.status==='delivered'?'ok':o.status==='created'?'warn':'')+'">'+esc(o.status==='created'?'awaiting payment':o.status)+'</span></div><p class="pm-note">'+o.items.map(function(i){return esc(i.title)}).join(', ')+' · '+(o.total?'₹'+o.total:'Free')+((o.discount||0)+((o.meta&&o.meta.packSave)||0)?' (saved ₹'+((o.discount||0)+((o.meta&&o.meta.packSave)||0))+')':'')+(o.meta&&o.meta.firstOff?' · first order discount ₹'+o.meta.firstOff:'')+'</p>'+
   '<div class="track">'+steps.map(function(sn){var e=ev.find(function(x){return x.s===sn});return '<div class="tr'+(e?' done':'')+'"><i></i><div><b>'+sn+'</b><span>'+(e?fdt(e.t):'—')+'</span></div></div>'}).join('')+'</div></div>'+(rateActions?'<div class="order-rate-actions">'+rateActions+'</div>':'')}).join(''):'<div class="st-empty">No orders yet.</div>');
  $$('[data-rate]',w).forEach(function(b){b.onclick=function(){openProd(+b.dataset.rate,{rate:1})}});
+ $$('[data-upipay]',w).forEach(function(b){b.onclick=function(){upiReopen(b.dataset.upipay)}});
  $$('[data-dl]',w).forEach(function(b){b.onclick=function(){download(+b.dataset.dl,null);b.innerHTML=I('download')+' Again'}})}
 
 /* ---------- WISHLIST ---------- */

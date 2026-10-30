@@ -5,6 +5,7 @@ import { rankTop, homeSet, statsOf, reviewOpen } from './reviews.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource } from './storage.js';
+import { upiDetails, upiSubmit } from './upi.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
 
 /* what the client sees of their own project review (never the private link token) */
@@ -43,7 +44,7 @@ async function meData(env, s) {
     env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
-    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
+    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution, type FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all(),
@@ -225,6 +226,19 @@ export async function handlePublic(req, env, ctx, url, s) {
     needUser(s); const b = await readJson(req); needTc(b);
     await limitOrFail(env, 'order:' + s.user.id, 20, 3600e3);
     return J({ ok: true, ...(await createOrder(env, req, s, b)) });
+  }
+  /* manual UPI (Oct 30): show the pay details again for an unpaid order, and take the buyer's UTR */
+  if (p === '/api/checkout/upi' && m === 'POST') {
+    needUser(s); const b = await readJson(req);
+    const o = await env.DB.prepare('SELECT * FROM orders WHERE number = ?1 AND user_id = ?2').bind(clean(b.order, 30), s.user.id).first(); if (!o) fail('Order not found', 404);
+    if (o.provider !== 'upi' || !['created', 'failed'].includes(o.status)) fail('This order is not waiting for payment.');
+    const pay = await paymentsConfig(env);
+    return J({ ok: true, order: { number: o.number, total: o.total }, upi: upiDetails(pay.raw, o) });
+  }
+  if (p === '/api/checkout/upi-submit' && m === 'POST') {
+    needUser(s); const b = await readJson(req);
+    await limitOrFail(env, 'upiutr:' + s.user.id, 12, 3600e3, 'Too many attempts. Please wait a few minutes and try again.');
+    return J({ ok: true, ...(await upiSubmit(env, s, b, origin)) });
   }
   if (p === '/api/checkout/verify' && m === 'POST') {
     needUser(s); const b = await readJson(req);
@@ -444,7 +458,7 @@ export async function handlePublic(req, env, ctx, url, s) {
 }
 
 /* ---------- order status (automatic, admin can override) ---------- */
-export const ORDER_LABELS = { created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
+export const ORDER_LABELS = { verifying: 'Payment processing', created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
 export async function publicOrder(env, o, { full = false } = {}) {
   let downloaded = false;
   try { downloaded = !!(await env.DB.prepare('SELECT 1 FROM owned WHERE order_id = ?1 AND downloads > 0 LIMIT 1').bind(o.id).first()); } catch { }
@@ -459,18 +473,21 @@ export function orderView(o, downloaded, full = false) {
   if (st === 'delivered' && downloaded) st = 'completed'; // first download completes the order automatically
   const byMail = items.some(x => x.delivery === 'drive' || x.delivery === 'email' || x.big);
   const dLabel = byMail ? 'Delivered via email' : 'Download ready';
-  const rank = { created: 0, failed: 0, paid: 1, processing: 2, delivered: 3, completed: 4, refunded: 3, cancelled: 0 }[st] ?? 0;
+  const rank = { created: 0, verifying: 0, failed: 0, paid: 1, processing: 2, delivered: 3, completed: 4, refunded: 3, cancelled: 0 }[st] ?? 0;
   const steps = [
     { s: 'paid', label: free ? 'Order confirmed' : 'Payment received', at: at('paid', 'Payment confirmed', 'Order confirmed') || o.paid_at, done: rank >= 1 },
     { s: 'processing', label: 'Processing', at: at('processing') || o.paid_at, done: rank >= 2 || (rank >= 1 && st !== 'paid') },
     { s: 'delivered', label: dLabel, at: at('delivered', 'Delivered') || o.delivered_at, done: rank >= 3 },
     { s: 'completed', label: 'Completed', at: at('completed') || (st === 'completed' ? (o.delivered_at || null) : null), done: rank >= 4 }];
   if (st === 'created') steps.unshift({ s: 'created', label: 'Awaiting payment', at: o.created, done: true });
+  if (st === 'verifying') steps.unshift({ s: 'verifying', label: 'Payment processing', at: at('verifying') || o.created, done: true });
   if (st === 'failed') steps.unshift({ s: 'failed', label: 'Payment failed', at: at('failed') || o.created, done: true });
   if (st === 'refunded' || st === 'cancelled') steps.push({ s: st, label: ORDER_LABELS[st], at: at(st, st === 'refunded' ? 'Refunded' : 'Cancelled'), done: true });
+  steps.forEach(x => { if (!x.done) x.at = null; });
   let cur = -1; steps.forEach((x, i) => { if (x.done) cur = i; }); steps.forEach((x, i) => x.current = i === cur);
   const label = st === 'delivered' ? dLabel : (ORDER_LABELS[st] || st);
   const out = { number: o.number, status: st, label, created: o.created, items: items.map(x => x.title), steps, download: st === 'delivered' || st === 'completed' };
+  if (o.provider === 'upi') { out.upi = true; if (full) { out.utr = o.payment_id || ''; out.payable = st === 'created' || st === 'failed'; } }
   if (!full) out.email = maskEmail(o.email);
   return out;
 }

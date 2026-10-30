@@ -5,6 +5,7 @@ import { DEFAULTS } from './defaults.js';
 import { sendMail, sendTemplate, fill, ACCOUNTS, expectedEmail, googleToken } from './mail.js';
 import { putFile, deleteFile, storageInfo, storageMeter, driveId, driveMeta, streamDrivePublic } from './storage.js';
 import { fulfil, money } from './shop.js';
+import { upiDecide, UPI_DEFAULT_ID, UPI_DEFAULT_NAME } from './upi.js';
 import { handleAssistant } from './assistant.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
@@ -79,7 +80,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
   if (p === '/api/admin/content' && m === 'GET') {
     const c = await getContent(env, { includePrivate: true });
     const a = c._alerts || {}; c._alerts = { email: a.email || '', telegram_chat_id: a.telegram_chat_id || '', telegram_set: !!a.telegram_bot_token_enc };
-    const pay = c._payments || {}; c._payments = { provider: pay.provider || 'test', key_id: pay.key_id || '', secret_set: !!pay.key_secret_enc, webhook_set: !!pay.webhook_secret_enc };
+    const pay = c._payments || {}; c._payments = { provider: pay.provider || 'test', upi_id: pay.upi_id || '', upi_name: pay.upi_name || UPI_DEFAULT_NAME, upi_qr: pay.upi_qr || '', key_id: pay.key_id || '', secret_set: !!pay.key_secret_enc, webhook_set: !!pay.webhook_secret_enc };
     delete c._mail_main; delete c._mail_support;
     c.mail_templates = { ...DEFAULTS.mail_templates, ...(c.mail_templates || {}) };
     return J({ ok: true, content: c, defaults: Object.keys(DEFAULTS) });
@@ -131,7 +132,11 @@ export async function handleAdmin(req, env, ctx, url, s) {
   }
   if (p === '/api/admin/payments' && m === 'PUT') {
     const b = await readJson(req); const pay = await getKey(env, '_payments');
-    if (b.provider) pay.provider = b.provider === 'razorpay' ? 'razorpay' : 'test';
+    if (b.provider) pay.provider = b.provider === 'razorpay' ? 'razorpay' : b.provider === 'upi' ? 'upi' : 'test';
+    if (b.upi_id !== undefined) { const u = clean(b.upi_id, 80).replace(/\s+/g, ''); if (u && !/^[\w.\-]{2,64}@[A-Za-z][\w.\-]{1,40}$/.test(u)) fail('That UPI ID does not look right (example: 9351664400@ibl).'); pay.upi_id = u; }
+    if (b.upi_name !== undefined) pay.upi_name = clean(b.upi_name, 60);
+    if (b.upi_qr !== undefined) pay.upi_qr = clean(b.upi_qr, 500);
+    if (pay.provider === 'upi' && !pay.upi_id) fail('Add your UPI ID first, then turn on UPI payments.');
     if (b.key_id !== undefined) pay.key_id = clean(b.key_id, 80);
     if (b.key_secret) pay.key_secret_enc = await encrypt(env, clean(b.key_secret, 200));
     if (b.webhook_secret) pay.webhook_secret_enc = await encrypt(env, clean(b.webhook_secret, 200));
@@ -239,6 +244,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
   }
   if ((mm = p.match(/^\/api\/admin\/orders\/(\d+)$/)) && m === 'POST') {
     const b = await readJson(req); const o = await env.DB.prepare('SELECT * FROM orders WHERE id = ?1').bind(+mm[1]).first(); if (!o) fail('Not found', 404);
+    if (b.action === 'upi_confirm' || b.action === 'upi_reject') { await logEvent(env, 'admin', `${s.user.email} ${b.action === 'upi_confirm' ? 'confirmed' : 'rejected'} UPI payment ${o.number}`); return J({ ok: true, ...(await upiDecide(env, o, b.action, origin, b.reason)) }); }
     if (b.action === 'mark_paid') { await fulfil(env, o.id, { paymentId: 'MANUAL', origin }); return J({ ok: true }); }
     if (b.action === 'refund' || b.action === 'cancel') {
       const refundRef = b.action === 'refund' ? await newRef(env, 'REF') : null;
@@ -251,7 +257,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     }
     if (b.action === 'note') { await env.DB.prepare('UPDATE orders SET note = ?1 WHERE id = ?2').bind(clean(b.note, 1000), o.id).run(); return J({ ok: true }); }
     if (b.action === 'status') { // manual override from Admin -> Orders (normally automatic)
-      const OS = { created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
+      const OS = { verifying: 'Payment processing', created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
       const st = String(b.status || ''); if (!OS[st]) fail('Unknown status');
       if (st === 'delivered' && !o.delivered_at && o.status !== 'delivered') { await fulfil(env, o.id, { paymentId: o.payment_id || 'MANUAL', origin }); }
       const cur = await env.DB.prepare('SELECT * FROM orders WHERE id = ?1').bind(o.id).first();

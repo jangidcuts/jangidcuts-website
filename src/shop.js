@@ -1,5 +1,6 @@
 import { now, clean, fail, getKey, nextNumber, newRef, hex, enc, safeEq, decrypt, logEvent } from './lib.js';
 import { sendTemplate, sendMail, alertOwner, googleToken } from './mail.js';
+import { upiOn, upiDetails } from './upi.js';
 
 export const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
@@ -91,7 +92,7 @@ export async function quote(env, { items, coupon, userId }) {
 export async function paymentsConfig(env) {
   const p = await getKey(env, '_payments');
   const live = p.provider === 'razorpay' && p.key_id && p.key_secret_enc;
-  return { provider: live ? 'razorpay' : 'test', key_id: live ? p.key_id : '', raw: p };
+  return { provider: live ? 'razorpay' : upiOn(p) ? 'upi' : 'test', key_id: live ? p.key_id : '', raw: p };
 }
 
 function ev(list, s) { list.push({ s, at: now() }); return list; }
@@ -104,7 +105,7 @@ export async function createOrder(env, req, sess, { items, coupon }) {
   if (!q.items.length) fail(q.skipped.length ? 'You already own these items' : 'Your cart is empty');
   if (coupon && q.couponError) fail(q.couponError);
   const pay = await paymentsConfig(env);
-  if (q.total > 0 && pay.provider !== 'razorpay' && !sess.adminReady) fail('Online payment is being set up. Please try again soon or contact us.', 503);
+  if (q.total > 0 && pay.provider === 'test' && !sess.adminReady) fail('Online payment is being set up. Please try again soon or contact us.', 503);
   const number = await newRef(env, q.total === 0 ? 'DL' : 'ORD');
   const events = ev([], 'Order confirmed');
   const meta = { mrpTotal: q.mrpTotal, packSave: q.packSave, bundlePct: q.bundlePct, bundle: q.bundle, firstPct: q.firstPct, firstOff: q.firstOff, couponOff: q.couponOff };
@@ -121,6 +122,7 @@ export async function createOrder(env, req, sess, { items, coupon }) {
     await env.DB.prepare('UPDATE orders SET provider_order = ?1 WHERE id = ?2').bind(j.id, row.id).run();
     return { order, razorpay: { key: pay.key_id, order_id: j.id, amount: q.total * 100, currency: 'INR', name: 'Jangid Cuts', description: 'Order ' + number, prefill: { email: sess.user.email, name: sess.user.name || '' } } };
   }
+  if (pay.provider === 'upi') return { order, upi: upiDetails(pay.raw, order) };
   return { order, test: true, canSimulate: !!sess.adminReady };
 }
 

@@ -113,6 +113,7 @@ export const DEFAULTS = {
     ticket_solved: { subject: 'Your ticket {number} has been resolved', body: 'Hi {name},\n\nYour ticket {number} has been resolved. Here is the solution:\n\n{solution}\n\nIf you still need help, reply to this email.\n\nJangid Cuts Support' },
     order_paid: { subject: 'Thank you for your purchase — Order {number}', body: 'Hi {name},\n\nThank you for purchasing from Jangid Cuts! Your order {number} is confirmed.\n\n{items}\n\nTotal: {total}\n\nYour downloads are available any time in My Orders: {link}\n\nBest regards,\nPrashant Jangid\nFounder, Jangid Cuts' },
     download_link: { subject: 'Your download link — {product} [{number}]', body: 'Hi {name},\n\nHere is your private download link for {product} (order {number}):\n{link}\n\nThis link is only for your account email. Please do not share it.\n\nJangid Cuts' },
+    order_processing: { subject: 'Order {number}: Payment processing', body: 'Hi {name},\n\nThank you! We have received your UPI payment details for order {number}.\n\n{items}\n\nAmount: {total}\nUTR / transaction ID: {utr}\n\nYour payment is being verified (Payment processing). You will get access to your purchase as soon as it is confirmed, and we will email you.\n\nJangid Cuts' },
     order_status: { subject: 'Order {number}: {status}', body: 'Hi {name},\n\nYour order {number} is now: {status}.{refund}\n\nTrack it here: {link}\n\nJangid Cuts' }
   },
   payments_public: { currency: 'INR', note: 'Secure payments by UPI (GPay, PhonePe, Paytm), cards, net banking and wallets.' },
@@ -122,7 +123,7 @@ export const DEFAULTS = {
     thumb: [ { title: 'Most Clicked', auto: true, source: 'featured' }, { title: 'YouTube Thumbnails', source: 'cat:YouTube' } ]
   },
   _alerts: { email: 'jangidcuts@gmail.com', telegram_bot_token: '', telegram_chat_id: '' },
-  _payments: { provider: 'test', key_id: '', key_secret_enc: '', webhook_secret_enc: '' }
+  _payments: { provider: 'upi', key_id: '', key_secret_enc: '', webhook_secret_enc: '', upi_id: '9351664400@ibl', upi_name: 'PRASHANT JANGIR', upi_qr: '/img/upi_qr.jpg' }
 };
 
 export const SEED_CATEGORIES = {
