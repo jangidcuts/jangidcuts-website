@@ -36,6 +36,16 @@ function rowVals(table, b) {
   return { cols, vals };
 }
 
+// product gallery: up to 8 image URLs in display order, stored as a JSON array
+function normGallery(v) {
+  let a = v;
+  if (typeof a === 'string') { try { a = JSON.parse(a || '[]'); } catch { a = []; } }
+  if (!Array.isArray(a)) a = [];
+  const out = [];
+  for (const x of a) { const u = String(x || '').trim().slice(0, 1000); if (u && /^(\/|https:\/\/)/.test(u) && !out.includes(u)) out.push(u); if (out.length >= 8) break; }
+  return out;
+}
+
 export async function handleAdmin(req, env, ctx, url, s) {
   const p = url.pathname, m = req.method;
   if (!s || !s.isAdmin) fail('Admin only', 403);
@@ -172,6 +182,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     }
     if (m === 'POST' && !id) {
       const b = await readJson(req, 300000);
+      if (table === 'products') b.gallery = normGallery(b.gallery);
       if (table === 'products') { if (!clean(b.title)) fail('Title is required'); b.slug = slugify(b.slug || b.title) + '-' + rand(2); b.price = Math.max(0, +b.price || 0); b.visible = +b.visible === 1 ? 1 : 0; }
       if (table === 'coupons' && !b.code) fail('Code is required');
       if (table === 'categories' && (!b.name || !b.section)) fail('Name and section are required');
@@ -185,6 +196,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (m === 'PUT' && id) {
       const b = await readJson(req, 300000);
       if (table === 'products' && b.slug !== undefined) b.slug = slugify(b.slug);
+      if (table === 'products' && b.gallery !== undefined) b.gallery = normGallery(b.gallery);
       const { cols, vals } = rowVals(table, b); if (!cols.length) fail('Nothing to change');
       if (table === 'products') { cols.push('updated'); vals.push(now()); }
       await env.DB.prepare(`UPDATE ${table} SET ${cols.map(c => c + ' = ?').join(', ')} WHERE id = ?`).bind(...vals, id).run();
