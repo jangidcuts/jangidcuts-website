@@ -29,6 +29,9 @@
 .pm-title{font-family:var(--head);font-size:34px;font-weight:400;letter-spacing:.03em;line-height:1}
 .pm-meta{display:flex;flex-wrap:wrap;gap:8px 14px;color:var(--faint);font-size:13px;margin:8px 0 12px}
 .pm-desc{color:var(--muted);font-size:15px;line-height:1.6;white-space:pre-line}
+.pm-desc.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
+.pm-rm{background:none;border:0;padding:4px 0 0;margin:0;color:#2BF5C0;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.pm-rm[hidden]{display:none}
 .pm-acts{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 6px}
 .pm-acts .btn{flex:1 1 150px}
 .pm-note{font-size:13px;color:var(--faint);margin-top:8px}
