@@ -1,6 +1,7 @@
 import { now, clean, fail, getKey, nextNumber, newRef, hex, enc, safeEq, decrypt, logEvent } from './lib.js';
 import { sendTemplate, sendMail, alertOwner, googleToken } from './mail.js';
 import { upiOn, upiDetails } from './upi.js';
+import { driveId, driveIsFolder, driveShare, driveOpenUrl } from './storage.js';
 
 export const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
@@ -176,12 +177,14 @@ export async function deliverBig(env, p, user, origin, number) {
   let link = p.link_url;
   if (!number) { const r = await env.DB.prepare('SELECT o.number FROM owned w JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(user.id, p.id).first(); number = r?.number || ''; }
   if (p.delivery === 'drive' && p.drive_id) {
+    const id = driveId(p.drive_id) || p.drive_id;
     const tok = await googleToken(env, 'main');
+    const folder = await driveIsFolder(env, tok, p.drive_id);
     if (tok) {
-      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(p.drive_id)}/permissions?sendNotificationEmail=false&supportsAllDrives=true`, { method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'user', emailAddress: user.email }) });
-      if (!r.ok) { await logEvent(env, 'delivery', `drive share failed ${p.id} ${user.email}: ${r.status}`); await alertOwner(env, 'delivery', `Drive share failed for "${p.title}" to ${user.email}. Please share it manually.`); }
+      const r = await driveShare(tok, id, user.email);
+      if (!r.ok) { await logEvent(env, 'delivery', `drive share failed ${p.id} ${user.email}: ${r.status} ${r.text}`); await alertOwner(env, 'delivery', `Drive share failed for "${p.title}" to ${user.email}. Please share it manually.`); }
     }
-    link = `https://drive.google.com/file/d/${p.drive_id}/view`;
+    link = driveOpenUrl(id, folder);
   }
   if (link) await sendTemplate(env, 'download_link', user.email, { name: user.name || 'there', product: p.title, link, number: number || '' }, { ref: number || '' });
 }

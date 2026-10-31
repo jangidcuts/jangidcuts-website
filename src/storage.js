@@ -67,6 +67,19 @@ export function driveId(s) {
   const m = String(s || '').match(/(?:\/file\/d\/|[?&]id=|\/folders\/)([\w-]{20,})/) || String(s || '').match(/^([\w-]{25,})$/);
   return m ? m[1] : '';
 }
+export const DRIVE_FOLDER = 'application/vnd.google-apps.folder';
+// Oct 31 (Prashant 8:25 PM): a Drive product may be a whole FOLDER. A folders link says so itself; a bare id is asked of Drive.
+export async function driveIsFolder(env, token, s) {
+  if (/\/folders\//.test(String(s || ''))) return true;
+  const id = driveId(s); if (!id || !token) return false;
+  const m = await driveMeta(env, token, id); return !!m && m.mimeType === DRIVE_FOLDER;
+}
+export const driveOpenUrl = (id, folder) => folder ? `https://drive.google.com/drive/folders/${id}` : `https://drive.google.com/file/d/${id}/view`;
+// Gives one buyer email reader access (no Google notification mail). On a folder this covers every subfolder and file in it.
+export async function driveShare(token, id, email) {
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}/permissions?sendNotificationEmail=false&supportsAllDrives=true`, { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'user', emailAddress: email }) });
+  return { ok: r.ok, status: r.status, text: r.ok ? '' : (await r.text()).slice(0, 300) };
+}
 export async function driveMeta(env, token, id) {
   const ck = 'dmeta:' + id;
   if (env.CACHE) { const c = await env.CACHE.get(ck, 'json'); if (c) return c; }

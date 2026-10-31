@@ -4,7 +4,7 @@ import { publicHire, hireKind, hireStatus } from './hire.js';
 import { rankTop, homeSet, statsOf, reviewOpen } from './reviews.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
-import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource } from './storage.js';
+import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource, driveIsFolder, driveShare, driveOpenUrl } from './storage.js';
 import { upiDetails, upiSubmit } from './upi.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
 
@@ -292,14 +292,23 @@ export async function handlePublic(req, env, ctx, url, s) {
       await env.DB.prepare('INSERT OR IGNORE INTO owned (user_id, product_id, created) VALUES (?1, ?2, ?3)').bind(s.user.id, pid, now()).run();
       own = { downloads: 0 };
     }
-    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery !== 'link', emailed: prod.delivery === 'link', first: !own.downloads });
+    // Drive FOLDER products open the folder in Google Drive (after the buyer's access is re-ensured) instead of streaming.
+    let dTok = null, dFolder = false;
+    if (prod.delivery === 'drive') { dTok = await googleToken(env, 'main'); dFolder = await driveIsFolder(env, dTok, prod.drive_id || prod.link_url); }
+    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery !== 'link' && !dFolder, folder: dFolder, emailed: prod.delivery === 'link', first: !own.downloads });
     await env.DB.batch([
       env.DB.prepare('UPDATE owned SET downloads = downloads + 1, first_dl = COALESCE(first_dl, ?3), last_dl = ?3 WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid, now()),
       env.DB.prepare('UPDATE products SET downloads = downloads + 1 WHERE id = ?1').bind(pid)
     ]);
+    if (prod.delivery === 'drive' && dFolder) {
+      const id = driveId(prod.drive_id) || driveId(prod.link_url);
+      const r = dTok ? await driveShare(dTok, id, s.user.email) : { ok: false, status: 0, text: 'no Google token' };
+      if (!r.ok) { await logEvent(env, 'delivery', `drive folder share failed ${prod.id} ${s.user.email}: ${r.status} ${r.text}`); await alertOwner(env, 'delivery', `Drive folder access could not be given for "${prod.title}" to ${s.user.email}. Please share the folder with them manually.`); }
+      return new Response(null, { status: 302, headers: { location: driveOpenUrl(id, true), 'cache-control': 'private, no-store' } });
+    }
     if (prod.delivery === 'drive') {
       const id = driveId(prod.drive_id) || driveId(prod.link_url);
-      const tok = id ? await googleToken(env, 'main') : null;
+      const tok = id ? dTok : null;
       if (id && tok) { const r = await streamDrive(env, req, tok, id, { download: prod.file_name || null, cache: false }); if (r.ok || r.status === 206) return r; }
       if (id) { const pub = await streamDrivePublic(req, id, { download: prod.file_name || true, cache: false }); if (pub) return pub; }
       await alertOwner(env, 'delivery', `Download failed for "${prod.title}": the Google Drive file could not be opened. Set its sharing to "Anyone with the link" (or keep it in jangidcuts@gmail.com Drive).`);

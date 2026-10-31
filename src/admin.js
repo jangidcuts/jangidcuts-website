@@ -123,7 +123,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     await setKey(env, '_alerts', a); return J({ ok: true });
   }
   if (p === '/api/admin/drive/check' && m === 'GET') {
-    const id = driveId(url.searchParams.get('link') || ''); if (!id) fail('That does not look like a Google Drive file link');
+    const id = driveId(url.searchParams.get('link') || ''); if (!id) fail('That does not look like a Google Drive file or folder link');
     const tok = await googleToken(env, 'main');
     const meta = tok ? await driveMeta(env, tok, id) : null;
     if (!meta) { const pub = await streamDrivePublic(new Request(url.origin + '/v/check', { headers: { range: 'bytes=0-1023' } }), id);
