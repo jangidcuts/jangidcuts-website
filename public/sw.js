@@ -1,4 +1,4 @@
-const V='jc-v67';
+const V='jc-v68';
 const CORE=['/','/portfolio','/services','/help','/soon','/styles.css?v=31','/script.js?v=15','/live.js?v=36','/brands.js?v=2','/store','/store.css?v=11','/store.js?v=17','/page','/pages.css?v=8','/pages.js?v=12','/prefs.js?v=9','/i18n.js?v=11','/pwmeter.js?v=2','/fonts/Anton-400.woff2','/fonts/BebasNeue-400.woff2','/fonts/Inter-400.woff2','/icon-192.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
