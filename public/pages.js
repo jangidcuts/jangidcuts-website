@@ -97,6 +97,14 @@ function vWatch(id){var p=null;
   (more.length?'<section class="sec-row"><div class="sec-row-h"><h2>More from '+esc(c.name)+'</h2><a href="/portfolio/'+slug(c.name)+'">See all →</a></div><div class="mrow">'+more.map(function(x){return card(x,from==='home'?'home':from)}).join('')+'</div></section>':'')+'<div style="height:60px"></div></div>';
  mountPlayer(p)}
 
+/* service -> portfolio category (first candidate that has items wins; else all work) */
+var SVC_CAT={'colour-grading':[['video','Colour Grading'],['thumb','Before / After']],'youtube-videos':[['video','YouTube'],['thumb','YouTube']],'ads-promos':[['video','Ads & Promos'],['thumb','Ads & Brands']],'wedding-films':[['video','Wedding Films'],['video','Events'],['thumb','Events']],'reels-shorts':[['video','Reels & Shorts'],['video','Reels']],'motion-graphics':[['video','Motion Graphics']],'podcast-editing':[['video','Podcast'],['video','Podcast Editing']],'thumbnails-graphics':[['thumb','*']]};
+function svcWork(s){var L=SVC_CAT[s]||[];for(var i=0;i<L.length;i++){var k=L[i][0],n=L[i][1];
+  if(n==='*'){if(PF.some(function(p){return p.kind===k}))return {href:'/portfolio'+(k==='thumb'?'?k=thumb':'')};continue}
+  var c=CATS.find(function(c){return c.section==='portfolio_'+k&&c.name.toLowerCase()===n.toLowerCase()});if(!c||!itemsOf(k,c.id).length)continue;
+  var r=c;while(r.parent_id)r=cat(r.parent_id)||{};if(!r.name)continue;
+  var q=[];if(k==='thumb')q.push('k=thumb');if(r!==c)q.push('s='+c.id);return {href:'/portfolio/'+slug(r.name)+(q.length?'?'+q.join('&'):'')}}
+ return {href:'/portfolio',all:true}}
 /* ----- /services ----- */
 function svcCard(x){return '<a class="svc" href="/services/'+esc(x.slug)+'"><div class="svc-thumb"><img src="'+esc(x.image)+'" alt="" loading="lazy">'+(x.tag?'<span class="tag">'+esc(x.tag)+'</span>':'')+'</div><div class="svc-body"><h3>'+esc(x.title)+'</h3><p>'+esc(x.desc)+'</p><span class="more">View details '+I('arrow')+'</span></div></a>'}
 function vServices(){title('Services');var h=C.home||{};
@@ -104,7 +112,7 @@ function vServices(){title('Services');var h=C.home||{};
 function vService(s){var x=(C.services||[]).find(function(v){return v.slug===s});if(!x){app.innerHTML='<div class="wrap pg-top">'+back('/services','All services')+'<div class="st-empty">Service not found.</div></div>';return}
  title(x.title);var vids=PF.filter(function(p){return (p.services||[]).indexOf(s)>=0});var rel=(C.services||[]).filter(function(v){return v.slug!==s}).slice(0,3);
  app.innerHTML='<div class="wrap pg-top">'+back('/services','Back to services')+'<div class="svc-hero"><img src="'+esc(x.image)+'" alt=""><h1>'+esc(x.title)+'</h1></div><div class="svc-full">'+md(x.full||x.desc)+'</div>'+
-  '<div class="w-acts"><a class="btn btn-primary" href="/?hire=1">Hire for '+esc(x.title)+'</a><a class="btn btn-ghost" href="/services">More services</a></div>'+
+  '<div class="w-acts">'+(function(){var w=svcWork(s);return '<a class="btn btn-ghost" style="width:100%;border-color:var(--mint);color:var(--mint)" href="'+esc(w.href)+'">'+(w.all?'View all work':'View '+esc(x.title)+' work')+' →</a>'})()+'<a class="btn btn-primary" href="/?hire=1">Hire for '+esc(x.title)+'</a><a class="btn btn-ghost" href="/services">More services</a></div>'+
   (vids.length?'<section class="sec-row"><div class="sec-row-h"><h2>Related work</h2></div><div class="mgrid">'+vids.map(function(p){return card(p,'svc:'+s)}).join('')+'</div></section>':'')+
   '<section class="sec-row"><div class="sec-row-h"><h2>Related services</h2><a href="/services">All services →</a></div><div class="svc-cards" style="margin-top:6px">'+rel.map(svcCard).join('')+'</div></section></div>';bindImgs(app)}
 
