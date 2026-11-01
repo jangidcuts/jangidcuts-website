@@ -934,3 +934,20 @@ html[data-hpv] .hp-view{display:none!important}html[data-hpv=faq] .hp-view[data-
 .tk-pill{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1.2;flex:none}
 .tk-head > div{min-width:0}
 @media (max-width:360px){.tk-pill{font-size:12px;padding:5px 10px}.tk-final p{font-size:12.5px}}
+
+/* Nov 1: suggestion box (footer card + popup) */
+.foot-sug{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:34px;padding:18px 20px;border-radius:16px;background:linear-gradient(135deg,#141A1A,#182825);border:1px solid rgba(43,245,192,.14)}
+.foot-sug .fs-tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.foot-sug .fs-tx b{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:22px;letter-spacing:.02em;color:var(--text)}
+.foot-sug .fs-tx span{color:var(--muted);font-size:14px}
+.foot-sug .fs-btn{display:inline-flex;align-items:center;gap:8px;border-color:rgba(43,245,192,.4);color:#2BF5C0}
+.foot-sug .fs-btn .icon{width:18px;height:18px}
+@media (max-width:560px){.foot-sug{padding:16px}.foot-sug .fs-btn{width:100%;justify-content:center}}
+.sug-modal{width:min(520px,calc(100% - 24px))}
+.sug-lead{color:var(--muted);font-size:14.5px;margin:0 0 14px}
+.sug-l{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px;font-weight:600}
+.sug-modal .sug-send{width:100%;margin-top:16px}
+.sug-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+.sug-done{text-align:center;padding:18px 4px 6px}
+.sug-done .icon{width:54px;height:54px;color:#00110D;background:linear-gradient(135deg,#4DCBB0,#0DBC94);border-radius:50%;padding:13px}
+.sug-done p{margin:14px auto 18px;max-width:34ch;font-size:16px;line-height:1.55;color:var(--text)}

@@ -1,3 +1,4 @@
+import { ownerEmails } from './lib.js';
 import { now, clean, fail, getKey, nextNumber, newRef, hex, enc, safeEq, decrypt, logEvent } from './lib.js';
 import { sendTemplate, sendMail, alertOwner, googleToken } from './mail.js';
 import { upiOn, upiDetails } from './upi.js';
@@ -150,9 +151,10 @@ export async function fulfil(env, orderId, { paymentId, origin }) {
   const items = JSON.parse(o.items || '[]');
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?1').bind(o.user_id).first();
   const stmts = [];
+  const isOwner = (await ownerEmails(env)).includes(String(o.email || (user && user.email) || '').toLowerCase()); // Nov 1: owner's own purchases never count as sales
   for (const it of items) {
     stmts.push(env.DB.prepare('INSERT OR IGNORE INTO owned (user_id, product_id, order_id, created) VALUES (?1, ?2, ?3, ?4)').bind(o.user_id, it.id, o.id, now()));
-    stmts.push(env.DB.prepare('UPDATE products SET sales = sales + 1 WHERE id = ?1').bind(it.id));
+    if (!isOwner) stmts.push(env.DB.prepare('UPDATE products SET sales = sales + 1 WHERE id = ?1').bind(it.id));
   }
   if (o.coupon) stmts.push(env.DB.prepare('UPDATE coupons SET used = used + 1 WHERE code = ?1').bind(o.coupon));
   stmts.push(env.DB.prepare('DELETE FROM cart WHERE user_id = ?1').bind(o.user_id));

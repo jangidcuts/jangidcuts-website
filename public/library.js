@@ -44,15 +44,18 @@ function view(app,ctx){
   window.addEventListener('popstate',route);route();
  });
 }
+/* Nov 1: upgrade suggestion (free -> Starter -> Pro -> Ultimate; set in Admin -> Products -> Upgrade to) */
+function upHTML(){var n=L&&L.next;if(!n)return '';var T={free:'Free',starter:'Starter',pro:'Pro',ultimate:'Ultimate'},t=n.tier&&n.tier!=='free'?T[n.tier]:'';var txt=n.up_text||(t?'Want more? Get the '+t+' pack':'Want more? Get '+n.title);
+ return '<a class="lb-up" href="/store?p='+(+n.id)+'"><span class="lb-up-tx"><small>'+(t?'Upgrade \u00b7 '+esc(t):'Upgrade')+'</small><b>'+esc(txt)+'</b><i>'+esc(n.title)+(n.size_text?' \u00b7 '+esc(n.size_text):'')+'</i></span><span class="lb-up-go">'+(n.price>0?'\u20b9'+Number(n.price).toLocaleString('en-IN'):'Free')+' \u2192</span></a>'}
 function route(){var h=/[#&]c=([\w-]+)/.exec(location.hash);var c=h&&catById(h[1]);if(c)showCat(c);else showHome()}
 function goCat(c){history.pushState({lb:1},'','#c='+c.id);showCat(c);window.scrollTo(0,0)}
 
 function showHome(){curCat=null;
  var p=L.product;
- root.innerHTML='<section class="lb-hero"><div class="lb-cover">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':SV.note)+'</div><div class="lb-hi"><span class="eyebrow">Your pack</span><h1>'+esc(p.title)+'</h1><p>'+L.cats.length+' categories \u00b7 '+L.n+' tracks \u00b7 '+size(L.bytes)+'</p></div></section>'+
+ root.innerHTML='<section class="lb-hero"><div class="lb-cover">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':SV.note)+'</div><div class="lb-hi"><span class="eyebrow">'+(p.free?'Free pack':'Your pack')+'</span><h1>'+esc(p.title)+'</h1><p>'+L.cats.length+(L.cats.length===1?' category':' categories')+' \u00b7 '+L.n+' tracks \u00b7 '+size(L.bytes)+'</p></div></section>'+
  '<button class="btn btn-primary lb-all" id="lbAll">'+SV.dl+' Download All</button>'+
  '<p class="lb-tip">Tap a category to play any track. Every '+'<b class="lb-dlm">'+SV.dl+'</b> shows the size before it downloads.</p>'+
- '<div class="lb-cats">'+L.cats.map(function(c,i){return '<div class="lb-cat" data-c="'+esc(c.id)+'" role="button" tabindex="0"><span class="lb-ci">'+(i<9?'0':'')+(i+1)+'</span><span class="lb-ct"><b>'+esc(c.name)+'</b><small>'+c.n+' tracks \u00b7 '+size(c.bytes)+'</small></span><button class="lb-dl" data-cd="'+esc(c.id)+'" aria-label="Download '+esc(c.name)+'">'+SV.dl+'</button><span class="lb-chev">'+SV.chev+'</span></div>'}).join('')+'</div>';
+ '<div class="lb-cats">'+L.cats.map(function(c,i){return '<div class="lb-cat" data-c="'+esc(c.id)+'" role="button" tabindex="0"><span class="lb-ci">'+(i<9?'0':'')+(i+1)+'</span><span class="lb-ct"><b>'+esc(c.name)+'</b><small>'+c.n+' tracks \u00b7 '+size(c.bytes)+'</small></span><button class="lb-dl" data-cd="'+esc(c.id)+'" aria-label="Download '+esc(c.name)+'">'+SV.dl+'</button><span class="lb-chev">'+SV.chev+'</span></div>'}).join('')+'</div>'+upHTML();
  $('#lbAll').onclick=function(){cardAll()};
  $$('.lb-cat',root).forEach(function(el){el.onclick=function(e){if(e.target.closest('.lb-dl'))return;goCat(catById(el.dataset.c))};el.onkeydown=function(e){if(e.key==='Enter')el.click()}});
  $$('[data-cd]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();cardCat(catById(b.dataset.cd))}});

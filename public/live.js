@@ -8,6 +8,25 @@ var D=document,$=function(s,r){return (r||D).querySelector(s)},$$=function(s,r){
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ICON(n){return '<svg class="icon" aria-hidden="true"><use href="#i-'+n+'"/></svg>'}
 function socList(c){var l=(c&&c.socials)||[];return window.JCB?JCB.visible(l):l.filter(function(x){return x&&x.show!==false&&x.url})}
+/* Nov 1: footer icons = the ones picked in Admin -> Contact & Social -> Footer icons, in that order (default: all, like the Social page) */
+function footList(c){var all=socList(c),fs=(c&&c.footer_socials)||{};if(!fs.custom||!Array.isArray(fs.list))return all;var k=function(x){return String(x.name||x.icon||'').toLowerCase()};return fs.list.map(function(n){return all.find(function(x){return k(x)===n})}).filter(Boolean)}
+/* Nov 1: suggestion box (footer link + popup); messages go to Admin -> Suggestions */
+function suggestBox(c){var f=$('.footer');var sg=(c&&c.suggest)||{};if(!f||sg.show===false||$('.foot-sug',f))return;var cp=$('.copy',f);if(!cp)return;
+ var d=D.createElement('div');d.className='foot-sug';d.innerHTML='<div class="fs-tx"><b>'+esc(sg.title||'Have an idea?')+'</b><span>'+esc(sg.text||'')+'</span></div><button type="button" class="btn btn-ghost fs-btn">'+ICON('chat')+'<span>'+esc(sg.button||'Suggest something')+'</span></button>';cp.parentNode.insertBefore(d,cp);
+ $('.fs-btn',d).onclick=function(){openSuggest(sg)}}
+function openSuggest(sg){var m=$('#sugModal');if(!m){m=D.createElement('div');m.className='modal sug-modal';m.id='sugModal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-hidden','true');m.setAttribute('aria-labelledby','sugTitle');D.body.appendChild(m)}
+ var u=JCL.user,t0=Date.now();
+ m.innerHTML='<div class="modal-head"><h2 class="grad-text" id="sugTitle">'+esc(sg.button||'Suggest something')+'</h2><button class="x" type="button" data-sx aria-label="Close">'+ICON('x')+'</button></div><div class="modal-body"><form id="sugForm" novalidate><p class="sug-lead">'+esc(sg.text||'')+'</p>'+
+  '<label class="sug-l" for="sugName">Your name</label><input class="input" id="sugName" maxlength="80" autocomplete="name" value="'+esc((u&&u.name)||'')+'">'+
+  '<label class="sug-l" for="sugMsg">Your suggestion</label><textarea class="input" id="sugMsg" maxlength="2000" rows="5" placeholder="A pack you want, a feature, anything…"></textarea>'+
+  '<div class="sug-hp" aria-hidden="true"><label>Website <input id="sugHp" tabindex="-1" autocomplete="off"></label></div>'+
+  '<button class="btn btn-primary sug-send" type="submit">Send suggestion</button></form><div class="sug-done" hidden>'+ICON('check')+'<p id="sugThanks"></p><button class="btn btn-ghost" type="button" data-sx>Close</button></div></div>';
+ $$('[data-sx]',m).forEach(function(b){b.onclick=function(){JC_UI.close()}});
+ $('#sugForm',m).onsubmit=function(e){e.preventDefault();var name=$('#sugName',m).value.trim(),msg=$('#sugMsg',m).value.trim(),btn=$('.sug-send',m);
+  if(!name){toast('Please enter your name');$('#sugName',m).focus();return}if(msg.length<3){toast('Please write your suggestion first');$('#sugMsg',m).focus();return}
+  btn.disabled=true;btn.textContent='Sending…';api('/api/feedback',{name:name,message:msg,website:$('#sugHp',m).value,t:t0}).then(function(r){btn.disabled=false;btn.textContent='Send suggestion';if(!r||r.ok===false){toast((r&&r.error)||'Could not send. Please try again.');return}
+   $('#sugForm',m).hidden=true;var dn=$('.sug-done',m);$('#sugThanks',m).textContent=r.message||sg.thanks||'Thank you!';dn.hidden=false})};
+ JC_UI.open(m)}
 function api(path,body,method){return fetch(path,{method:method||(body?'POST':'GET'),credentials:'same-origin',headers:body?{'content-type':'application/json','x-jc':'1'}:{'x-jc':'1'},body:body?JSON.stringify(body):undefined})
  .then(function(r){return r.json().catch(function(){return{ok:false,error:'Network error'}})}).catch(function(){return{ok:false,error:'You seem to be offline. Please try again.'}})}
 function md(t){var out=[],list=false;String(t||'').split(/\n/).forEach(function(l){var s=l.trim();
@@ -67,7 +86,7 @@ function applyHome(c,s){var h=c.hero;
  if(c.seo&&c.seo.title&&/index|^\/$/.test(location.pathname+'')){D.title=c.seo.title}}
 
 function applyFooter(c){var f=$('.footer');if(!f)return;var p=$('.foot-grid > div:first-child p',f);if(p)p.textContent=c.footer.about;
- var so=$('.socials',f);if(so)so.innerHTML=socList(c).map(function(x){return '<a class="so-b" href="'+esc(x.url)+'" aria-label="'+esc(x.name)+'" title="'+esc(x.name)+'" rel="noopener noreferrer" target="_blank">'+(window.JCB?JCB.tile(x.icon,x.url):ICON(x.icon||'globe'))+'</a>'}).join('');
+ var so=$('.socials',f);if(so)so.innerHTML=footList(c).map(function(x){return '<a class="so-b" href="'+esc(x.url)+'" aria-label="'+esc(x.name)+'" title="'+esc(x.name)+'" rel="noopener noreferrer" target="_blank">'+(window.JCB?JCB.tile(x.icon,x.url):ICON(x.icon||'globe'))+'</a>'}).join('');
  var cp=$('.copy span',f);if(cp)cp.textContent=String(c.footer.copyright||'').replace('{year}',new Date().getFullYear());var mi=$$('.copy span',f)[1];if(mi){mi.textContent=c.footer.made_in;mi.hidden=!c.footer.show_location}
  }
 
@@ -338,7 +357,7 @@ var dataReady=function(){if(window.JC_DATA_READY)return;window.JC_DATA_READY=1;t
  Promise.all(pre&&pre.length===2?pre:[api('/api/site'),api('/api/me')]).then(function(r){dataReady();var s=r[0],me=r[1];
  if(!s||!s.content){endEntry();var sc=D.createElement('script');sc.src='data.js';sc.onload=function(){try{window.JC_RUN()}catch(e){console.error(e)}pageReady()};sc.onerror=pageReady;D.body.appendChild(sc);return}
  JCL.site=s;JCL.c=s.content;JCL.user=me&&me.user;JCL.me=me&&me.user?me:null;window.JC=buildJC(s);
- try{applyHome(s.content,s);applyFooter(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
+ try{applyHome(s.content,s);applyFooter(s.content);suggestBox(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
  try{window.JC_RUN();avatar();syncSettings()}catch(e){console.error(e)}
  try{window.JC_AFTER&&window.JC_AFTER(s,me)}catch(e){console.error(e)}
  pageReady();/* this page's own content is drawn: the brand loader may lift now */
@@ -346,5 +365,9 @@ var dataReady=function(){if(window.JC_DATA_READY)return;window.JC_DATA_READY=1;t
  var eq=new URLSearchParams(location.search),err=eq.get('error');if(err){eq.delete('error');try{history.replaceState(history.state,'',location.pathname+(eq.toString()?'?'+eq:'')+location.hash)}catch(e){}}if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is not ready yet. Please use email for now.'}[err]||'Sign-in problem: '+err)},2300);
  
  if('serviceWorker' in navigator){var swReg=function(){setTimeout(function(){navigator.serviceWorker.register('/sw.js').catch(function(){})},3500)};if(D.readyState==='complete')swReg();else addEventListener('load',swReg,{once:true})}/* offline cache warms up after the page has painted, so it never competes with the first load on slow networks */
- api('/api/t',{p:location.pathname+(location.pathname.indexOf('soon')>-1?location.hash:'')})});
+ /* Nov 1: real-visitor counting. ?nocount=1 marks this device as "don't count" (for Prashant's other phones / laptops) */
+ var tv='';try{tv=localStorage.getItem('jc-vid')||'';if(!/^[a-f0-9]{24}$/.test(tv)){tv=Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(12)),function(x){return ('0'+x.toString(16)).slice(-2)}).join('');localStorage.setItem('jc-vid',tv)}}catch(e){}
+ var nq=new URLSearchParams(location.search);if(nq.get('nocount')==='1'){nq.delete('nocount');try{history.replaceState(history.state,'',location.pathname+(nq.toString()?'?'+nq:'')+location.hash)}catch(e){}api('/api/t/nocount',{}).then(function(){toast('This device will not be counted in your visitor stats ✓')});return}
+ var rf='';try{rf=D.referrer&&new URL(D.referrer).host!==location.host?new URL(D.referrer).host:''}catch(e){}
+ api('/api/t',{p:location.pathname+(location.pathname.indexOf('soon')>-1?location.hash:''),v:tv,wd:!!navigator.webdriver,r:rf})});
 })();

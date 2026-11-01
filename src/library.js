@@ -164,7 +164,7 @@ export const isBundle = p => !!p && p.delivery === 'drive' && driveLinks(p).leng
 /* GET /api/lib/<pid>  (signed-in owner) -> categories + tracks + a 12 h token */
 export async function libraryData(env, s, pid, { fresh = false } = {}) {
   if (!s) fail('Please sign in first', 401);
-  const p = await env.DB.prepare('SELECT id, title, image, delivery, drive_id, link_url, size_text FROM products WHERE id = ?1').bind(pid).first();
+  const p = await env.DB.prepare('SELECT id, title, image, delivery, drive_id, link_url, size_text, price, tier, next_id, up_text FROM products WHERE id = ?1').bind(pid).first();
   if (!p || !isBundle(p)) fail('This item has no music library', 404);
   if (!(await owns(env, s.user.id, pid))) fail('Buy this pack first to open it', 403);
   await limitOrFail(env, 'lib:' + s.user.id, 240, 3600e3);
@@ -173,7 +173,10 @@ export async function libraryData(env, s, pid, { fresh = false } = {}) {
   catch (e) { fail('Your files could not be loaded right now. Please try again in a minute.', 503); }
   const { token, exp } = await libToken(env, s.user.id, pid);
   await env.DB.prepare('UPDATE owned SET first_dl = COALESCE(first_dl, ?3), last_dl = ?3 WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid, now()).run().catch(() => { });
-  return J({ ok: true, product: { id: p.id, title: p.title, image: p.image }, token, exp, at: man.at, n: man.n, bytes: man.bytes, stale: !!man.stale,
+  // Nov 1: upgrade suggestion (each tier points only to the next one up)
+  let next = null;
+  if (p.next_id) { const n = await env.DB.prepare('SELECT id, title, short, size_text, price, tier, image FROM products WHERE id = ?1 AND visible = 1').bind(p.next_id).first(); if (n && n.id !== p.id) next = { ...n, up_text: p.up_text || '' }; }
+  return J({ ok: true, product: { id: p.id, title: p.title, image: p.image, free: !(p.price > 0), tier: p.tier || '' }, next, token, exp, at: man.at, n: man.n, bytes: man.bytes, stale: !!man.stale,
     cats: man.cats.map(c => ({ id: c.id, name: c.name, n: c.n, bytes: c.bytes, tracks: c.tracks.map(t => ({ i: t.i, n: t.n, f: t.f, s: t.s, b: t.b, a: /^audio\//.test(t.m) || /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(t.f) ? 1 : 0 })) })) });
 }
 

@@ -16,7 +16,27 @@ a{color:var(--mint)}button,input,select,textarea{font:inherit;color:inherit}butt
 .side .logo{font-family:var(--head);font-size:26px;padding:4px 10px 2px}.side .sub{font-size:11px;letter-spacing:.25em;color:var(--mint);padding:0 10px 16px;text-transform:uppercase}
 .nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14.5px}
 .nav a:hover{background:var(--panel)}.nav a.on{background:var(--panel2);color:var(--text);box-shadow:inset 3px 0 0 var(--mint)}
-.nav .cnt{margin-left:auto;background:var(--mint);color:#00110D;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}
+.nav .cnt{margin-left:auto}
+/* Nov 1: WhatsApp-style count badges — 1-2 digits = circle, 3+ digits = rounded rectangle that grows */
+.cnt{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:22px;height:22px;padding:0;border-radius:50%;background:linear-gradient(135deg,#2BF5C0,#0DBC94);color:#00110D;font:800 11.5px/1 Inter,system-ui,sans-serif;font-style:normal;letter-spacing:0;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px rgba(0,1,1,.6)}
+.cnt.w{border-radius:7px;padding:0 7px}
+.cnt.hidden{display:none}
+.tabs .cnt{margin-left:8px;vertical-align:middle;min-width:20px;height:20px;font-size:11px}
+.tabs .cnt.w{padding:0 6px}
+#mb{position:relative}
+#mb .mbc{position:absolute;top:-4px;right:-6px;min-width:18px;height:18px;font-size:10px}
+#mb .mbc.w{padding:0 5px;border-radius:6px}
+a.kpi{color:inherit;text-decoration:none}
+a.kpi:hover{border-color:rgba(43,245,192,.35)}
+.fb-li{cursor:pointer}
+.fb-li .t{min-width:0}
+.fb-li .fb-msg{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfdedb}
+.fb-li.unread b{color:#fff}
+.fb-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2BF5C0;margin-right:8px;vertical-align:middle}
+.fb-full{white-space:pre-wrap;line-height:1.6;background:#141A1A;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px;word-break:break-word}
+.fs-ic{display:inline-flex;width:28px;height:28px}
+.fs-ic svg,.fs-ic img{width:28px;height:28px}
+.tier-t{color:#2BF5C0}
 .nav h5{font-size:10.5px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase;padding:14px 12px 4px}
 .main{padding:22px clamp(14px,3vw,34px) 90px;min-width:0}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
@@ -271,3 +291,9 @@ body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 .dl-rm:hover{border-color:#2BF5C0;color:#2BF5C0}
 .dlinks .dl-act{margin-top:8px;gap:8px;flex-wrap:wrap}
 .dl-res{margin-top:6px;line-height:1.5}.dl-res .dl-ok{color:#2BF5C0}.dl-res .dl-bad{color:#FFC861}
+.tabs button.on .cnt{background:#00110D;color:#2BF5C0;box-shadow:none}
+.nav a.on .cnt{box-shadow:0 0 0 2px rgba(0,1,1,.35)}
+.fs-li [data-mv] svg{transform:rotate(90deg)}
+.fs-li{align-items:center}
+.fs-li{display:flex;flex-wrap:nowrap!important;gap:10px}
+.fs-li .acts{flex:0 0 auto;margin:0!important;width:auto!important}

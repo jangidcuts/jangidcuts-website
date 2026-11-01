@@ -199,3 +199,24 @@ html[data-theme=light] .upi-id{background:#F2FAF8;border-color:rgba(7,122,92,.2)
 .pm-lb-x{position:absolute;top:12px;right:12px;z-index:2;width:42px;height:42px;border-radius:50%;border:1px solid rgba(43,245,192,.45);background:#141A1A;color:#fff;display:grid;place-items:center;cursor:pointer}
 .pm-lb-x svg{width:18px;height:18px}
 .pm-lb-n{position:absolute;top:22px;left:16px;z-index:2;color:#fff;font:600 13px/1 Inter,system-ui,sans-serif}
+
+/* Nov 1: tiers (Free / Starter / Pro / Ultimate) + upgrade card */
+.tier-tag{display:inline-flex;align-items:center;font-style:normal;font-family:var(--body,Inter,sans-serif);font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;line-height:1;padding:5px 9px;border-radius:999px;background:rgba(0,1,1,.66);border:1px solid rgba(43,245,192,.45);color:#2BF5C0;white-space:nowrap;backdrop-filter:blur(6px)}
+.pc-img .tier-tag{position:absolute;right:10px;bottom:10px;pointer-events:none}
+.tier-tag.t-pro{background:linear-gradient(90deg,rgba(20,26,26,.85),rgba(24,40,37,.85));color:#4DCBB0}
+.tier-tag.t-ultimate{background:linear-gradient(90deg,#4DCBB0,#0DBC94,#196453);color:#00110D;border-color:transparent}
+.tier-tag.t-free{color:#fff;border-color:rgba(255,255,255,.35)}
+.pm-meta .tier-tag.in{align-self:center}
+.up-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 4px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#141A1A,#182825);border:1px solid rgba(43,245,192,.28);box-shadow:0 0 0 1px rgba(43,245,192,.04) inset}
+.up-card .up-tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.up-card .up-eb{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#2BF5C0}
+.up-card .up-eb .icon{width:13px;height:13px}
+.up-card b{font-size:16px;line-height:1.3;color:var(--text)}
+.up-card .up-sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-card .up-go{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.up-card .up-go .icon{width:15px;height:15px}
+.up-card.up-s{margin:8px 0 2px;padding:11px 12px}
+.up-card.up-s b{font-size:14.5px}
+@media (max-width:480px){.up-card{flex-wrap:wrap}.up-card .up-go{width:100%;justify-content:center}}
+.dl-rm{color:var(--muted)}
+.dl-rm .icon{width:15px;height:15px}

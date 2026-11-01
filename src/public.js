@@ -1,5 +1,5 @@
 import { J, err, fail, now, rand, clean, sha256, isEmail, ip, readJson, cookie, setCookie, getContent, getKey, nextNumber, newRef, limitOrFail, rateLimit,
-  newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt, normRef, parseRef, refClosed } from './lib.js';
+  newSession, sessionOf, publicUser, findOrCreateUser, hashPw, pwProblem, totpOk, dayStr, logEvent, SESSION_COOKIE, decrypt, normRef, parseRef, refClosed, ownerEmails } from './lib.js';
 import { publicHire, hireKind, hireStatus } from './hire.js';
 import { rankTop, homeSet, statsOf, reviewOpen } from './reviews.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
@@ -8,6 +8,25 @@ import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePubli
 import { upiDetails, upiSubmit } from './upi.js';
 import { libraryData, isBundle, driveLinks } from './library.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
+
+/* Nov 1 (Prashant: "is this data real?"): every page view is logged raw with a flag; only flag '' counts as a real visitor.
+   owner = admin / owner email signed in (or a browser where they signed in before), own = "don't count this device" cookie,
+   bot = crawler / script user-agent, test = headless or automated browser, dc = datacenter network (cloud servers, not people) */
+const BOT_UA = /bot\b|crawl|spider|slurp|bingpreview|facebookexternalhit|meta-externalagent|telegrambot|discordbot|twitterbot|linkedinbot|embedly|skypeuripreview|curl\/|wget|python-requests|python-urllib|aiohttp|httpx|go-http-client|okhttp|java\/|node-fetch|axios|undici|postman|insomnia|scrapy|ahrefs|semrush|mj12|dotbot|petalbot|yandex|baiduspider|duckduckbot|applebot|gptbot|chatgpt|claudebot|perplexity|bytespider|amazonbot|uptime|pingdom|statuscake|monitor/i;
+const TEST_UA = /headless|phantomjs|puppeteer|playwright|selenium|webdriver|lighthouse|pagespeed|gtmetrix|cypress|browserbase|electron/i;
+const DC_ORG = /amazon|aws|google cloud|google llc|microsoft|azure|digitalocean|hetzner|ovh|linode|akamai|vultr|choopa|oracle|alibaba|tencent|leaseweb|m247|datacamp|contabo|scaleway|hostinger|cloudflare|fastly|zscaler|browserbase|packethub|psychz|quadranet|colocrossing|g-core|gcore|hivelocity|servers\.com|ionos|cherry servers|tzulo|cdn77|datapacket/i;
+async function hitFlag(req, env, s, b) {
+  if (s && s.isAdmin) return 'owner';
+  if (s && (await ownerEmails(env)).includes(String(s.user.email).toLowerCase())) return 'owner';
+  if (cookie(req, 'jc_noc')) return 'own';
+  const ua = req.headers.get('user-agent') || '';
+  if (!ua || BOT_UA.test(ua)) return 'bot';
+  if (TEST_UA.test(ua) || b.wd === true || b.wd === 1) return 'test';
+  if (!req.headers.get('accept-language')) return 'test';
+  const org = String((req.cf && req.cf.asOrganization) || '');
+  if (org && DC_ORG.test(org)) return 'dc';
+  return '';
+}
 
 /* what the client sees of their own project review (never the private link token) */
 const hireReviewView = (h) => ({ open: reviewOpen(h), name: h.rv_name || h.name || '', rating: h.rv_rating || 0, text: h.rv_text || '', hidden: h.rv_status === 'hidden' });
@@ -20,7 +39,7 @@ export async function siteData(env) {
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt, CASE WHEN delivery = \'drive\' AND (instr(drive_id, \'/folders/\') > 0 OR instr(drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
+    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, tier, next_id, up_text, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt, CASE WHEN delivery = \'drive\' AND (instr(drive_id, \'/folders/\') > 0 OR instr(drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
     env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.status, r.source, r.pick, r.reply, r.created, r.updated, COALESCE(NULLIF(r.photo, ''), NULLIF(u.avatar, '')) photo FROM reviews r LEFT JOIN users u ON u.id = r.user_id WHERE r.status = 'visible' ORDER BY r.id DESC LIMIT 1000").all()
   ]);
   /* Reviews v2: the server picks every "top" list (pinned first, then most stars, then latest) and every average */
@@ -44,7 +63,7 @@ async function meData(env, s) {
   const [cart, wish, owned, orders, tickets, hires, dld, myRev] = await Promise.all([
     env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
-    env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle FROM owned w LEFT JOIN products p ON p.id = w.product_id WHERE w.user_id = ?1").bind(uid).all(),
+    env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle, CASE WHEN (w.order_id IS NULL AND COALESCE(p.price, 0) = 0) OR (w.order_id IS NOT NULL AND COALESCE(o.total, 0) = 0) THEN 1 ELSE 0 END free FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1").bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution, type FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
@@ -93,13 +112,61 @@ export async function handlePublic(req, env, ctx, url, s) {
   if (p === '/api/t' && m === 'POST') {
     const b = await readJson(req, 2000); const path = clean(b.p, 120).split('?')[0] || '/';
     let vid = cookie(req, 'jc_v'); const h = {};
-    if (!vid || vid.length > 40) { vid = rand(12); h['set-cookie'] = setCookie('jc_v', vid, 365 * 86400); }
+    if (!vid || vid.length > 40) { vid = /^[a-f0-9]{16,32}$/.test(String(b.v || '')) ? String(b.v) : rand(12); h['set-cookie'] = setCookie('jc_v', vid, 365 * 86400); }
     const d = dayStr();
-    ctx.waitUntil(env.DB.batch([
-      env.DB.prepare('INSERT INTO pv (day, path, n) VALUES (?1, ?2, 1) ON CONFLICT(day, path) DO UPDATE SET n = n + 1').bind(d, path),
-      env.DB.prepare('INSERT OR IGNORE INTO visitors (day, vid) VALUES (?1, ?2)').bind(d, vid)
-    ]).catch(() => { }));
-    return J({ ok: true }, 200, h);
+    const flag = await hitFlag(req, env, s, b);
+    const ua = clean(req.headers.get('user-agent'), 300), cf = req.cf || {};
+    const ipx = (await sha256('jc-ip|' + (req.headers.get('cf-connecting-ip') || ''))).slice(0, 16);
+    const st = [
+      // raw log (every hit, flagged; the dashboard counts only flag = '')
+      env.DB.prepare('INSERT INTO hitlog (at, day, path, vid, uid, flag, ua, ipx, asn, country, ref) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)')
+        .bind(now(), d, path, vid, s ? s.user.id : null, flag, ua, ipx, clean((cf.asn || '') + ' ' + (cf.asOrganization || ''), 120), clean(cf.country, 4), clean(b.r, 200))
+    ];
+    // owner / admin seen on this browser -> all its earlier hits stop counting too
+    if (flag === 'owner') st.push(env.DB.prepare("UPDATE hitlog SET flag = 'owner' WHERE vid = ?1 AND flag = ''").bind(vid));
+    // legacy aggregate tables (kept so nothing else breaks; the dashboard no longer reads them for new days)
+    if (!flag) st.push(env.DB.prepare('INSERT INTO pv (day, path, n) VALUES (?1, ?2, 1) ON CONFLICT(day, path) DO UPDATE SET n = n + 1').bind(d, path), env.DB.prepare('INSERT OR IGNORE INTO visitors (day, vid) VALUES (?1, ?2)').bind(d, vid));
+    if (flag === 'owner' && !cookie(req, 'jc_noc')) h['set-cookie'] = [h['set-cookie'], setCookie('jc_noc', '1', 5 * 365 * 86400)].filter(Boolean).join(', ');
+    ctx.waitUntil(env.DB.batch(st).catch(() => { }));
+    const res = J({ ok: true }, 200);
+    // two cookies need two headers
+    if (h['set-cookie']) for (const c of String(h['set-cookie']).split(', ')) res.headers.append('set-cookie', c);
+    return res;
+  }
+  // Nov 1: "don't count this device" link (?nocount=1 on any page calls this)
+  if (p === '/api/t/nocount' && m === 'POST') {
+    const vid = cookie(req, 'jc_v');
+    if (vid && s && (s.isAdmin || (await ownerEmails(env)).includes(String(s.user.email).toLowerCase()))) ctx.waitUntil(env.DB.prepare("UPDATE hitlog SET flag = 'owner' WHERE vid = ?1 AND flag = ''").bind(vid).run().catch(() => { }));
+    else if (vid) ctx.waitUntil(env.DB.prepare("UPDATE hitlog SET flag = 'own' WHERE vid = ?1 AND flag = ''").bind(vid).run().catch(() => { }));
+    const res = J({ ok: true }); res.headers.append('set-cookie', setCookie('jc_noc', '1', 5 * 365 * 86400)); return res;
+  }
+
+  /* ----- suggestion box (Nov 1) ----- */
+  if (p === '/api/feedback' && m === 'POST') {
+    const b = await readJson(req, 8000);
+    if (clean(b.website, 200) || clean(b.hp, 200)) return J({ ok: true, message: (await getKey(env, 'suggest'))?.thanks || 'Thank you!' }); // honeypot: pretend success
+    const msg = clean(b.message, 2000), name = clean(b.name, 80) || (s && s.user.name) || '';
+    if (msg.length < 3) fail('Please write your suggestion first');
+    if (!name) fail('Please enter your name');
+    if (Number(b.t || 0) && now() - Number(b.t) < 2500) fail('Please take a moment, then send again');
+    const ipa = req.headers.get('cf-connecting-ip') || '';
+    await limitOrFail(env, 'fb:' + ipa, 5, 3600e3, 'You have sent a few suggestions already. Please try again in an hour.');
+    if (s) await limitOrFail(env, 'fbu:' + s.user.id, 8, 86400e3, 'You have sent a few suggestions already. Please try again tomorrow.');
+    if (/(https?:\/\/[^\s]+.*){3,}/i.test(msg)) fail('Please remove the links and send again');
+    await env.DB.prepare('INSERT INTO feedback (user_id, name, email, message, created, ip) VALUES (?1, ?2, ?3, ?4, ?5, ?6)').bind(s ? s.user.id : null, name, s ? s.user.email : clean(b.email, 200), msg, now(), ipa).run();
+    const sg = await getKey(env, 'suggest');
+    return J({ ok: true, message: (sg && sg.thanks) || 'Thank you!' });
+  }
+
+  /* ----- My Downloads: remove a FREE item (paid items stay; Nov 1) ----- */
+  if (p === '/api/owned/remove' && m === 'POST') {
+    needUser(s); const b = await readJson(req); const pid = Math.round(+b.product_id || 0);
+    const row = await env.DB.prepare('SELECT w.order_id, p.price, o.total FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(s.user.id, pid).first();
+    if (!row) fail('This item is not in your downloads', 404);
+    const freeItem = row.order_id ? !(row.total > 0) : !(row.price > 0);
+    if (!freeItem) fail('Purchased items stay in your downloads for life and cannot be removed');
+    await env.DB.prepare('DELETE FROM owned WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid).run();
+    return J({ ok: true });
   }
 
   /* ----- auth ----- */

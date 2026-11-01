@@ -122,6 +122,13 @@ export const DEFAULTS = {
     video: [ { title: 'Trending Now', auto: true, source: 'featured' }, { title: 'Colour Grading', source: 'cat:Colour Grading' }, { title: 'Song Edits', source: 'cat:Song Edits' }, { title: 'YouTube & Cinematic', source: 'cat:YouTube & Cinematic' } ],
     thumb: [ { title: 'Most Clicked', auto: true, source: 'featured' }, { title: 'YouTube Thumbnails', source: 'cat:YouTube' } ]
   },
+  // Nov 1: footer social icons (admin picks which show in the site footer and their order; custom=false = all visible socials, as before)
+  footer_socials: { custom: false, list: [] },
+  // Nov 1: suggestion box (footer link + popup); messages land in Admin -> Suggestions
+  suggest: { show: true, title: 'Have an idea?', text: 'Suggest a pack, a feature or anything you want on this site.', button: 'Suggest something', thanks: 'Thank you! Your suggestion has reached Jangid Cuts. Every message is read.' },
+  // Nov 1: product tiers (Free -> Starter -> Pro -> Ultimate); names shown on the site
+  tiers: { free: 'Free', starter: 'Starter', pro: 'Pro', ultimate: 'Ultimate' },
+  _stats: { rev_from: 0, owner_emails: ['jangidcuts@gmail.com'] },
   _alerts: { email: 'jangidcuts@gmail.com', telegram_bot_token: '', telegram_chat_id: '' },
   _payments: { provider: 'upi', key_id: '', key_secret_enc: '', webhook_secret_enc: '', upi_id: '9351664400@ibl', upi_name: 'PRASHANT JANGIR', upi_qr: '/img/upi_qr.jpg' }
 };

@@ -87,6 +87,12 @@ export async function getKey(env, k) {
   if (r) { try { return JSON.parse(r.v); } catch { } }
   return DEFAULTS[k] !== undefined ? structuredClone(DEFAULTS[k]) : null;
 }
+// Nov 1: emails whose purchases never count in dashboard sales (Admin -> Dashboard -> Counting settings) + the admin emails
+export async function ownerEmails(env) {
+  const st = await getKey(env, '_stats');
+  const list = [...((st && st.owner_emails) || []), ...String(env.ADMIN_EMAILS || '').split(',')].map(e => String(e || '').trim().toLowerCase()).filter(Boolean);
+  return [...new Set(list)];
+}
 export async function setKey(env, k, v) { await env.DB.prepare('INSERT INTO kv (k, v, updated) VALUES (?1, ?2, ?3) ON CONFLICT(k) DO UPDATE SET v = ?2, updated = ?3').bind(k, JSON.stringify(v), now()).run(); }
 // Reference numbers: JC-<TYPE>-<number>, e.g. JC-HIRE-48213. Types: ORD (paid order), DL (free download / licence),
 // TKT (support ticket), HIRE (project request), REF (refund).

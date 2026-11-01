@@ -1,4 +1,4 @@
-import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef, refClosed } from './lib.js';
+import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef, refClosed, ownerEmails } from './lib.js';
 import { setHireStatus, HIRE_LABELS, hireKind, hireStatus } from './hire.js';
 import { rankTop, homeSet, reviewOpen, reviewInvite } from './reviews.js';
 import { DEFAULTS } from './defaults.js';
@@ -11,13 +11,13 @@ import { normDriveLinks, libraryPreview } from './library.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
 const TABLES = {
-  products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'price_mode', 'disc_type', 'disc_value', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort', 'video'],
+  products: ['slug', 'title', 'short', 'description', 'price', 'mrp', 'price_mode', 'disc_type', 'disc_value', 'category_id', 'image', 'gallery', 'delivery', 'file_key', 'file_name', 'file_size', 'drive_id', 'link_url', 'size_text', 'badge', 'visible', 'sort', 'video', 'tier', 'next_id', 'up_text'],
   portfolio: ['kind', 'title', 'description', 'category_id', 'subcategory_id', 'image', 'video', 'url', 'orient', 'featured', 'home', 'sort', 'visible', 'services', 'source'],
   categories: ['section', 'name', 'parent_id', 'sort', 'thumb'],
   coupons: ['code', 'type', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'note'],
   reviews: ['product_id', 'name', 'role', 'rating', 'text', 'status', 'featured', 'source', 'photo', 'pick', 'reply']
 };
-const NUM = new Set(['price', 'mrp', 'disc_value', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating', 'pick']);
+const NUM = new Set(['price', 'mrp', 'disc_value', 'category_id', 'file_size', 'visible', 'sort', 'subcategory_id', 'featured', 'home', 'parent_id', 'value', 'min_items', 'min_total', 'starts', 'expires', 'active', 'max_uses', 'product_id', 'rating', 'pick', 'next_id']);
 const slugify = (s) => clean(s, 80).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'item';
 
 function rowVals(table, b) {
@@ -30,6 +30,9 @@ function rowVals(table, b) {
     if (c === 'drive_id') v = normDriveLinks(b[c]);
     if (c === 'code') v = String(v).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (c === 'price_mode' && !['', 'none', 'manual', 'discount'].includes(v)) v = '';
+    if (c === 'tier' && !['', 'free', 'starter', 'pro', 'ultimate'].includes(v)) v = '';
+    if (c === 'next_id' && !(v > 0)) v = null;
+    if (c === 'up_text') v = String(v).slice(0, 120);
     if (c === 'disc_type' && !['', 'pct', 'flat'].includes(v)) v = 'pct';
     if ((c === 'disc_value' || c === 'mrp' || c === 'price') && v !== null) v = Math.max(0, v);
     if ((c === 'image' || c === 'photo' || c === 'thumb') && /drive\.google\.com|docs\.google\.com/.test(v) && driveId(v)) v = 'https://drive.google.com/thumbnail?id=' + driveId(v) + '&sz=w2000';
@@ -61,31 +64,70 @@ export async function handleAdmin(req, env, ctx, url, s) {
   if (p === '/api/admin/storage' && m === 'GET') return J({ ok: true, ...(await storageMeter(env, url.searchParams.get('fresh') === '1')) });
 
   /* ----- overview / analytics ----- */
+  // Nov 1 (Prashant): visitors = real people only (hitlog flag ''), sales = paid orders since the reset point, never the owner's own purchases
   if (p === '/api/admin/overview' && m === 'GET') {
     const d30 = dayStr(now() - 29 * 864e5), today = dayStr();
+    const st = await getKey(env, '_stats') || {}, owners = JSON.stringify(await ownerEmails(env)), revFrom = +st.rev_from || 0;
+    const notOwner = "lower(COALESCE(email,'')) NOT IN (SELECT value FROM json_each(?9)) AND COALESCE(user_id, 0) NOT IN (SELECT id FROM users WHERE lower(email) IN (SELECT value FROM json_each(?9)))";
     const q = (sql, ...a) => env.DB.prepare(sql).bind(...a);
-    const [pv, uv, top, rev, ordersBy, users, tix, hires, dls, revStats, recentOrders, mail, events, prodCount] = await env.DB.batch([
-      q('SELECT day, SUM(n) n FROM pv WHERE day >= ?1 GROUP BY day ORDER BY day', d30),
-      q('SELECT day, COUNT(*) n FROM visitors WHERE day >= ?1 GROUP BY day ORDER BY day', d30),
-      q('SELECT path, SUM(n) n FROM pv WHERE day >= ?1 GROUP BY path ORDER BY n DESC LIMIT 10', d30),
-      q("SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?1 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) today FROM orders WHERE status IN ('delivered','completed','processing','paid')", now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
-      q('SELECT status, COUNT(*) n FROM orders GROUP BY status'),
+    const qo = (sql, a = []) => { const args = Array(9).fill(null); a.forEach((v, i) => { args[i] = v; }); args[8] = owners; return env.DB.prepare(sql).bind(...args); };
+    const [pv, uv, top, rev, ordersBy, users, tix, hires, dls, revStats, recentOrders, mail, events, prodCount, uvTot, excl, legacy, fb, ownerOrders] = await env.DB.batch([
+      q("SELECT day, COUNT(*) n FROM hitlog WHERE day >= ?1 AND flag = '' GROUP BY day ORDER BY day", d30),
+      q("SELECT day, COUNT(DISTINCT vid) n FROM hitlog WHERE day >= ?1 AND flag = '' GROUP BY day ORDER BY day", d30),
+      q("SELECT path, COUNT(*) n FROM hitlog WHERE day >= ?1 AND flag = '' GROUP BY path ORDER BY n DESC LIMIT 10", d30),
+      qo(`SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?3 THEN total END),0) today FROM orders WHERE status IN ('delivered','completed','processing','paid') AND total > 0 AND COALESCE(paid_at, created) >= ?1 AND ${notOwner}`, [revFrom, now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()]),
+      qo(`SELECT status, COUNT(*) n FROM orders WHERE created >= ?1 AND ${notOwner} GROUP BY status`, [revFrom]),
       q('SELECT COUNT(*) n, SUM(CASE WHEN created >= ?1 THEN 1 ELSE 0 END) new7, SUM(CASE WHEN last_login >= ?2 THEN 1 ELSE 0 END) today, SUM(CASE WHEN last_login >= ?1 THEN 1 ELSE 0 END) active7 FROM users', now() - 7 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
       q("SELECT COUNT(*) n FROM tickets WHERE status = 'pending'"),
       q("SELECT COUNT(*) n FROM hire WHERE status IN ('new','received')"),
       q('SELECT COALESCE(SUM(downloads),0) n FROM products'),
       q("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible'"),
-      q('SELECT number, email, total, status, created FROM orders ORDER BY id DESC LIMIT 8'),
+      qo(`SELECT number, email, total, status, created FROM orders WHERE created >= ?1 AND ${notOwner} ORDER BY id DESC LIMIT 8`, [revFrom]),
       q("SELECT SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) sent, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM outbox WHERE created >= ?1", now() - 864e5),
       q('SELECT at, kind, msg FROM events ORDER BY id DESC LIMIT 15'),
-      q('SELECT COUNT(*) n, SUM(CASE WHEN price = 0 THEN 1 ELSE 0 END) free FROM products')
+      q('SELECT COUNT(*) n, SUM(CASE WHEN price = 0 THEN 1 ELSE 0 END) free FROM products'),
+      q("SELECT COUNT(DISTINCT vid) n, COUNT(*) pv, MIN(day) first FROM hitlog WHERE day >= ?1 AND flag = ''", d30),
+      q("SELECT flag, COUNT(*) n, COUNT(DISTINCT vid) v FROM hitlog WHERE day >= ?1 AND flag != '' GROUP BY flag", d30),
+      q("SELECT COALESCE((SELECT SUM(n) FROM pv WHERE day < COALESCE((SELECT MIN(day) FROM hitlog), '9999')), 0) pv, COALESCE((SELECT COUNT(*) FROM visitors WHERE day < COALESCE((SELECT MIN(day) FROM hitlog), '9999')), 0) uv, (SELECT MIN(day) FROM hitlog) since"),
+      q('SELECT COUNT(*) n FROM feedback WHERE read_at IS NULL'),
+      qo(`SELECT COUNT(*) n, COALESCE(SUM(total),0) total FROM orders WHERE status IN ('delivered','completed','processing','paid') AND NOT (${notOwner})`)
     ]);
     const mailMain = await getKey(env, '_mail_main'), mailSup = await getKey(env, '_mail_support');
     return J({ ok: true, pv: pv.results, uv: uv.results, top: top.results, revenue: rev.results[0], orders: ordersBy.results, users: users.results[0],
-      pendingTickets: tix.results[0].n, newHires: hires.results[0].n, downloads: dls.results[0].n, reviews: { count: revStats.results[0].n, avg: Math.round((revStats.results[0].avg || 0) * 10) / 10 },
+      pendingTickets: tix.results[0].n, newHires: hires.results[0].n, newFeedback: fb.results[0].n, downloads: dls.results[0].n, reviews: { count: revStats.results[0].n, avg: Math.round((revStats.results[0].avg || 0) * 10) / 10 },
       recentOrders: recentOrders.results, mail24h: mail.results[0], events: events.results, products: prodCount.results[0],
+      visitors: { unique: uvTot.results[0].n || 0, views: uvTot.results[0].pv || 0, since: legacy.results[0].since || today, excluded: excl.results, legacy: { pv: legacy.results[0].pv || 0, uv: legacy.results[0].uv || 0 } },
+      stats: { rev_from: revFrom, owner_emails: (st.owner_emails || []), admin_emails: String(env.ADMIN_EMAILS || '').split(',').map(x => x.trim()).filter(Boolean), owner_orders: ownerOrders.results[0] },
       mail: { main: !!mailMain?.refresh_enc && mailMain.email, support: !!mailSup?.refresh_enc && mailSup.email, google: !!env.GOOGLE_CLIENT_ID },
       storage: storageInfo(env) });
+  }
+  // Nov 1: sidebar badges (WhatsApp-style counts)
+  if (p === '/api/admin/counts' && m === 'GET') {
+    const [t, h, f] = await env.DB.batch([env.DB.prepare("SELECT COUNT(*) n FROM tickets WHERE status = 'pending'"), env.DB.prepare("SELECT COUNT(*) n FROM hire WHERE status IN ('new','received')"), env.DB.prepare('SELECT COUNT(*) n FROM feedback WHERE read_at IS NULL')]);
+    return J({ ok: true, tickets: t.results[0].n, hires: h.results[0].n, feedback: f.results[0].n });
+  }
+  // Nov 1: counting settings (sales reset point + owner emails that never count)
+  if (p === '/api/admin/stats' && m === 'PUT') {
+    const b = await readJson(req); const st = await getKey(env, '_stats') || {};
+    if (b.rev_from !== undefined) st.rev_from = b.rev_from === 'now' ? now() : Math.max(0, Math.round(+b.rev_from || 0));
+    if (b.owner_emails !== undefined) {
+      const list = (Array.isArray(b.owner_emails) ? b.owner_emails : String(b.owner_emails || '').split(/[\s,;]+/)).map(e => String(e || '').trim().toLowerCase()).filter(Boolean);
+      for (const e of list) if (!isEmail(e)) fail('Not a valid email: ' + e);
+      st.owner_emails = [...new Set(list)].slice(0, 20);
+    }
+    await setKey(env, '_stats', st); await logEvent(env, 'admin', `${s.user.email} changed counting settings`);
+    return J({ ok: true, stats: st });
+  }
+  /* ----- suggestions (read / delete only) ----- */
+  if (p === '/api/admin/feedback' && m === 'GET') {
+    const { results } = await env.DB.prepare('SELECT id, name, email, message, created, read_at FROM feedback ORDER BY id DESC LIMIT 1000').all();
+    return J({ ok: true, items: results });
+  }
+  if ((mm = p.match(/^\/api\/admin\/feedback\/(\d+)\/read$/)) && m === 'POST') {
+    await env.DB.prepare('UPDATE feedback SET read_at = COALESCE(read_at, ?2) WHERE id = ?1').bind(+mm[1], now()).run(); return J({ ok: true });
+  }
+  if ((mm = p.match(/^\/api\/admin\/feedback\/(\d+)$/)) && m === 'DELETE') {
+    await env.DB.prepare('DELETE FROM feedback WHERE id = ?1').bind(+mm[1]).run(); return J({ ok: true });
   }
 
   /* ----- content ----- */
