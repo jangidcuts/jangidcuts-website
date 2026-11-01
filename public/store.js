@@ -20,7 +20,9 @@ function bindUpsell(root){$$('[data-upto]',root).forEach(function(b){b.onclick=f
 function owned(id){return !!(ME&&ME.owned&&ME.owned.some(function(o){return o.product_id===+id}))}
 function ownRow(id){return ME&&ME.owned&&ME.owned.find(function(o){return o.product_id===+id})}
 function guestCart(){try{return JSON.parse(localStorage.getItem(GK)||'[]')}catch(e){return []}}
-function cartIds(){return U?(ME.cart||[]):guestCart()}
+/* Nov 1 (Prashant): the cart (and its badge) only holds packs that still exist, cost money and are not already owned */
+function cartOk(id){var p=PRODS&&prod(id);return !!(p&&p.price>0&&!owned(id))}
+function cartIds(){var a=U?(ME.cart||[]):guestCart();if(!PRODS)return a;var ok=a.filter(cartOk);if(ok.length!==a.length){if(U)ME.cart=ok;else try{localStorage.setItem(GK,JSON.stringify(ok))}catch(e){}}return ok}
 function inWish(id){return !!(U&&ME.wishlist.indexOf(+id)>=0)}
 function catOf(p){return CATS.find(function(c){return c.id===p.category_id})}
 function sectionOf(p){var c=catOf(p);while(c&&c.parent_id)c=CATS.find(function(x){return x.id===c.parent_id});return c?c.section:(p.price>0?'store_paid':'store_free')}
@@ -44,9 +46,10 @@ function saleBar(){var s=C.store.sale||{},fo=+S.firstOffer||0,h='';
   h+='<div class="sale-bar'+(b.when==='first'?' first':'')+'">'+I(b.icon||'tag')+(t?'<b>'+esc(t)+'</b>':'')+(t&&x?'<i class="sb-dot">·</i>':'')+(x?'<span>'+esc(x)+'</span>':'')+'</div>'});
  return h?'<div class="sale-bars">'+h+'</div>':''}
 function card(p){var o=owned(p.id);var price=priceHTML(p);
- return '<article class="pc" data-p="'+p.id+'" tabindex="0"><div class="pc-img"><img src="'+esc(p.image||'/img/t1.jpg')+'" alt="" loading="lazy">'+(p.badge?'<span class="tag">'+esc(p.badge)+'</span>':'')+(tierOf(p)?'<span class="tier-tag t-'+tierOf(p)+'">'+esc(TN(tierOf(p)))+'</span>':'')+(o?'':offTag(p))+(p.has_video?'<span class="pc-vid" aria-label="Has video">'+I('play')+'</span>':'')+'</div><div class="pc-body"><h3>'+esc(p.title)+'</h3>'+rateTag(p)+'<p>'+esc(p.short||'')+'</p><div class="pc-foot">'+(o?'<span class="own-b">'+I('check')+' Owned</span>':price)+(o?'<button class="btn btn-primary btn-s" data-own="'+p.id+'">'+I('download')+' Download</button>':'<button class="btn btn-ghost btn-s" data-q="'+p.id+'">'+(o?'':!p.price?I('download')+' Free':'View')+'</button>')+'</div></div></article>'}
+ return '<article class="pc" data-p="'+p.id+'" tabindex="0"><div class="pc-img"><img src="'+esc(p.image||'/img/t1.jpg')+'" alt="" loading="lazy">'+(p.badge?'<span class="tag">'+esc(p.badge)+'</span>':'')+(tierOf(p)?'<span class="tier-tag t-'+tierOf(p)+'">'+esc(TN(tierOf(p)))+'</span>':'')+(o?'':offTag(p))+(p.has_video?'<span class="pc-vid" aria-label="Has video">'+I('play')+'</span>':'')+'</div><div class="pc-body"><h3>'+esc(p.title)+'</h3>'+rateTag(p)+'<p>'+esc(p.short||'')+'</p><div class="pc-foot">'+(o?'<span class="own-b">'+I('check')+' Owned</span><button type="button" class="btn btn-primary btn-s pc-act" data-own="'+p.id+'">'+I('download')+' Download</button>':!p.price?price+'<button type="button" class="btn btn-primary btn-s pc-act" data-free="'+p.id+'">'+I('download')+' Download free</button>':price+'<button type="button" class="btn btn-primary btn-s pc-act" data-buy="'+p.id+'">'+I('cart')+' Buy now</button>')+'</div>'+'</div></div></article>'}
 function ownGo(id){var p=prod(id),r=ownRow(id);if((p&&p.bundle)||(r&&r.bundle))location.href='/library?p='+id;else download(id,null)}
-function bindCards(root){$$('[data-own]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();ownGo(+b.dataset.own)}});$$('.pc',root).forEach(function(el){el.onclick=function(){openProd(+el.dataset.p)};el.onkeydown=function(e){if(e.key==='Enter')openProd(+el.dataset.p)}})}
+/* Nov 1 (Prashant 10:17 PM): every store card has a clear action button; the button does the action, the rest of the card opens the product page */
+function bindCards(root){$$('[data-own]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();ownGo(+b.dataset.own)}});$$('[data-buy]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();addCart(+b.dataset.buy,true)}});$$('[data-free]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();download(+b.dataset.free,b)}});$$('.pc-act',root).forEach(function(b){b.onkeydown=function(e){e.stopPropagation()}});$$('.pc',root).forEach(function(el){el.onclick=function(){openProd(+el.dataset.p)};el.onkeydown=function(e){if(e.key==='Enter')openProd(+el.dataset.p)}})}
 
 /* ---------- product gallery: cover first, then saved order; swipe, dots, thumbs, tap to view large ---------- */
 function galOf(p){var g=p.gallery;if(typeof g==='string'){try{g=JSON.parse(g||'[]')}catch(e){g=[]}}if(!Array.isArray(g))g=[];var out=[];[p.image].concat(g).forEach(function(u){u=u&&String(u).trim();if(u&&out.indexOf(u)<0)out.push(u)});return out.slice(0,9)}
@@ -173,10 +176,14 @@ function viewStore(){var q=new URLSearchParams(location.search);if(q.get('tab')=
   var under=function(p,cid){var c=catOf(p);while(c){if(c.id===cid)return true;c=CATS.find(function(x){return x.id===c.parent_id})}return false};
   var list=PRODS.filter(function(p){if(st.sec==='owned')return owned(p.id);if(!inSec(p))return false;if(st.tier&&p.tier!==st.tier)return false;if(st.cat&&!under(p,st.cat))return false;if(st.sub&&!under(p,st.sub))return false;
    if(st.price>=0){var f=pf[st.price];if(p.price<(+f.min||0))return false;if(+f.max&&p.price>+f.max)return false}return true});
+  var em=$('#stMore');if(em)em.remove();
   var g=$('#grid');if(st.sec==='owned'&&!U){g.outerHTML='<div id="grid">'+signInBox('your purchases').replace('<div class="wrap">','<div>')+'</div>';bindSignIn();return}
   if(g.tagName!=='DIV'||!g.classList.contains('st-grid')){g.outerHTML='<div class="st-grid" id="grid"></div>';g=$('#grid')}
   if(!list.length){g.className='';g.innerHTML='<div class="st-empty">'+esc(st.sec==='owned'?C.store.empty_owned:C.store.empty)+'</div>';return}
-  g.className='st-grid';g.innerHTML=list.map(card).join('');bindCards(g)}}
+  g.className='st-grid';g.innerHTML=list.map(card).join('');bindCards(g);
+  /* Nov 1 (Prashant 10:18 PM): a note where every product list ends (Admin -> Store settings -> End-of-list text; empty = hidden) */
+  if(st.sec!=='owned'){var en=endNote();if(en)g.insertAdjacentHTML('afterend','<p class="st-more" id="stMore">'+I('bolt')+'<span>'+esc(en)+'</span></p>')}}}
+function endNote(){var s=C.store||{};return String(s.end_note==null?'More packs are coming soon':s.end_note).trim()}
 
 /* ---------- CART ---------- */
 function viewCart(){var ids=cartIds().filter(function(id){return prod(id)});

@@ -250,6 +250,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (m === 'DELETE' && id) {
       if (table === 'categories') await env.DB.prepare('UPDATE categories SET parent_id = NULL WHERE parent_id = ?1').bind(id).run();
       await env.DB.prepare(`DELETE FROM ${table} WHERE id = ?1`).bind(id).run();
+      if (table === 'products') { try { await env.DB.batch([env.DB.prepare('DELETE FROM cart WHERE product_id = ?1').bind(id), env.DB.prepare('DELETE FROM wishlist WHERE product_id = ?1').bind(id)]); } catch { } }
       return J({ ok: true });
     }
   }

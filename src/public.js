@@ -65,8 +65,11 @@ export async function siteData(env) {
 
 async function meData(env, s) {
   const uid = s.user.id;
+  // Nov 1 (Prashant: badge showed "1" with an empty cart): drop cart rows for products that were deleted,
+  // are free, or this user already owns; hidden products stay in the table but are not counted/sent.
+  try { await env.DB.prepare('DELETE FROM cart WHERE user_id = ?1 AND (product_id NOT IN (SELECT id FROM products WHERE COALESCE(price, 0) > 0) OR product_id IN (SELECT product_id FROM owned WHERE user_id = ?1))').bind(uid).run(); } catch { }
   const [cart, wish, owned, orders, tickets, hires, dld, myRev] = await Promise.all([
-    env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
+    env.DB.prepare('SELECT c.product_id FROM cart c JOIN products p ON p.id = c.product_id WHERE c.user_id = ?1 AND p.visible = 1 ORDER BY c.added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle, CASE WHEN (w.order_id IS NULL AND COALESCE(p.price, 0) = 0) OR (w.order_id IS NOT NULL AND COALESCE(o.total, 0) = 0) THEN 1 ELSE 0 END free FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1").bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
@@ -288,7 +291,7 @@ export async function handlePublic(req, env, ctx, url, s) {
     const ids = (Array.isArray(b.ids) ? b.ids : [b.product_id]).map(Number).filter(Boolean).slice(0, 50);
     if (b.op === 'remove') { for (const id of ids) await env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ?1 AND product_id = ?2`).bind(s.user.id, id).run(); }
     else if (b.op === 'clear') await env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ?1`).bind(s.user.id).run();
-    else for (const id of ids) await env.DB.prepare(`INSERT OR IGNORE INTO ${table} (user_id, product_id, added) SELECT ?1, id, ?3 FROM products WHERE id = ?2 AND visible = 1`).bind(s.user.id, id, now()).run();
+    else for (const id of ids) await env.DB.prepare(`INSERT OR IGNORE INTO ${table} (user_id, product_id, added) SELECT ?1, id, ?3 FROM products WHERE id = ?2 AND visible = 1${table === 'cart' ? ' AND COALESCE(price, 0) > 0' : ''}`).bind(s.user.id, id, now()).run();
     const { results } = await env.DB.prepare(`SELECT product_id FROM ${table} WHERE user_id = ?1 ORDER BY added`).bind(s.user.id).all();
     return J({ ok: true, ids: results.map(r => r.product_id) });
   }

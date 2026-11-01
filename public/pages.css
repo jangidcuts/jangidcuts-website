@@ -1,13 +1,13 @@
 .pg-top{padding:26px 0 4px}
 .back{display:inline-flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:999px;background:color-mix(in srgb,var(--panel) 80%,transparent);border:1px solid var(--line);font-weight:700;font-size:14px;color:var(--text);transition:border-color .2s,transform .2s;backdrop-filter:blur(10px)}
-.back:hover{border-color:rgba(43,245,192,.55);transform:translateX(-2px)}
+@media (hover:hover) and (pointer:fine){.back:hover{border-color:rgba(43,245,192,.55);transform:translateX(-2px)}}
 .back .icon{width:18px;height:18px;color:var(--mint)}
 .pg-h{margin:16px 0 4px}
 .pg-h .lead{margin-top:8px}
 .cat-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:20px 0 10px}
 .ctile{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/3;border:1px solid var(--line);display:block;background:var(--panel)}
 .ctile img{width:100%;height:100%;object-fit:cover;transition:transform .6s}
-.ctile:hover img{transform:scale(1.06)}
+@media (hover:hover) and (pointer:fine){.ctile:hover img{transform:scale(1.06)}}
 .ctile:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(0,0,0,.82))}
 .ctile b{position:absolute;left:12px;right:12px;bottom:10px;z-index:2;color:#fff;font-family:'Anton','Bebas Neue',sans-serif;font-weight:400;font-size:21px;letter-spacing:.03em;line-height:1}
 .ctile span{position:absolute;right:10px;top:10px;z-index:2;font-size:11.5px;font-weight:700;color:var(--mint);background:rgba(0,0,0,.55);padding:4px 9px;border-radius:999px}
@@ -22,7 +22,7 @@
 .mc{position:relative;border-radius:14px;overflow:hidden;background:var(--panel);border:1px solid var(--line);aspect-ratio:16/10;display:block;scroll-snap-align:start;cursor:pointer}
 .mc.v{aspect-ratio:9/14}
 .mc img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
-.mc:hover img{transform:scale(1.05)}
+@media (hover:hover) and (pointer:fine){.mc:hover img{transform:scale(1.05)}}
 .mc:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.8))}
 .mc .mt{position:absolute;left:10px;right:10px;bottom:9px;z-index:2;color:#fff}
 .mc .mt b{display:block;font-size:13.5px;line-height:1.25}.mc .mt span{font-size:11px;color:rgba(255,255,255,.72);text-transform:uppercase;letter-spacing:.06em}
@@ -37,7 +37,7 @@
 .w-info h1{font-family:'Anton','Bebas Neue',sans-serif;font-weight:400;font-size:clamp(28px,4vw,46px);letter-spacing:.02em;line-height:1.05}
 .w-meta{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .w-meta a,.w-meta span{font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
-.w-meta a:hover{color:var(--mint);border-color:rgba(43,245,192,.5)}
+@media (hover:hover) and (pointer:fine){.w-meta a:hover{color:var(--mint);border-color:rgba(43,245,192,.5)}}
 .w-desc{color:var(--muted);font-size:15px;line-height:1.65;max-width:75ch;white-space:pre-line}
 .w-acts{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 6px}
 .svc-hero{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:21/9;min-height:200px;margin:16px 0 0;border:1px solid var(--line)}
@@ -55,7 +55,7 @@
 .ad-wrap{margin:20px auto;min-height:0}
 .pf-banner{position:relative;display:block;border-radius:24px;overflow:hidden;min-height:260px;aspect-ratio:21/8;border:1px solid rgba(43,245,192,.25);box-shadow:0 30px 80px -40px rgba(43,245,192,.35)}
 .pf-banner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1.2s}
-.pf-banner:hover img{transform:scale(1.04)}
+@media (hover:hover) and (pointer:fine){.pf-banner:hover img{transform:scale(1.04)}}
 .pfb-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.85),rgba(0,0,0,.35) 60%,rgba(0,0,0,.1))}
 .pfb-tx{position:relative;z-index:2;padding:clamp(22px,4vw,48px);max-width:560px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;color:#fff}
 .pfb-tx p{color:rgba(255,255,255,.8)}

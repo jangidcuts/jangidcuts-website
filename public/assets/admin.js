@@ -622,8 +622,8 @@ function bindBanners(v){var c=$('#banCard',v);if(!c)return;var s=ST.content.stor
   saveContent('store',Object.assign({},ST.content.store,{banners:clean})).then(function(){list=JSON.parse(JSON.stringify(clean));draw()})};
  draw()}
 
-VIEWS.storeset=function(v){withContent(function(c){var s=c.store;
- var F=[{k:'title',label:'Store title'},{k:'intro',label:'Intro'},{k:'free_label',label:'Free tab'},{k:'paid_label',label:'Paid tab'},{k:'owned_label',label:'Owned filter'},{k:'empty_owned',label:'Owned empty message'},{k:'empty',label:'Empty store message'},{k:'big_file_msg',label:'Big file message'},{k:'first_download_msg',label:'First download message'},{k:'usd_rate',label:'₹ per $1 (for USD view)',type:'number'}];
+VIEWS.storeset=function(v){withContent(function(c){var s=c.store;if(s.end_note==null)s.end_note='More packs are coming soon';
+ var F=[{k:'title',label:'Store title'},{k:'intro',label:'Intro'},{k:'free_label',label:'Free tab'},{k:'paid_label',label:'Paid tab'},{k:'owned_label',label:'Owned filter'},{k:'empty_owned',label:'Owned empty message'},{k:'empty',label:'Empty store message'},{k:'end_note',label:'End-of-list text (shown under every product list; leave empty to hide)'},{k:'big_file_msg',label:'Big file message'},{k:'first_download_msg',label:'First download message'},{k:'usd_rate',label:'₹ per $1 (for USD view)',type:'number'}];
  v.innerHTML=top('Store settings')+saleCardHTML(s)+bannersCardHTML()+'<div class="card" data-obj="store"><h2>Texts<button class="btn p s" data-save="store">Save</button></h2>'+formHTML(F,s,'st')+'</div>'+
  '<div class="card"><h2>Price filter ranges<button class="btn p s" id="svp">Save</button></h2><p class="muted small mb">Max 0 = no upper limit.</p><div id="pf"></div></div>'+
  '<div class="card"><h2>Bundle discounts (2–3 items together)<button class="btn p s" id="svb">Save</button></h2><p class="muted small mb">Buying this many paid items together gets this % off automatically.</p><div id="bd"></div></div>';

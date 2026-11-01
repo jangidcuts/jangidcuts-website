@@ -6,7 +6,7 @@
 .st-bar{display:flex;flex-direction:column;gap:10px;margin-top:18px}
 .st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin:20px 0 70px}
 .pc{background:linear-gradient(170deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:transform .3s,border-color .3s;text-align:left}
-.pc:hover{transform:translateY(-3px);border-color:rgba(43,245,192,.45)}
+@media (hover:hover) and (pointer:fine){.pc:hover{transform:translateY(-3px);border-color:rgba(43,245,192,.45)}}
 .pc-img{aspect-ratio:16/10;position:relative;overflow:hidden;background:var(--bg2)}
 .pc-img img{width:100%;height:100%;object-fit:cover}
 .pc-body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
@@ -73,9 +73,9 @@
 .st-in{min-height:46px!important}
 .row2b{display:flex;gap:10px;flex-wrap:wrap}.row2b>*{flex:1 1 140px}
 .danger{color:#ff6b6b!important;border-color:rgba(255,107,107,.4)!important}
-@media (max-width:560px){.st-grid{grid-template-columns:1fr 1fr;gap:12px}.pc-body{padding:10px 11px 12px}.pc-body h3{font-size:19px}.pc-body p{display:none}.price{font-size:15.5px}.pc-foot .btn-s{display:none}.pm-title{font-size:28px}}
+@media (max-width:560px){.st-grid{grid-template-columns:1fr 1fr;gap:12px}.pc-body{padding:10px 11px 12px}.pc-body h3{font-size:19px}.pc-body p{display:none}.price{font-size:15.5px}.pm-title{font-size:28px}}
 
-.pm-img{position:relative}.pm-play{white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:10px 18px 10px 10px;border-radius:999px;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);color:#fff;text-decoration:none;font-weight:700;border:1px solid rgba(43,245,192,.45)}.pm-play span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#021a14}.pm-play svg{width:18px;height:18px}.pm-play:hover{border-color:#2BF5C0}
+.pm-img{position:relative}.pm-play{white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:10px 18px 10px 10px;border-radius:999px;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);color:#fff;text-decoration:none;font-weight:700;border:1px solid rgba(43,245,192,.45)}.pm-play span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#021a14}.pm-play svg{width:18px;height:18px}@media (hover:hover) and (pointer:fine){.pm-play:hover{border-color:#2BF5C0}}
 
 /* sale pricing (Oct 27) */
 .off{display:inline-block;font-style:normal;font-family:var(--body,Inter,sans-serif);font-size:11px;font-weight:800;letter-spacing:.05em;line-height:1;padding:4px 7px;border-radius:6px;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#00110D;white-space:nowrap;vertical-align:middle}
@@ -123,7 +123,7 @@ html[data-theme=light] .crop-card{background:#fff;color:#0b1413;border-color:rgb
 .av-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .av-pick{aspect-ratio:1;padding:0;border:2px solid transparent;border-radius:50%;background:none;cursor:pointer;overflow:hidden;transition:transform .15s,border-color .15s}
 .av-pick img{width:100%;height:100%;display:block;border-radius:50%}
-.av-pick:hover{transform:scale(1.05)}.av-pick.on,.av-pick:focus-visible{border-color:#2BF5C0;outline:none}
+@media (hover:hover) and (pointer:fine){.av-pick:hover{transform:scale(1.05)}}.av-pick.on,.av-pick:focus-visible{border-color:#2BF5C0;outline:none}
 .av-note{margin:0;font-size:12.5px;color:var(--muted,#9fb3ae)}
 .av-rm{justify-self:start}
 html[data-theme="light"] .av-sheet{background:#fff;border-color:#cfe3dd}html[data-theme="light"] .av-x{background:#eef4f2}html[data-theme="light"] .av-pick.on{border-color:#077A5C}
@@ -272,3 +272,23 @@ html[data-theme=light] .upi-id{background:#F2FAF8;border-color:rgba(7,122,92,.2)
 .pm-lb.zoomed .pm-lb-h{opacity:0}
 html.pp-on .back-row{display:none}
 @media (max-width:820px){html.pp-on body{padding-bottom:78px}}
+
+/* Nov 1 (Prashant 10:17 PM): store cards always show their action (Buy now / Download free / Download); button = action, rest of card = product page */
+.pc-foot{flex-wrap:wrap}
+.pc-act{flex:none;gap:7px;padding:0 15px}
+.pc-act .icon{width:16px;height:16px}
+.pc-foot .own-b{margin-right:auto}
+@media (max-width:560px){
+ .pc-foot{flex-direction:column;align-items:stretch;gap:8px;padding-top:6px}
+ .pc-foot .price,.pc-foot .own-b{align-self:flex-start}
+ .pc-act{width:100%;min-height:38px;padding:0 8px;font-size:13px;gap:6px;letter-spacing:.01em}
+ .pc-act .icon{width:15px;height:15px}
+}
+/* end-of-list note (Admin -> Store settings -> End-of-list text) */
+.st-grid:has(+.st-more){margin-bottom:0}
+.st-more{display:flex;align-items:center;justify-content:center;gap:8px;margin:28px auto 70px;padding:0 16px;color:var(--muted);font:500 13.5px/1.45 var(--body);text-align:center}
+.st-more .icon{width:16px;height:16px;color:var(--mint);flex:none}
+
+.pc{-webkit-tap-highlight-color:transparent}
+.pc:active{transform:scale(.985);transition:transform .08s}
+.pc:has(.pc-act:active){transform:none}

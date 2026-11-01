@@ -82,6 +82,7 @@ export const DEFAULTS = {
     free_label: 'Free', paid_label: 'Paid', owned_label: 'Owned',
     empty_owned: "You haven't purchased anything yet",
     empty: 'New packs are coming soon.',
+    end_note: 'More packs are coming soon',
     big_file_msg: 'The download link has been sent to your registered email.',
     first_download_msg: 'Download started. You will find it in your Downloads folder.',
     price_filters: [ { label: 'Under ₹100', min: 0, max: 99 }, { label: '₹100 – ₹299', min: 100, max: 299 }, { label: '₹300 – ₹999', min: 300, max: 999 }, { label: '₹1000+', min: 1000, max: 0 } ],
