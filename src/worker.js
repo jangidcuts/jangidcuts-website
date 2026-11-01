@@ -52,6 +52,30 @@ async function setup(req, env, url) {
   return err('unknown action');
 }
 
+/* Nov 1: /product/<slug> = the store shell with this product's own <title>, description and share image (WhatsApp / Google previews) */
+async function productPage(req, env, url, slug) {
+  const pr = await env.DB.prepare('SELECT id, slug, title, short, description, image, price FROM products WHERE visible = 1 AND (slug = ?1 OR CAST(id AS TEXT) = ?1)').bind(slug).first();
+  const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers }));
+  if (!pr) { const r = new Response(res.body, { status: 404, headers: res.headers }); const o = withSec(r); o.headers.set('cache-control', 'no-store'); return o; }
+  const base = await publicOrigin(env, url.origin);
+  const abs = (u) => !u ? base + '/og.jpg' : /^https?:/.test(u) ? u : base + (u.startsWith('/') ? '' : '/') + u;
+  const title = `${pr.title} | Jangid Cuts`, desc = String(pr.short || pr.description || '').replace(/\s+/g, ' ').trim().slice(0, 180) || 'Editing packs by Jangid Cuts.';
+  const canon = base + '/product/' + encodeURIComponent(pr.slug || pr.id), img = abs(pr.image);
+  const setC = (v) => ({ element(e) { e.setAttribute('content', v); } });
+  let added = false;
+  const out = new HTMLRewriter()
+    .on('title', { element(e) { e.setInnerContent(title); } })
+    .on('meta[name="description"]', setC(desc))
+    .on('meta[property="og:title"]', setC(title))
+    .on('meta[property="og:description"]', setC(desc))
+    .on('meta[property="og:image"]', setC(img))
+    .on('meta[property="og:type"]', setC('product'))
+    .on('head', { element(e) { if (added) return; added = true; const a = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      e.append(`<link rel="canonical" href="${a(canon)}"><meta property="og:url" content="${a(canon)}"><meta name="twitter:title" content="${a(title)}"><meta name="twitter:image" content="${a(img)}">`, { html: true }); } })
+    .transform(new Response(res.body, res));
+  const o = withSec(out); o.headers.set('cache-control', 'no-cache'); return o;
+}
+
 async function notFound(req, env, url) {
   const r = await env.ASSETS.fetch(new Request(url.origin + '/404', { headers: req.headers }));
   const out = new Response(r.ok ? r.body : 'Not found', { status: 404, headers: r.ok ? r.headers : { 'content-type': 'text/plain' } });
@@ -110,15 +134,22 @@ export default {
       const PAGES = ['/privacy', '/terms', '/contact', '/social', '/licence', '/shipping', '/how-i-work'];
       if (p === '/portfolio.html') return Response.redirect(url.origin + '/portfolio' + url.search, 301);
       if (/^\/(portfolio|services|about)(\/[\w-]+)?\/?$/.test(p) || /^\/watch\/(\d+|p\d+|reel)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/page', { headers: req.headers })); return withSec(res); }
+      /* Nov 1: every product has its own page. Old links (/store?p=<id>) move there; the page gets its own title / preview image. */
+      if (p.replace(/\/$/, '') === '/store' && /^\d+$/.test(url.searchParams.get('p') || '')) {
+        const pr = await env.DB.prepare('SELECT slug FROM products WHERE id = ?1 AND visible = 1').bind(+url.searchParams.get('p')).first();
+        if (pr && pr.slug) { const q = new URLSearchParams(url.search); q.delete('p'); return Response.redirect(url.origin + '/product/' + encodeURIComponent(pr.slug) + (q.toString() ? '?' + q : ''), 301); }
+      }
+      const pm = /^\/product\/([^/]+)\/?$/.exec(p);
+      if (pm) return await productPage(req, env, url, decodeURIComponent(pm[1]));
       const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile', '/library'];
       if (APPP.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers })); return withSec(res); }
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + (await publicOrigin(env, url.origin)) + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });
       if (p === '/sitemap.xml') {
         const pages = ['/', '/portfolio', '/services', '/store', '/about', '/resume', '/contact', '/social', '/faq', '/support', '/track', '/track-hire', '/track-ticket', '/track-order', '/how-i-work', '/privacy', '/terms', '/licence', '/shipping'];
-        const { results } = await env.DB.prepare('SELECT id FROM products WHERE visible = 1').all();
+        const { results } = await env.DB.prepare('SELECT id, slug FROM products WHERE visible = 1').all();
         const base = await publicOrigin(env, url.origin);
-        const urls = pages.map(x => `<url><loc>${base}${x}</loc></url>`).concat(results.map(r => `<url><loc>${base}/store?p=${r.id}</loc></url>`));
+        const urls = pages.map(x => `<url><loc>${base}${x}</loc></url>`).concat(results.map(r => `<url><loc>${base}/product/${encodeURIComponent(r.slug || r.id)}</loc></url>`));
         return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join('')}</urlset>`, { headers: { 'content-type': 'application/xml' } });
       }
       const rg = req.headers.get('range');

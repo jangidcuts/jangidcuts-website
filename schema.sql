@@ -15,13 +15,13 @@ CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, sec
 CREATE INDEX IF NOT EXISTS cat_section ON categories(section, sort);
 CREATE TABLE IF NOT EXISTS portfolio (
   id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, title TEXT, description TEXT,
-  category_id INTEGER, subcategory_id INTEGER, image TEXT, video TEXT, url TEXT, orient TEXT DEFAULT 'v',
+  category_id INTEGER, subcategory_id INTEGER, image TEXT, video TEXT, url TEXT, orient TEXT DEFAULT 'v', video_q TEXT DEFAULT '',
   featured INTEGER DEFAULT 0, home INTEGER DEFAULT 0, row_name TEXT, sort INTEGER DEFAULT 0, visible INTEGER DEFAULT 1, created INTEGER, services TEXT DEFAULT '[]', source TEXT DEFAULT '');
 CREATE INDEX IF NOT EXISTS pf_kind ON portfolio(kind, sort);
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT NOT NULL, short TEXT, description TEXT,
   price INTEGER DEFAULT 0, mrp INTEGER DEFAULT 0, category_id INTEGER, image TEXT, gallery TEXT,
-  delivery TEXT DEFAULT 'file', file_key TEXT, file_name TEXT, file_size INTEGER, drive_id TEXT, link_url TEXT, size_text TEXT, video TEXT,
+  delivery TEXT DEFAULT 'file', file_key TEXT, file_name TEXT, file_size INTEGER, drive_id TEXT, link_url TEXT, size_text TEXT, video TEXT, video_q TEXT DEFAULT '',
   badge TEXT, visible INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, downloads INTEGER DEFAULT 0, sales INTEGER DEFAULT 0, created INTEGER, updated INTEGER,
   price_mode TEXT DEFAULT '', disc_type TEXT DEFAULT '', disc_value INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS prod_cat ON products(category_id, sort);

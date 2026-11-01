@@ -28,6 +28,7 @@
       "/shipping",
       "/how-i-work",
       "/store",
+      "/product/*",
       "/orders",
       "/tickets",
       "/profile",

@@ -33,13 +33,18 @@ const hireReviewView = (h) => ({ open: reviewOpen(h), name: h.rv_name || h.name 
 const needUser = (s) => { if (!s) fail('Please sign in first', 401); return s; };
 const needTc = (b) => { if (!b.tc) fail('Please accept the Terms & Conditions'); };
 
+
+/* Nov 1: video quality renditions. video_q = {"src": <the video value they were made from>, "h": <original height>, "r": {"720": "/u/...", ...}}.
+   Renditions only count while the video itself is unchanged (a new upload / link makes them stale automatically). */
+function parseQ(raw, cur) { try { const o = raw ? JSON.parse(raw) : null; if (o && o.src && o.src === cur && o.r && typeof o.r === 'object') return o; } catch { } return null; }
+function qualityList(raw, cur) { const o = parseQ(raw, cur); if (!o) return null; const hs = Object.keys(o.r).map(Number).filter(n => n > 0 && n !== +o.h); return [+o.h].concat(hs.sort((a, b) => b - a)); }
 /* ---------- public site data ---------- */
 export async function siteData(env) {
   const [content, cats, pf, prods, revs] = await Promise.all([
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, tier, next_id, up_text, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt, CASE WHEN delivery = \'drive\' AND (instr(drive_id, \'/folders/\') > 0 OR instr(drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
+    env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source, video_q FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
+    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, tier, next_id, up_text, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt, CASE WHEN delivery = \'drive\' AND (instr(drive_id, \'/folders/\') > 0 OR instr(drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle, video, video_q FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
     env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.status, r.source, r.pick, r.reply, r.created, r.updated, COALESCE(NULLIF(r.photo, ''), NULLIF(u.avatar, '')) photo FROM reviews r LEFT JOIN users u ON u.id = r.user_id WHERE r.status = 'visible' ORDER BY r.id DESC LIMIT 1000").all()
   ]);
   /* Reviews v2: the server picks every "top" list (pinned first, then most stars, then latest) and every average */
@@ -52,7 +57,7 @@ export async function siteData(env) {
   const pay = await paymentsConfig(env);
   return { content, categories: cats.results, portfolio: pf.results.map(x => { let sv = []; try { sv = JSON.parse(x.services || '[]'); } catch { } const yt = /youtu\.?be/i.test(x.url || ''); const did = !yt ? driveId(x.url) : '';
     // Drive / direct links stream through /v/<id>; the raw link is not sent to visitors (only YouTube ids are needed client-side)
-    return { ...x, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, services: Array.isArray(sv) ? sv : [] }; }), products: prods.results.map(x => { const { price_mode, disc_type, disc_value, ...r } = withPrice(x, content.store || {}); const pr = byProd[x.id] || []; const st = statsOf(pr); r.rating = st.count ? st : null; r.top = rankTop(pr).map(v => v.id); return r; }), firstOffer: firstOffer(content.store || {}),
+    const { video_q, ...x2 } = x; return { ...x2, url: yt ? x.url : '', has_src: !!(x.url || x.video) ? 1 : 0, fb: did, vq: qualityList(video_q, x.video || x.url), services: Array.isArray(sv) ? sv : [] }; }), products: prods.results.map(x0 => { const { video, video_q, ...x } = x0; x.vq = qualityList(video_q, video); const { price_mode, disc_type, disc_value, ...r } = withPrice(x, content.store || {}); const pr = byProd[x.id] || []; const st = statsOf(pr); r.rating = st.count ? st : null; r.top = rankTop(pr).map(v => v.id); return r; }), firstOffer: firstOffer(content.store || {}),
     reviews: prodRev, homeReviews: rankTop(hs.list).map(pubRev), homeReal: hs.real,
     reviewStats: { count: revStats.count, avg: revStats.avg },
     cfg: { google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), payments: pay.provider, storage: storageInfo(env).backend } };
@@ -342,9 +347,11 @@ export async function handlePublic(req, env, ctx, url, s) {
   if ((mm0 = p.match(/^\/v\/(\d+|p\d+|reel)$/)) && (m === 'GET' || m === 'HEAD')) {
     const key = mm0[1]; let srcRow = null;
     if (key === 'reel') { const hero = (await getContent(env)).hero || {}; if (hero.showreel) srcRow = { url: hero.showreel, video: hero.showreel }; }
-    else if (key[0] === 'p') { const pr = await env.DB.prepare('SELECT video FROM products WHERE id = ?1 AND visible = 1').bind(+key.slice(1)).first(); if (pr && pr.video) srcRow = { url: pr.video, video: pr.video }; }
-    else srcRow = await env.DB.prepare('SELECT id, video, url, source FROM portfolio WHERE id = ?1 AND visible = 1').bind(+key).first();
+    else if (key[0] === 'p') { const pr = await env.DB.prepare('SELECT video, video_q FROM products WHERE id = ?1 AND visible = 1').bind(+key.slice(1)).first(); if (pr && pr.video) srcRow = { url: pr.video, video: pr.video, video_q: pr.video_q, cur: pr.video }; }
+    else { srcRow = await env.DB.prepare('SELECT id, video, url, source, video_q FROM portfolio WHERE id = ?1 AND visible = 1').bind(+key).first(); if (srcRow) srcRow.cur = srcRow.video || srcRow.url; }
     if (!srcRow) return new Response('Not found', { status: 404 });
+    const wantQ = url.searchParams.get('q');
+    if (wantQ) { const o = parseQ(srcRow.video_q, srcRow.cur); const f = o && o.r[String(+wantQ)]; if (f && f.startsWith('/u/')) return serveFile(req, env, f.slice(3), { cache: true }); }
     return streamVideoSource(req, env, { url: srcRow.url || '', video: srcRow.video || '' }, googleToken);
   }
 

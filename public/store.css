@@ -191,7 +191,7 @@ html[data-theme=light] .upi-id{background:#F2FAF8;border-color:rgba(7,122,92,.2)
 .pm-thumbs .pm-tv{position:relative;background:#000101}
 .pm-thumbs .pm-tv span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,1,1,.35);color:#fff}
 .pm-thumbs .pm-tv span svg{width:18px;height:18px}
-.pm-lb{position:fixed;inset:0;z-index:9999;background:rgba(0,1,1,.96)}
+.pm-lb{position:fixed;inset:0;z-index:9999;background:#000101}
 .pm-lb-tr{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior:contain}
 .pm-lb-tr::-webkit-scrollbar{display:none}
 .pm-lb-s{flex:0 0 100%;height:100%;display:grid;place-items:center;scroll-snap-align:start;scroll-snap-stop:always;padding:56px 10px 24px;box-sizing:border-box}
@@ -220,3 +220,55 @@ html[data-theme=light] .upi-id{background:#F2FAF8;border-color:rgba(7,122,92,.2)
 @media (max-width:480px){.up-card{flex-wrap:wrap}.up-card .up-go{width:100%;justify-content:center}}
 .dl-rm{color:var(--muted)}
 .dl-rm .icon{width:15px;height:15px}
+
+/* ---------- Nov 1: product page (/product/<slug>), Flipkart / Amazon style ---------- */
+.pp-page{padding-top:18px}
+.pp-bk{margin-bottom:14px}
+.pp{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:34px;align-items:start}
+.pp-media{position:sticky;top:84px;min-width:0}
+.pp-info{min-width:0}
+.pp-eye{display:block;margin-bottom:8px}
+.pp .pm-title{font-size:clamp(30px,4vw,44px)}
+.pp .pm-img{margin-bottom:12px;border-radius:16px;aspect-ratio:16/10;background:#000101}
+.pp .pm-track img{object-fit:contain;background:#000101}
+.pp .pm-thumbs button{width:76px;height:48px}
+.pp .pm-meta{font-size:14px;margin:10px 0 4px}
+.pp .pm-meta .price{font-size:26px}
+.pp .pm-acts{margin:16px 0 8px}
+.pp .pm-acts .btn{min-height:50px;font-size:15.5px}
+.pp-desc{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.pp-desc .pm-desc{margin-top:8px}
+.pp #pmRev{margin-top:22px!important;padding-top:18px;border-top:1px solid var(--line)}
+.pm-nav{position:absolute;top:50%;z-index:3;width:42px;height:42px;margin-top:-21px;border-radius:50%;border:1px solid rgba(43,245,192,.35);background:rgba(20,26,26,.82);color:#fff;display:grid;place-items:center;cursor:pointer;opacity:0;transition:opacity .2s}
+.pm-nav svg{width:20px;height:20px}.pm-nav.prev{left:10px}.pm-nav.next{right:10px}
+@media (hover:hover){.pm-gal:hover .pm-nav{opacity:1}}
+.pm-gal.on-vid .pm-nav.next{display:none}
+.pm-vbox{position:relative;width:100%;height:100%}
+.pm-vid{position:relative}
+/* sticky buy bar on phones, shown when the page's own buttons have scrolled away */
+.pp-bar{display:none}
+@media (max-width:820px){
+ .pp{grid-template-columns:1fr;gap:0}
+ .pp-media{position:relative;top:auto;margin:0 -16px}
+ .pp .pm-img{border-radius:0;margin-bottom:10px}
+ .pp .pm-thumbs{padding:2px 16px;margin:0 0 14px}
+ .pp-info{padding-top:4px}
+ .pp-page{padding-top:12px}
+ .pp-bk{margin-bottom:12px}
+ .pp-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;align-items:center;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(7,15,15,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);transform:translateY(110%);transition:transform .25s ease}
+ .pp-bar.on{transform:none}
+ .pp-bar-p{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+ .pp-bar-p b{font-size:19px;color:var(--text)}.pp-bar-p s{font-size:12.5px;color:var(--faint)}
+ .pp-bar-a{flex:1;display:flex;gap:8px;justify-content:flex-end}
+ .pp-bar-a .btn{min-height:46px}.pp-bar-a .btn-primary{flex:1;max-width:240px;justify-content:center}
+ .pp-bar-a .btn-ghost{width:46px;padding:0;justify-content:center}
+}
+@media (max-width:560px){.pp .pm-title{font-size:30px}}
+.pm-lb-tr{touch-action:pan-x}
+.pm-lb.zoomed .pm-lb-tr{overflow:hidden;touch-action:none}
+.pm-lb-s img{transform-origin:center center;will-change:transform}
+.pm-lb.zoomed .pm-lb-s img{cursor:grab}
+.pm-lb-h{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);padding:5px 12px;border-radius:999px;background:rgba(20,26,26,.85);color:rgba(255,255,255,.75);font:500 12px/1.4 Inter,system-ui,sans-serif;pointer-events:none;white-space:nowrap;transition:opacity .3s}
+.pm-lb.zoomed .pm-lb-h{opacity:0}
+html.pp-on .back-row{display:none}
+@media (max-width:820px){html.pp-on body{padding-bottom:78px}}

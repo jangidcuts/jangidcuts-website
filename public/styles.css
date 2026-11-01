@@ -951,3 +951,7 @@ html[data-hpv] .hp-view{display:none!important}html[data-hpv=faq] .hp-view[data-
 .sug-done{text-align:center;padding:18px 4px 6px}
 .sug-done .icon{width:54px;height:54px;color:#00110D;background:linear-gradient(135deg,#4DCBB0,#0DBC94);border-radius:50%;padding:13px}
 .sug-done p{margin:14px auto 18px;max-width:34ch;font-size:16px;line-height:1.55;color:var(--text)}
+
+/* Nov 1 (Prashant): tracking circles showed a square inside. The gradient was sized to the inner box and repeated under the 2px transparent border; paint it once over the whole circle. */
+.tk-dot,.tk-final-ic{background-origin:border-box!important;background-repeat:no-repeat!important;background-clip:border-box!important;overflow:hidden}
+.tk-dot .icon,.tk-dot .tk-chk,.tk-final-ic .tk-chk{background:none;border:0}
