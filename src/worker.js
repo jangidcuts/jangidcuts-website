@@ -1,5 +1,6 @@
 import { J, err, HttpError, now, rand, clean, readJson, cookie, sessionOf, newSession, findOrCreateUser, hashPw, pwProblem, safeEq, logEvent, SEC_HEADERS, getKey } from './lib.js';
 import { serveFile } from './storage.js';
+import { upiSweep } from './upi.js';
 import { handlePublic } from './public.js';
 import { libraryFile } from './library.js';
 import { handleAdmin, handleGoogle } from './admin.js';
@@ -182,8 +183,11 @@ export default {
         env.DB.prepare('DELETE FROM otps WHERE exp < ?1').bind(t - 864e5),
         env.DB.prepare('DELETE FROM sessions WHERE exp < ?1').bind(t),
         env.DB.prepare('DELETE FROM events WHERE at < ?1').bind(t - 60 * 864e5),
-        env.DB.prepare("DELETE FROM orders WHERE status = 'created' AND created < ?1").bind(t - 30 * 864e5)
-      ]).catch(() => { })
+        // unpaid orders: deleted after 30 days, never one that has a payment report / screenshot on it (Nov 1)
+        env.DB.prepare("DELETE FROM orders WHERE status IN ('created','expired') AND created < ?1 AND COALESCE(payment_id, '') = '' AND COALESCE(proof, '') NOT LIKE '%shots%'").bind(t - 30 * 864e5)
+      ]).catch(() => { }),
+      // Nov 1: UPI orders - expire unpaid ones after N hours (revivable), one reminder mail ~30 min after start
+      (async () => { const pay = await getKey(env, '_payments'); if (pay && pay.provider === 'upi') await upiSweep(env, pay, await publicOrigin(env)); })().catch(e => logEvent(env, 'error', 'upiSweep: ' + e.message))
     ]));
   }
 };

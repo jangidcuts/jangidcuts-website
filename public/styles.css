@@ -990,3 +990,10 @@ html[data-theme="light"] .d-group + .d-group{border-top-color:#D0E4DF}
 html[data-theme="light"] .d-link .d-chev{color:#7C9690}
 .d-admin{border:1px dashed #17765F!important}
 html[data-theme="light"] .d-admin{border-color:#7FBFAE!important}
+
+/* Nov 1: pending UPI payment banner (every page) */
+.upi-ban{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:90;display:flex;align-items:center;gap:10px;max-width:560px;margin:0 auto;padding:10px 10px 10px 14px;border-radius:16px;background:#182825;border:1px solid #1C6B57;box-shadow:0 14px 40px rgba(0,0,0,.5);color:#fff;font-size:13.5px;line-height:1.35}
+.upi-ban span{flex:1;min-width:0}.upi-ban b{color:#2BF5C0}.upi-ban .btn{flex:none;padding:8px 14px;min-height:0;font-size:13px}
+.upi-ban button.x2{flex:none;width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:rgba(255,255,255,.6);font-size:20px;line-height:1;cursor:pointer}
+html.upi-open .upi-ban{display:none}
+html[data-theme="light"] .upi-ban{background:#fff;border-color:#9FD9C8;color:#0b1413}html[data-theme="light"] .upi-ban b{color:#077A5C}

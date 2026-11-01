@@ -5,7 +5,7 @@ import { rankTop, homeSet, statsOf, reviewOpen } from './reviews.js';
 import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource, driveIsFolder, driveShare, driveOpenUrl } from './storage.js';
-import { upiDetails, upiSubmit } from './upi.js';
+import { upiDetails, upiSubmit, upiState, upiProof, upiExtra, upiCancel, upiOpen, proofOf, expireHours } from './upi.js';
 import { libraryData, isBundle, driveLinks } from './library.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
 
@@ -72,7 +72,7 @@ async function meData(env, s) {
     env.DB.prepare('SELECT c.product_id FROM cart c JOIN products p ON p.id = c.product_id WHERE c.user_id = ?1 AND p.visible = 1 ORDER BY c.added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle, CASE WHEN (w.order_id IS NULL AND COALESCE(p.price, 0) = 0) OR (w.order_id IS NOT NULL AND COALESCE(o.total, 0) = 0) THEN 1 ELSE 0 END free FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1").bind(uid).all(),
-    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
+    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta, proof FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution, type FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all(),
@@ -81,7 +81,7 @@ async function meData(env, s) {
   const dl = new Set((dld.results || []).map(r => r.order_id));
   return { user: publicUser(s.user, s.isAdmin), needMfa: !!s.need2fa,
     cart: cart.results.map(r => r.product_id), wishlist: wish.results.map(r => r.product_id),
-    owned: owned.results, reviews: myRev.results || [], orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); return x; }),
+    owned: owned.results, reviews: myRev.results || [], orders: orders.results.map(o => { let meta = null; try { meta = o.meta ? JSON.parse(o.meta) : null; } catch { } const x = { ...o, meta, items: JSON.parse(o.items || '[]'), events: JSON.parse(o.events || '[]') }; x.track = orderView(x, dl.has(o.id), true); delete x.proof; return x; }),
     firstBuyer: !orders.results.some(o => o.subtotal > 0 && ['paid', 'processing', 'delivered', 'completed', 'refunded'].includes(o.status)), tickets: tickets.results.map(t => ({ ...publicTicket(t, { full: true }), kind: t.type === 'question' ? 'question' : 'problem' })), hires: hires.results.map(h => ({ ...publicHire(h, { full: true }), review: hireReviewView(h) })) };
 }
 
@@ -307,14 +307,40 @@ export async function handlePublic(req, env, ctx, url, s) {
   if (p === '/api/checkout/upi' && m === 'POST') {
     needUser(s); const b = await readJson(req);
     const o = await env.DB.prepare('SELECT * FROM orders WHERE number = ?1 AND user_id = ?2').bind(clean(b.order, 30), s.user.id).first(); if (!o) fail('Order not found', 404);
-    if (o.provider !== 'upi' || !['created', 'failed'].includes(o.status)) fail('This order is not waiting for payment.');
+    if (!upiOpen(o)) fail('This order is not waiting for payment.');
     const pay = await paymentsConfig(env);
-    return J({ ok: true, order: { number: o.number, total: o.total }, upi: upiDetails(pay.raw, o) });
+    return J({ ok: true, order: { number: o.number, total: o.total }, upi: upiDetails(pay.raw, o), state: upiState(pay.raw, o) });
+  }
+  /* Nov 1: the payment screen restores itself (after the UPI app, a reload, Back or a killed browser) from this */
+  if (p === '/api/checkout/upi-state' && m === 'POST') {
+    needUser(s); const b = await readJson(req);
+    const o = await env.DB.prepare('SELECT * FROM orders WHERE number = ?1 AND user_id = ?2').bind(clean(b.order, 30), s.user.id).first(); if (!o) fail('Order not found', 404);
+    if (o.provider !== 'upi') fail('This order does not use UPI payment.');
+    const pay = await paymentsConfig(env);
+    return J({ ok: true, state: upiState(pay.raw, o) });
   }
   if (p === '/api/checkout/upi-submit' && m === 'POST') {
     needUser(s); const b = await readJson(req);
-    await limitOrFail(env, 'upiutr:' + s.user.id, 12, 3600e3, 'Too many attempts. Please wait a few minutes and try again.');
+    await limitOrFail(env, 'upiutr:' + s.user.id, 20, 3600e3, 'Too many attempts. Please wait a few minutes and try again.');
     return J({ ok: true, ...(await upiSubmit(env, s, b, origin)) });
+  }
+  if (p === '/api/checkout/upi-proof' && m === 'POST') {
+    needUser(s); await limitOrFail(env, 'upishot:' + s.user.id, 20, 3600e3, 'Too many uploads. Please wait a few minutes and try again.');
+    return J({ ok: true, ...(await upiProof(env, s, req, url)) });
+  }
+  if (p === '/api/checkout/upi-proof' && m === 'GET') { // the buyer's own screenshot
+    needUser(s); const o = await env.DB.prepare('SELECT * FROM orders WHERE number = ?1 AND user_id = ?2').bind(clean(url.searchParams.get('order'), 30), s.user.id).first(); if (!o) fail('Order not found', 404);
+    const sh = (proofOf(o).shots || [])[+url.searchParams.get('i') || 0]; if (!sh) fail('Not found', 404);
+    const res = await serveFile(req, env, sh.key, { cache: false }); res.headers.set('cache-control', 'private, no-store'); return res;
+  }
+  if (p === '/api/checkout/upi-extra' && m === 'POST') {
+    needUser(s); const b = await readJson(req);
+    await limitOrFail(env, 'upiextra:' + s.user.id, 10, 3600e3);
+    return J({ ok: true, ...(await upiExtra(env, s, b)) });
+  }
+  if (p === '/api/checkout/upi-cancel' && m === 'POST') {
+    needUser(s); const b = await readJson(req);
+    return J({ ok: true, ...(await upiCancel(env, s, b)) });
   }
   if (p === '/api/checkout/verify' && m === 'POST') {
     needUser(s); const b = await readJson(req);
@@ -543,7 +569,7 @@ export async function handlePublic(req, env, ctx, url, s) {
 }
 
 /* ---------- order status (automatic, admin can override) ---------- */
-export const ORDER_LABELS = { verifying: 'Payment processing', created: 'Awaiting payment', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
+export const ORDER_LABELS = { verifying: 'Payment processing', created: 'Awaiting payment', expired: 'Expired (not paid)', paid: 'Payment received', processing: 'Processing', delivered: 'Download ready', completed: 'Completed', failed: 'Payment failed', refunded: 'Refunded', cancelled: 'Cancelled' };
 export async function publicOrder(env, o, { full = false } = {}) {
   let downloaded = false;
   try { downloaded = !!(await env.DB.prepare('SELECT 1 FROM owned WHERE order_id = ?1 AND downloads > 0 LIMIT 1').bind(o.id).first()); } catch { }
@@ -558,7 +584,7 @@ export function orderView(o, downloaded, full = false) {
   if (st === 'delivered' && downloaded) st = 'completed'; // first download completes the order automatically
   const byMail = items.some(x => x.delivery === 'drive' || x.delivery === 'email' || x.big);
   const dLabel = byMail ? 'Delivered via email' : 'Download ready';
-  const rank = { created: 0, verifying: 0, failed: 0, paid: 1, processing: 2, delivered: 3, completed: 4, refunded: 3, cancelled: 0 }[st] ?? 0;
+  const rank = { created: 0, verifying: 0, failed: 0, expired: 0, paid: 1, processing: 2, delivered: 3, completed: 4, refunded: 3, cancelled: 0 }[st] ?? 0;
   const steps = [
     { s: 'paid', label: free ? 'Order confirmed' : 'Payment received', at: at('paid', 'Payment confirmed', 'Order confirmed') || o.paid_at, done: rank >= 1 },
     { s: 'processing', label: 'Processing', at: at('processing') || o.paid_at, done: rank >= 2 || (rank >= 1 && st !== 'paid') },
@@ -567,12 +593,16 @@ export function orderView(o, downloaded, full = false) {
   if (st === 'created') steps.unshift({ s: 'created', label: 'Awaiting payment', at: o.created, done: true });
   if (st === 'verifying') steps.unshift({ s: 'verifying', label: 'Payment processing', at: at('verifying') || o.created, done: true });
   if (st === 'failed') steps.unshift({ s: 'failed', label: 'Payment failed', at: at('failed') || o.created, done: true });
+  if (st === 'expired') steps.unshift({ s: 'expired', label: 'Expired (not paid)', at: at('Expired') || o.created, done: true });
   if (st === 'refunded' || st === 'cancelled') steps.push({ s: st, label: ORDER_LABELS[st], at: at(st, st === 'refunded' ? 'Refunded' : 'Cancelled'), done: true });
   steps.forEach(x => { if (!x.done) x.at = null; });
   let cur = -1; steps.forEach((x, i) => { if (x.done) cur = i; }); steps.forEach((x, i) => x.current = i === cur);
   const label = st === 'delivered' ? dLabel : (ORDER_LABELS[st] || st);
   const out = { number: o.number, status: st, label, created: o.created, items: items.map(x => x.title), steps, download: st === 'delivered' || st === 'completed' };
-  if (o.provider === 'upi') { out.upi = true; if (full) { out.utr = o.payment_id || ''; out.payable = st === 'created' || st === 'failed'; } }
+  if (o.provider === 'upi') { out.upi = true; if (full) { const pr = proofOf(o); out.utr = /^\d{12}$/.test(o.payment_id || '') ? o.payment_id : ''; out.payable = upiOpen(o);
+    out.cancellable = ['created', 'failed', 'expired'].includes(o.status); out.addUtr = st === 'verifying' && !out.utr; out.shots = (pr.shots || []).length; out.extra = (pr.extra || []).length;
+    out.total = o.total; out.paid = ['paid', 'processing', 'delivered', 'completed'].includes(st) || st === 'verifying'; }
+    else if (upiOpen(o)) out.payable = true; }
   if (!full) out.email = maskEmail(o.email);
   return out;
 }

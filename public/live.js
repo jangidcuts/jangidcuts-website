@@ -203,7 +203,7 @@ function applyHelp(c){var page=$('.help-page');if(!page)return;var view=helpView
    var b=tf.querySelector('button[type=submit]');b.disabled=true;
    api('/api/track',{type:cur,number:raw.trim(),email:em}).then(function(r){b.disabled=false;
     if(!r.ok){er.textContent=r.notFound?('No '+k.word+' found for this number and email.'):(r.error||'Could not find it');er.hidden=false;$('#trkOut').innerHTML='';if(r.notFound)helper();return}
-    var d=r.hire||r.ticket||r.order;if(r.hire)JCL._hrAuth[d.number]={email:em};$('#trkOut').innerHTML=tkTimeline(d);try{history.replaceState(null,'','/track-'+cur+'?n='+encodeURIComponent(d.number))}catch(e){}
+    var d=r.hire||r.ticket||r.order;if(r.hire)JCL._hrAuth[d.number]={email:em};$('#trkOut').innerHTML=tkTimeline(d)+(r.order&&d.upi?(d.payable?'<p class="tk-actions" style="margin-top:12px"><a class="btn btn-primary btn-s" href="/orders?utr='+encodeURIComponent(d.number)+'">Paid? Submit UTR / screenshot</a> <a class="btn btn-ghost btn-s" href="/orders?pay='+encodeURIComponent(d.number)+'">Pay now</a></p>':d.status==='verifying'?'<p class="tk-actions" style="margin-top:12px"><a class="btn btn-ghost btn-s" href="/orders?utr='+encodeURIComponent(d.number)+'">Add UTR / screenshot</a></p>':''):'');try{history.replaceState(null,'','/track-'+cur+'?n='+encodeURIComponent(d.number))}catch(e){}
     try{$('#trkOut').scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){}})};
   setT(cur,true);if(q.get('n'))$('#trkNum').value=q.get('n');
   tf.addEventListener('submit',function(e){e.preventDefault();run()});
@@ -360,6 +360,15 @@ var dataReady=function(){if(window.JC_DATA_READY)return;window.JC_DATA_READY=1;t
  try{applyHome(s.content,s);applyFooter(s.content);suggestBox(s.content);applyHelp(s.content);applySoon(s.content,s);applyHireForm(s.content);buildLogin(s)}catch(e){console.error(e)}
  try{window.JC_RUN();avatar();syncSettings()}catch(e){console.error(e)}
  try{window.JC_AFTER&&window.JC_AFTER(s,me)}catch(e){console.error(e)}
+ /* Nov 1 (Prashant 10:32 PM): a started-but-unreported UPI payment is never lost: a banner on every page until it is paid, reported or cancelled */
+ JCL.upiBanner=function(){try{var old=$('#upiBan');old&&old.remove();var m=JCL.me;if(!m||!m.orders)return;var done=[],x=null;try{done=JSON.parse(sessionStorage.getItem('jc-upi-done')||'[]').concat(JSON.parse(sessionStorage.getItem('jc-upi-ban-x')||'[]'))}catch(e){}
+  var loc=null;try{loc=JSON.parse(localStorage.getItem('jc-upi-pending')||'null')}catch(e){}var eh=(loc&&loc.expireH)||24;
+  m.orders.forEach(function(o){if(!x&&o.provider==='upi'&&o.status==='created'&&o.track&&o.track.payable&&o.created+eh*3600e3>Date.now()&&done.indexOf(o.number)<0)x=o});if(!x)return;
+  var b=D.createElement('div');b.className='upi-ban';b.id='upiBan';b.setAttribute('role','status');
+  b.innerHTML='<span>Pending payment for order <b>'+esc(x.number)+'</b> · ₹'+esc(String(x.total))+'. Finish it or tell us you paid.</span><a class="btn btn-primary" href="/orders?pay='+encodeURIComponent(x.number)+'">Finish</a><button class="x2" aria-label="Hide">×</button>';
+  D.body.appendChild(b);var a=$('a',b);a.onclick=function(e){if(window.JC_UPI){e.preventDefault();window.JC_UPI(x.number)}};
+  $('.x2',b).onclick=function(){try{var l=JSON.parse(sessionStorage.getItem('jc-upi-ban-x')||'[]');l.push(x.number);sessionStorage.setItem('jc-upi-ban-x',JSON.stringify(l))}catch(e){}b.remove()}}catch(e){}};
+ try{JCL.upiBanner()}catch(e){}
  pageReady();/* this page's own content is drawn: the brand loader may lift now */
  try{ads(s.content);welcome(s.content);var hq=new URLSearchParams(location.search);if(hq.get('hire')==='1'){hq.delete('hire');try{history.replaceState(history.state,'',location.pathname+(hq.toString()?'?'+hq:'')+location.hash)}catch(e){}var hb=$('#hireBtn');hb&&setTimeout(function(){hb.click()},800)}}catch(e){console.error(e)}
  var eq=new URLSearchParams(location.search),err=eq.get('error');if(err){eq.delete('error');try{history.replaceState(history.state,'',location.pathname+(eq.toString()?'?'+eq:'')+location.hash)}catch(e){}}if(err)setTimeout(function(){toast({google:'Google sign-in failed, please try again',cancelled:'Sign-in cancelled',google_not_ready:'Google sign-in is not ready yet. Please use email for now.'}[err]||'Sign-in problem: '+err)},2300);

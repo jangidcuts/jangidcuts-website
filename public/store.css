@@ -292,3 +292,15 @@ html.pp-on .back-row{display:none}
 .pc{-webkit-tap-highlight-color:transparent}
 .pc:active{transform:scale(.985);transition:transform .08s}
 .pc:has(.pc-act:active){transform:none}
+
+/* Nov 1 (Prashant 10:32 PM): UPI payment screen, every state (pay / waiting / report / failed / leave / done) */
+.upi-warn{display:flex;flex-direction:column;gap:3px;text-align:left;margin:4px 0 14px;padding:12px 14px;border-radius:14px;background:#2A2410;border:1px solid #6B5A1E;color:#FFE7A3;font-size:13.5px;line-height:1.4}
+.upi-warn b{font-size:14.5px;color:#FFF3CF}
+.upi-or{display:flex;align-items:center;gap:10px;margin:6px 0 10px;color:rgba(255,255,255,.55);font-size:12.5px}.upi-or:before,.upi-or:after{content:"";flex:1;height:1px;background:rgba(43,245,192,.16)}
+.upi-acts{margin-top:14px}.upi-col{flex-direction:column}.upi-col .btn{width:100%}
+.upi-links{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13.5px}.upi-links .tc-link{background:none;border:0;padding:4px 2px;cursor:pointer;color:var(--mint)}
+.upi-faq{text-align:left;padding:11px 13px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(43,245,192,.14);margin:8px 0;font-size:13.5px;line-height:1.45}.upi-faq b{display:block;margin-bottom:3px}.upi-faq span{color:rgba(255,255,255,.72)}
+.upi-shot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;text-align:left}.upi-shot span{font-size:12.5px;color:rgba(255,255,255,.6)}.upi-shot label{cursor:pointer}
+.upi-m .crop-hint b{color:inherit}
+html[data-theme=light] .upi-warn{background:#FFF6DA;border-color:#E8C866;color:#5A4300}html[data-theme=light] .upi-warn b{color:#3F2F00}
+html[data-theme=light] .upi-faq{background:#F2FAF8;border-color:rgba(7,122,92,.2)}html[data-theme=light] .upi-faq span,html[data-theme=light] .upi-shot span,html[data-theme=light] .upi-or{color:rgba(0,0,0,.6)}

@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, code T
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT UNIQUE, user_id INTEGER, email TEXT, items TEXT,
   subtotal INTEGER, discount INTEGER DEFAULT 0, total INTEGER, coupon TEXT, status TEXT DEFAULT 'created',
-  provider TEXT, provider_order TEXT, payment_id TEXT, events TEXT, created INTEGER, paid_at INTEGER, delivered_at INTEGER, note TEXT, meta TEXT);
+  provider TEXT, provider_order TEXT, payment_id TEXT, events TEXT, created INTEGER, paid_at INTEGER, delivered_at INTEGER, note TEXT, meta TEXT, proof TEXT);
 CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id, created);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status, created);
 CREATE TABLE IF NOT EXISTS owned (user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, order_id INTEGER, created INTEGER, downloads INTEGER DEFAULT 0, first_dl INTEGER, last_dl INTEGER, PRIMARY KEY (user_id, product_id));
