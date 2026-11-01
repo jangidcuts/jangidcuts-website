@@ -54,7 +54,7 @@ function goCat(c){history.pushState({lb:1},'','#c='+c.id);showCat(c);window.scro
 
 function showHome(){curCat=null;
  var p=L.product;
- root.innerHTML='<section class="lb-hero"><div class="lb-cover">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':SV.note)+'</div><div class="lb-hi"><span class="eyebrow">'+(p.free?'Free pack':'Your pack')+'</span><h1>'+esc(p.title)+'</h1><p>'+L.cats.length+(L.cats.length===1?' category':' categories')+' \u00b7 '+nR(L.n)+' tracks \u00b7 '+sizeR(L.bytes)+'</p></div></section>'+
+ root.innerHTML='<section class="lb-hero"><div class="lb-cover">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':SV.note)+'</div><div class="lb-hi"><span class="eyebrow">'+(p.free?'Free pack':'Your pack')+'</span><h1>'+esc(p.title)+'</h1><p>'+L.cats.length+(L.cats.length===1?' category':' categories')+' \u00b7 '+L.n+' tracks \u00b7 '+size(L.bytes)+'</p></div></section>'+
  '<button class="btn btn-primary lb-all" id="lbAll">'+SV.dl+' Download All</button>'+
  '<p class="lb-tip">Tap a category to play any track. Every '+'<b class="lb-dlm">'+SV.dl+'</b> shows the size before it downloads.</p>'+
  '<div class="lb-cats">'+L.cats.map(function(c,i){return '<div class="lb-cat" data-c="'+esc(c.id)+'" role="button" tabindex="0"><span class="lb-ci">'+(i<9?'0':'')+(i+1)+'</span><span class="lb-ct"><b>'+esc(c.name)+'</b><small>'+c.n+' tracks \u00b7 '+size(c.bytes)+'</small></span><button class="lb-dl" data-cd="'+esc(c.id)+'" aria-label="Download '+esc(c.name)+'">'+SV.dl+'</button><span class="lb-chev">'+SV.chev+'</span></div>'}).join('')+'</div>'+upHTML();
@@ -123,7 +123,7 @@ function cardTrack(t,c){
  });
 }
 function cardCat(c){cardMany(c.name,c.tracks,c.n+' tracks \u00b7 <b>'+size(c.bytes)+'</b>',c.bytes,false)}
-function cardAll(){var all=[];L.cats.forEach(function(c){all=all.concat(c.tracks)});cardMany('Download All',all,nR(L.n)+' tracks \u00b7 <b>'+sizeR(L.bytes)+'</b>',L.bytes,true)}
+function cardAll(){var all=[];L.cats.forEach(function(c){all=all.concat(c.tracks)});cardMany('Download All',all,L.n+' tracks \u00b7 <b>'+size(L.bytes)+'</b>',L.bytes,true)}
 function cardMany(title,tracks,line,bytes,isAll){
  if(job){toast('A download is already running. Stop it first.');return}
  var done=doneSet(),have=tracks.filter(function(t){return done.has(t.i)}),haveB=have.reduce(function(x,t){return x+t.s},0);
@@ -131,8 +131,8 @@ function cardMany(title,tracks,line,bytes,isAll){
   '<p class="lb-warn">Make sure your phone has at least <b>'+size(bytes)+'</b> of free space.</p>'+
   (have.length?'<label class="lb-skip"><input type="checkbox" id="lbSkip" checked> Skip '+have.length+' track'+(have.length>1?'s':'')+' already downloaded on this phone ('+size(haveB)+')</label>':'')+
   '<ul class="lb-how"><li>Files download one after another (no zip).</li><li>Keep this page open until it finishes. You can stop any time.</li>'+(IOS?'<li>iPhone: tap <b>Download</b> when Safari asks for each file. Files go to the Files app \u2192 Downloads.</li>':'<li>If your phone asks <b>\u201cAllow multiple downloads?\u201d</b>, tap Allow.</li>')+'</ul>'+
-  '<button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download '+(isAll?'all tracks':tracks.length+' tracks')+'</button>',
- function(w,close){var sk0=$('#lbSkip',w),lab=function(){var n=sk0&&sk0.checked?tracks.length-have.length:tracks.length;$('#lbGo',w).innerHTML=SV.dl+' Download '+(isAll&&!(sk0&&sk0.checked)?'all tracks':n+' track'+(n===1?'':'s'))};if(sk0){sk0.onchange=lab;lab()}
+  '<button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download '+(isAll?'all ':'')+tracks.length+' tracks</button>',
+ function(w,close){var sk0=$('#lbSkip',w),lab=function(){var n=sk0&&sk0.checked?tracks.length-have.length:tracks.length;$('#lbGo',w).innerHTML=SV.dl+' Download '+(isAll&&!(sk0&&sk0.checked)?'all ':'')+n+' track'+(n===1?'':'s')};if(sk0){sk0.onchange=lab;lab()}
   $('#lbGo',w).onclick=function(){var sk=$('#lbSkip',w);var list=sk&&sk.checked?tracks.filter(function(t){return !done.has(t.i)}):tracks.slice();close();if(!list.length){toast('Everything here is already downloaded.');return}run(title,list)}});
 }
 
