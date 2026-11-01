@@ -964,3 +964,29 @@ a,button,.d-link,.d-profile,.chip,.tab,.pc{-webkit-tap-highlight-color:transpare
 .d-link:active{background:rgba(43,245,192,.10);transition:background 0s}
 html[data-theme="light"] .d-link:active{background:rgba(7,122,92,.08)}
 .d-link:focus:not(:focus-visible){outline:none}
+
+/* Nov 1 (Prashant 10:34 PM "Still", Android phone video): in the ☰ menu some icon boxes looked brighter than others and one box was
+   half bright / half dim, changing as he touched and scrolled. Cause: the boxes were see-through (mint at 10% over the menu's gradient)
+   and his phone's graphics re-paints a touched row without clearing it first, so each touch stacked another 10% layer (measured on
+   his video: boxes at exactly 1, 2, 3 and 4 layers). Fix: every surface in the menu is a solid colour (same look, no transparency),
+   so a re-paint draws the exact same pixels every time and all boxes stay identical. */
+.drawer,.drawer-body,.drawer .modal-head{background:#070F0F!important;backdrop-filter:none!important}
+.drawer{border-left-color:#0E382F}
+.drawer .modal-head{border-bottom-color:#0B2A24}
+.d-ic{background:#0B2621;border-color:#0E382F;opacity:1}
+.d-ic svg{color:var(--mint);opacity:1}
+.d-link,.d-link .d-ic{transition:none!important}
+.d-link:active{background:#0C1D1A}
+.d-link .d-chev{color:#5F7470;opacity:1}
+.d-group + .d-group{border-top-color:#0A211D}
+.d-settings{border-color:#104B3D;box-shadow:none}
+.d-profile{border-color:#1A4A43}
+.dp-av{border-color:#19826A}
+html[data-theme="light"] .drawer,html[data-theme="light"] .drawer-body,html[data-theme="light"] .drawer .modal-head{background:#E3EFEC!important}
+html[data-theme="light"] .drawer{border-left-color:#BFDCD4}
+html[data-theme="light"] .d-ic{background:#D1F0E8;border-color:#BFE6DB}
+html[data-theme="light"] .d-link:active{background:#D6E8E3}
+html[data-theme="light"] .d-group + .d-group{border-top-color:#D0E4DF}
+html[data-theme="light"] .d-link .d-chev{color:#7C9690}
+.d-admin{border:1px dashed #17765F!important}
+html[data-theme="light"] .d-admin{border-color:#7FBFAE!important}

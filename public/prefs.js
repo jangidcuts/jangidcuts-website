@@ -41,6 +41,7 @@ st.textContent='@view-transition{navigation:auto}::view-transition-old(root),::v
 'html.jc-enter '+sel.join(',html.jc-enter ')+'{animation:jcFade .45s ease both}'+
 'html.jc-enter '+items.split(',').join(',html.jc-enter ')+'{animation:jcRise .6s '+E+' both}'+stag+
 'html.jc-enter body>.footer{animation:jcFade .6s .3s ease both}'+
+'html.jc-wait #main,html.jc-wait body>.footer{visibility:hidden}html.jc-quiet.jc-enter body>.topbar,html.jc-quiet.jc-enter body>.subnav{animation:none}'+
 'html.anim-low #jcNav b{transform:none;transition:none}html.anim-low #jcNav i:after{animation:none;width:100%}'+
 'html.anim-low.jc-enter '+items.split(',').join(',html.anim-low.jc-enter ')+'{animation:jcFade .25s ease both!important;animation-delay:0s!important}';
 (document.head||d).appendChild(st);
@@ -48,8 +49,14 @@ var el=document.createElement('div');el.id='jcNav';el.setAttribute('aria-hidden'
 d.appendChild(el);/* lives on <html>, outside <body>, so it can paint before the page does */
 var gated=function(){return d.classList.contains('jc-gate')||d.hasAttribute('data-entry')};
 var enterT=0;window.JC_ENTER=function(){clearTimeout(enterT);d.classList.remove('jc-enter');void d.offsetWidth;d.classList.add('jc-enter');enterT=setTimeout(function(){d.classList.remove('jc-enter')},1300)};
-var on=false,show=function(){if(gated())return;on=true;d.classList.add('jc-busy');el.classList.add('on')};
-var hideT=0,hide=function(){clearTimeout(hideT);on=false;el.classList.remove('on');d.classList.remove('jc-busy')};
+/* Nov 1 (Prashant 10:34 PM): the black JANGID CUTS screen is the FIRST page of a visit only. On every later page change in the same
+   tab session the top bar stays as it is, only the page content waits (no brand screen, no hold) and rises in when drawn; the brand
+   screen comes back only if a page is really slow (> 0.9 s). */
+var Q=false;try{Q=S.getItem('jc-s1')==='1';S.setItem('jc-s1','1')}catch(e){}
+if(Q){d.classList.add('jc-quiet');MIN=0}
+var slowT=0,on=false,show=function(){if(gated())return;on=true;d.classList.add('jc-busy');
+ if(Q){d.classList.add('jc-wait');clearTimeout(slowT);slowT=setTimeout(function(){if(on)el.classList.add('on')},900)}else el.classList.add('on')};
+var hideT=0,hide=function(){clearTimeout(hideT);clearTimeout(slowT);on=false;el.classList.remove('on');d.classList.remove('jc-busy');d.classList.remove('jc-wait')};
 /* the home intro loader (first open of home in this tab) is the loading screen there; this one stays out of its way */
 var homeIntro=false;try{homeIntro=/^\/(index\.html)?$/.test(path)&&S.getItem('jc-seen')!=='1'&&!low()}catch(e){}
 var t0=0;try{t0=+S.getItem(K)||0;S.removeItem(K)}catch(e){}
@@ -71,7 +78,7 @@ window.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.
  if(u.origin!==location.origin||!/^https?:/.test(u.protocol))return;
  if(/^\/(admin|v|u|api|media|files?)\b/.test(u.pathname)||/\.(pdf|zip|rar|mp4|mov|jpe?g|png|webp|gif|cube|vcf)$/i.test(u.pathname))return;
  if(u.pathname===location.pathname&&u.search===location.search)return;/* same page / #hash only */
- mark();el.style.transition='';show();hideT=setTimeout(hide,CAP*2)},false);
+ mark()/* Nov 1: the page being left stays as it is (the next page is a quiet one) */},false);
 /* any other way out of the page (Back, a form, a script redirect): the next page still gets the loader */
 window.addEventListener('pagehide',function(){mark()});
 /* back/forward cache restore: never leave the loader stuck; replay the entrance */
