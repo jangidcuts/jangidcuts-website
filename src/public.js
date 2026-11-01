@@ -6,6 +6,7 @@ import { sendTemplate, alertOwner, googleToken } from './mail.js';
 import { publicTicket, norm, maskEmail } from './tickets.js';
 import { storageInfo, serveFile, putFile, driveId, streamDrive, streamDrivePublic, streamVideoSource, driveIsFolder, driveShare, driveOpenUrl } from './storage.js';
 import { upiDetails, upiSubmit } from './upi.js';
+import { libraryData, isBundle, driveLinks } from './library.js';
 import { quote, createOrder, verifyRazorpay, fulfil, paymentsConfig, hmacHex, deliverBig, withPrice, firstOffer, isFirstBuyer } from './shop.js';
 
 /* what the client sees of their own project review (never the private link token) */
@@ -19,7 +20,7 @@ export async function siteData(env) {
     getContent(env),
     env.DB.prepare('SELECT id, section, name, parent_id, sort, thumb FROM categories ORDER BY sort, id').all(),
     env.DB.prepare('SELECT id, kind, title, description, category_id, subcategory_id, image, video, url, orient, featured, home, sort, services, source FROM portfolio WHERE visible = 1 ORDER BY sort, id').all(),
-    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
+    env.DB.prepare('SELECT id, slug, title, short, description, price, mrp, price_mode, disc_type, disc_value, category_id, image, gallery, delivery, size_text, badge, sort, sales, created, CASE WHEN length(video) > 0 THEN 1 ELSE 0 END has_video, CASE WHEN instr(video, \'youtu\') > 0 THEN video ELSE NULL END video_yt, CASE WHEN delivery = \'drive\' AND (instr(drive_id, \'/folders/\') > 0 OR instr(drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle FROM products WHERE visible = 1 ORDER BY sort, id DESC').all(),
     env.DB.prepare("SELECT r.id, r.product_id, r.name, r.role, r.rating, r.text, r.status, r.source, r.pick, r.reply, r.created, r.updated, COALESCE(NULLIF(r.photo, ''), NULLIF(u.avatar, '')) photo FROM reviews r LEFT JOIN users u ON u.id = r.user_id WHERE r.status = 'visible' ORDER BY r.id DESC LIMIT 1000").all()
   ]);
   /* Reviews v2: the server picks every "top" list (pinned first, then most stars, then latest) and every average */
@@ -43,7 +44,7 @@ async function meData(env, s) {
   const [cart, wish, owned, orders, tickets, hires, dld, myRev] = await Promise.all([
     env.DB.prepare('SELECT product_id FROM cart WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
-    env.DB.prepare('SELECT product_id, downloads, created FROM owned WHERE user_id = ?1').bind(uid).all(),
+    env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle FROM owned w LEFT JOIN products p ON p.id = w.product_id WHERE w.user_id = ?1").bind(uid).all(),
     env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution, type FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
@@ -280,6 +281,8 @@ export async function handlePublic(req, env, ctx, url, s) {
     return streamVideoSource(req, env, { url: srcRow.url || '', video: srcRow.video || '' }, googleToken);
   }
 
+  /* ----- bundle player (Nov 1): categories + tracks for an owner ----- */
+  if ((mm0 = p.match(/^\/api\/lib\/(\d+)$/)) && m === 'GET') return libraryData(env, s, +mm0[1], { fresh: url.searchParams.get('fresh') === '1' });
   /* ----- downloads ----- */
   let mm;
   if ((mm = p.match(/^\/api\/download\/(\d+)$/)) && m === 'GET') {
@@ -294,18 +297,14 @@ export async function handlePublic(req, env, ctx, url, s) {
     }
     // Drive FOLDER products open the folder in Google Drive (after the buyer's access is re-ensured) instead of streaming.
     let dTok = null, dFolder = false;
-    if (prod.delivery === 'drive') { dTok = await googleToken(env, 'main'); dFolder = await driveIsFolder(env, dTok, prod.drive_id || prod.link_url); }
-    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery !== 'link' && !dFolder, folder: dFolder, emailed: prod.delivery === 'link', first: !own.downloads });
+    if (prod.delivery === 'drive') { dTok = await googleToken(env, 'main'); dFolder = driveLinks(prod).length > 1 || await driveIsFolder(env, dTok, prod.drive_id || prod.link_url); }
+    if (url.searchParams.get('check') === '1') return J({ ok: true, file: prod.delivery !== 'link' && !dFolder, folder: dFolder, library: dFolder ? '/library?p=' + pid : '', emailed: prod.delivery === 'link', first: !own.downloads });
     await env.DB.batch([
       env.DB.prepare('UPDATE owned SET downloads = downloads + 1, first_dl = COALESCE(first_dl, ?3), last_dl = ?3 WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid, now()),
       env.DB.prepare('UPDATE products SET downloads = downloads + 1 WHERE id = ?1').bind(pid)
     ]);
-    if (prod.delivery === 'drive' && dFolder) {
-      const id = driveId(prod.drive_id) || driveId(prod.link_url);
-      const r = dTok ? await driveShare(dTok, id, s.user.email) : { ok: false, status: 0, text: 'no Google token' };
-      if (!r.ok) { await logEvent(env, 'delivery', `drive folder share failed ${prod.id} ${s.user.email}: ${r.status} ${r.text}`); await alertOwner(env, 'delivery', `Drive folder access could not be given for "${prod.title}" to ${s.user.email}. Please share the folder with them manually.`); }
-      return new Response(null, { status: 302, headers: { location: driveOpenUrl(id, true), 'cache-control': 'private, no-store' } });
-    }
+    // Nov 1: Drive FOLDER products open the in-site player (no per-email Drive share any more: buyers never see the share list).
+    if (prod.delivery === 'drive' && dFolder) return new Response(null, { status: 302, headers: { location: '/library?p=' + pid, 'cache-control': 'private, no-store' } });
     if (prod.delivery === 'drive') {
       const id = driveId(prod.drive_id) || driveId(prod.link_url);
       const tok = id ? dTok : null;

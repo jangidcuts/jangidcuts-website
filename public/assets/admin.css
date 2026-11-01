@@ -261,3 +261,13 @@ body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 
 /* Oct 31: product video row (link box + Upload + Remove) wraps on phones */
 @media (max-width:560px){.img-up.vid-up{flex-wrap:wrap}.img-up.vid-up .in{flex:1 1 100%;min-width:0}}
+
+/* Nov 1: Drive links list */
+.dlinks .dl-rows{display:flex;flex-direction:column;gap:8px}
+.dl-row{display:flex;align-items:center;gap:8px}
+.dl-row .dl-n{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(43,245,192,.1);color:#2BF5C0;font-weight:700;font-size:12px}
+.dl-row .dl-in{flex:1;min-width:0}
+.dl-rm{flex:0 0 34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:none;color:inherit;font-size:20px;line-height:1;cursor:pointer}
+.dl-rm:hover{border-color:#2BF5C0;color:#2BF5C0}
+.dlinks .dl-act{margin-top:8px;gap:8px;flex-wrap:wrap}
+.dl-res{margin-top:6px;line-height:1.5}.dl-res .dl-ok{color:#2BF5C0}.dl-res .dl-bad{color:#FFC861}

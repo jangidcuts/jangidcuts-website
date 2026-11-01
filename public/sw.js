@@ -1,5 +1,5 @@
-const V='jc-v71';
-const CORE=['/','/portfolio','/services','/help','/soon','/styles.css?v=31','/script.js?v=15','/live.js?v=36','/brands.js?v=2','/store','/store.css?v=11','/store.js?v=17','/page','/pages.css?v=8','/pages.js?v=13','/prefs.js?v=9','/i18n.js?v=11','/pwmeter.js?v=2','/fonts/Anton-400.woff2','/fonts/BebasNeue-400.woff2','/fonts/Inter-400.woff2','/icon-192.png'];
+const V='jc-v74';
+const CORE=['/','/portfolio','/services','/help','/soon','/styles.css?v=31','/script.js?v=15','/live.js?v=36','/brands.js?v=2','/store','/store.css?v=13','/store.js?v=20','/library.css?v=2','/library.js?v=3','/page','/pages.css?v=8','/pages.js?v=13','/prefs.js?v=9','/i18n.js?v=11','/pwmeter.js?v=2','/fonts/Anton-400.woff2','/fonts/BebasNeue-400.woff2','/fonts/Inter-400.woff2','/icon-192.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const r=e.request,u=new URL(r.url);

@@ -1,6 +1,7 @@
 import { J, err, HttpError, now, rand, clean, readJson, cookie, sessionOf, newSession, findOrCreateUser, hashPw, pwProblem, safeEq, logEvent, SEC_HEADERS, getKey } from './lib.js';
 import { serveFile } from './storage.js';
 import { handlePublic } from './public.js';
+import { libraryFile } from './library.js';
 import { handleAdmin, handleGoogle } from './admin.js';
 import { retryOutbox, alertOwner, setOrigin, markPublicLive, publicOrigin, PUBLIC_HOST } from './mail.js';
 import { SEED_CATEGORIES, SEED_PORTFOLIO, SEED_PRODUCTS, SEED_REVIEWS } from './defaults.js';
@@ -94,6 +95,8 @@ export default {
         return out;
       }
       if (p === '/resume' || p === '/resume/') { const res = await env.ASSETS.fetch(new Request(url.origin + '/resume', { headers: req.headers })); return withSec(res); }
+      // Nov 1: bundle player files (signed token in the path; no cookie/session lookup per Range request)
+      if (p.startsWith('/api/lf/') && (req.method === 'GET' || req.method === 'HEAD')) return await libraryFile(req, env, ctx, url);
       const s = await sessionOf(req, env);
       if (p.startsWith('/api/admin/')) { const r = await handleAdmin(req, env, ctx, url, s); return r || err('Not found', 404); }
       if (p.startsWith('/api/') || p.startsWith('/u/') || p.startsWith('/v/')) { const r = await handlePublic(req, env, ctx, url, s); return r || err('Not found', 404); }
@@ -107,7 +110,7 @@ export default {
       const PAGES = ['/privacy', '/terms', '/contact', '/social', '/licence', '/shipping', '/how-i-work'];
       if (p === '/portfolio.html') return Response.redirect(url.origin + '/portfolio' + url.search, 301);
       if (/^\/(portfolio|services|about)(\/[\w-]+)?\/?$/.test(p) || /^\/watch\/(\d+|p\d+|reel)\/?$/.test(p)) { const res = await env.ASSETS.fetch(new Request(url.origin + '/page', { headers: req.headers })); return withSec(res); }
-      const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile'];
+      const APPP = ['/store', '/cart', '/orders', '/wishlist', '/tickets', '/profile', '/library'];
       if (APPP.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/store', { headers: req.headers })); return withSec(res); }
       if (PAGES.includes(p.replace(/\/$/, ''))) { const res = await env.ASSETS.fetch(new Request(url.origin + '/soon', { headers: req.headers })); return withSec(res); }
       if (p === '/robots.txt') return new Response('User-agent: *\nDisallow: /admin\nDisallow: /api/\nSitemap: ' + (await publicOrigin(env, url.origin)) + '/sitemap.xml\n', { headers: { 'content-type': 'text/plain' } });

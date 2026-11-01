@@ -2,6 +2,7 @@ import { now, clean, fail, getKey, nextNumber, newRef, hex, enc, safeEq, decrypt
 import { sendTemplate, sendMail, alertOwner, googleToken } from './mail.js';
 import { upiOn, upiDetails } from './upi.js';
 import { driveId, driveIsFolder, driveShare, driveOpenUrl } from './storage.js';
+import { driveLinks } from './library.js';
 
 export const money = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
@@ -176,15 +177,13 @@ async function loadProductsAny(env, ids) {
 export async function deliverBig(env, p, user, origin, number) {
   let link = p.link_url;
   if (!number) { const r = await env.DB.prepare('SELECT o.number FROM owned w JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(user.id, p.id).first(); number = r?.number || ''; }
-  if (p.delivery === 'drive' && p.drive_id) {
-    const id = driveId(p.drive_id) || p.drive_id;
-    const tok = await googleToken(env, 'main');
-    const folder = await driveIsFolder(env, tok, p.drive_id);
-    if (tok) {
-      const r = await driveShare(tok, id, user.email);
-      if (!r.ok) { await logEvent(env, 'delivery', `drive share failed ${p.id} ${user.email}: ${r.status} ${r.text}`); await alertOwner(env, 'delivery', `Drive share failed for "${p.title}" to ${user.email}. Please share it manually.`); }
-    }
-    link = driveOpenUrl(id, folder);
+  // Nov 1 (Prashant): no per-email Drive sharing any more (a shared folder shows every buyer's email in its share list).
+  // Drive products are played/downloaded through the site; the email points to the player (folders) or My Orders (single file).
+  if (p.delivery === 'drive' && (p.drive_id || p.link_url)) {
+    const many = driveLinks(p).length > 1;
+    let folder = many || /\/folders\//.test(String(p.drive_id || ''));
+    if (!folder) { const tok = await googleToken(env, 'main'); folder = await driveIsFolder(env, tok, p.drive_id || p.link_url); }
+    link = (origin || '') + (folder ? '/library?p=' + p.id : '/orders');
   }
   if (link) await sendTemplate(env, 'download_link', user.email, { name: user.name || 'there', product: p.title, link, number: number || '' }, { ref: number || '' });
 }

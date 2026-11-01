@@ -7,6 +7,7 @@ import { putFile, deleteFile, storageInfo, storageMeter, driveId, driveMeta, str
 import { fulfil, money } from './shop.js';
 import { upiDecide, UPI_DEFAULT_ID, UPI_DEFAULT_NAME } from './upi.js';
 import { handleAssistant } from './assistant.js';
+import { normDriveLinks, libraryPreview } from './library.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
 const TABLES = {
@@ -26,6 +27,7 @@ function rowVals(table, b) {
     if (NUM.has(c)) v = (v === '' || v === null) ? null : Math.round(Number(v)) || 0;
     else if (typeof v === 'object' && v !== null) v = JSON.stringify(v);
     else v = clean(v, c === 'description' || c === 'text' ? 20000 : 1000);
+    if (c === 'drive_id') v = normDriveLinks(b[c]);
     if (c === 'code') v = String(v).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (c === 'price_mode' && !['', 'none', 'manual', 'discount'].includes(v)) v = '';
     if (c === 'disc_type' && !['', 'pct', 'flat'].includes(v)) v = 'pct';
@@ -122,6 +124,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
     if (b.telegram_clear) a.telegram_bot_token_enc = '';
     await setKey(env, '_alerts', a); return J({ ok: true });
   }
+  if (p === '/api/admin/lib/preview' && m === 'POST') { const b = await readJson(req); return libraryPreview(env, b.links || ''); }
   if (p === '/api/admin/drive/check' && m === 'GET') {
     const id = driveId(url.searchParams.get('link') || ''); if (!id) fail('That does not look like a Google Drive file or folder link');
     const tok = await googleToken(env, 'main');
