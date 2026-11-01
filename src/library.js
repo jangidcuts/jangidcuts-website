@@ -40,7 +40,11 @@ async function listChildren(tok, id) {
     if (!r.ok) { const t = (await r.text()).slice(0, 200); const e = new Error('Drive list ' + r.status + ' ' + t); e.status = r.status; throw e; }
     const j = await r.json(); for (const f of j.files || []) out.push(f); pt = j.nextPageToken || '';
   } while (pt && ++pages < 20);
-  return out.map(f => f.mimeType === SHORTCUT && f.shortcutDetails ? { id: f.shortcutDetails.targetId, name: f.name, mimeType: f.shortcutDetails.targetMimeType, size: f.size, sc: 1 } : f);
+  const list = out.map(f => f.mimeType === SHORTCUT && f.shortcutDetails ? { id: f.shortcutDetails.targetId, name: f.name, mimeType: f.shortcutDetails.targetMimeType, size: f.size, sc: 1 } : f);
+  // Nov 1: tier packs can be built from Drive SHORTCUTS to files of a bigger pack (no second copy); a shortcut has no size of its own -> read the target's
+  const need = list.filter(f => f.sc && !(+f.size) && f.mimeType !== DRIVE_FOLDER);
+  for (let i = 0; i < need.length; i += 10) await Promise.all(need.slice(i, i + 10).map(async f => { try { const m = await fileMeta(tok, f.id); f.size = m.size; } catch { } }));
+  return list;
 }
 async function fileMeta(tok, id) {
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=id,name,mimeType,size&supportsAllDrives=true`, { headers: { authorization: 'Bearer ' + tok } });
