@@ -2,6 +2,8 @@
 var D=document,$=function(s,r){return (r||D).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||D).querySelectorAll(s))};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function I(n){return '<svg class="icon" aria-hidden="true"><use href="#i-'+n+'"/></svg>'}
+/* photo framing saved in admin (drag + zoom): {x,y,z} -> same CSS the admin preview uses */
+function cropSt(c){if(!c)return '';if(typeof c==='string'){try{c=JSON.parse(c)}catch(e){return ''}}var cl=function(v,a,b,d){v=Number(v);return isFinite(v)?Math.min(b,Math.max(a,v)):d};var x=cl(c.x,0,100,50),y=cl(c.y,0,100,50),z=cl(c.z,1,4,1);if(x===50&&y===50&&z===1)return '';return ' style="object-position:'+x+'% '+y+'%;transform:scale('+z+');transform-origin:'+x+'% '+y+'%"'}
 function slug(s){return String(s||'').toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
 function md(t){var out=[],list=false;String(t||'').split(/\n/).forEach(function(l){var s=l.trim();if(/^[-•]\s+/.test(s)){if(!list){out.push('<ul>');list=true}out.push('<li>'+esc(s.replace(/^[-•]\s+/,''))+'</li>')}else{if(list){out.push('</ul>');list=false}if(s)out.push('<p>'+esc(s)+'</p>')}});if(list)out.push('</ul>');return out.join('')}
 var S,C,CATS,PF,app;
@@ -85,8 +87,8 @@ function vService(s){var x=(C.services||[]).find(function(v){return v.slug===s})
 
 /* ----- /about ----- */
 function vAbout(){var a=C.about||{};title('About');
- app.innerHTML='<div class="wrap pg-top">'+back('/','Back to home')+'<section class="ab-sec"><div class="ab-ph"><img src="'+esc(a.editor_photo||'/img/hero.webp')+'" alt=""></div><div class="ab-tx"><span class="eyebrow">'+esc(a.editor_eyebrow||'About')+'</span><h2 class="grad-text">'+esc(a.editor_title)+'</h2><div class="svc-full">'+md(a.editor_body)+'</div><div class="ab-acts"><a class="btn btn-primary" id="aboutResume" href="/resume?from=about">'+I('doc')+' View Resume</a></div></div></section>'+
-  '<section class="ab-sec flip"><div class="ab-ph"><img src="'+esc(a.brand_photo||'/img/f2_0.jpg')+'" alt=""></div><div class="ab-tx"><span class="eyebrow">'+esc(a.brand_eyebrow||'The brand')+'</span><h2 class="grad-text">'+esc(a.brand_title)+'</h2><div class="svc-full">'+md(a.brand_body)+'</div><div class="w-acts"><a class="btn btn-primary" href="/portfolio">See the portfolio</a><a class="btn btn-ghost" href="/services">Services</a></div></div></section></div>'}
+ app.innerHTML='<div class="wrap pg-top">'+back('/','Back to home')+'<section class="ab-sec"><div class="ab-ph"><img src="'+esc(a.editor_photo||'/img/hero.webp')+'" alt=""'+cropSt(a.editor_photo_crop)+'></div><div class="ab-tx"><span class="eyebrow">'+esc(a.editor_eyebrow||'About')+'</span><h2 class="grad-text">'+esc(a.editor_title)+'</h2><div class="svc-full">'+md(a.editor_body)+'</div><div class="ab-acts"><a class="btn btn-primary" id="aboutResume" href="/resume?from=about">'+I('doc')+' View Resume</a><a class="btn btn-primary" id="aboutPortfolio" href="/portfolio">'+I('film')+' Portfolio</a></div></div></section>'+
+  '<section class="ab-sec flip"><div class="ab-ph"><img src="'+esc(a.brand_photo||'/img/f2_0.jpg')+'" alt=""'+cropSt(a.brand_photo_crop)+'></div><div class="ab-tx"><span class="eyebrow">'+esc(a.brand_eyebrow||'The brand')+'</span><h2 class="grad-text">'+esc(a.brand_title)+'</h2><div class="svc-full">'+md(a.brand_body)+'</div><div class="w-acts"><a class="btn btn-primary" href="/services">Services</a><a class="btn btn-ghost" href="/store">Store</a></div></div></section></div>'}
 
 window.JC_AFTER=function(site){S=site;C=site.content;CATS=site.categories;PF=site.portfolio;app=$('#app');if(!app)return;
  var p=location.pathname.replace(/\/$/,'')||'/',m;
