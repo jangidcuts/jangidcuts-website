@@ -223,7 +223,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
   if ((mm = p.match(/^\/api\/admin\/(products|portfolio|categories|coupons|reviews)(?:\/(\d+))?$/))) {
     const table = mm[1], id = mm[2] ? +mm[2] : null;
     if (m === 'GET' && !id) {
-      const order = table === 'reviews' || table === 'coupons' ? 'id DESC' : 'sort, id';
+      const order = table === 'reviews' || table === 'coupons' ? 'id DESC' : table === 'products' ? 'sort, id DESC' : 'sort, id'; // products: same order as the store (public.js siteData)
       const { results } = await env.DB.prepare(`SELECT * FROM ${table} ORDER BY ${order} LIMIT 2000`).all();
       return J({ ok: true, items: results });
     }

@@ -307,3 +307,21 @@ body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 .crop-side .crop-z{width:100%;accent-color:var(--mint)}
 .crop-side .crop-zv{color:var(--mint)}
 @media (max-width:560px){.crop-fr{width:min(260px,100%)}}
+
+/* Nov 2: Products — Free / Paid tabs, Published · Draft · All counts, display position */
+.pcs{margin-bottom:8px}
+.pcs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 6px;min-height:56px;line-height:1}
+.pcs button b{font-family:var(--head);font-weight:400;font-size:22px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.pcs button span{font-size:12px;font-weight:700}
+.pthumb{position:relative;flex:0 0 auto;display:block;width:48px;height:48px}
+.pthumb .thumb{display:block}
+.pthumb .pos{position:absolute;top:-6px;left:-6px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:grid;place-items:center;background:linear-gradient(135deg,#2BF5C0,#0DBC94);color:#00110D;font:800 11px/1 Inter,system-ui,sans-serif;font-style:normal;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px #070F0F}
+.li .t .pwh{display:block;margin-top:4px;font-size:12px;line-height:1.35;color:var(--muted);white-space:normal}
+.li .t .pwh i{font-style:normal;font-weight:700;color:var(--mint);margin-right:4px}
+.ib[disabled]{opacity:.3;pointer-events:none}
+.pwh-box{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg2);font-size:13px;line-height:1.35}
+.pwh-box b{color:var(--mint);font-weight:700}
+.pwh-box span{color:var(--muted);font-size:12.5px}
+.seg.pcs{display:grid;grid-template-columns:repeat(3,1fr);width:100%}
+.li .t span b{display:inline}
+.li .t .pwh i.off{color:var(--amber)}
