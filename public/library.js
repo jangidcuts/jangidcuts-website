@@ -14,7 +14,19 @@ var SV={play:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1
  chev:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
  note:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18.5V6.2l10-2.2v12.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="6.5" cy="18.5" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16.3" r="2.6" fill="currentColor"/></svg>',
  x:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+ file:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+ eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>',
  check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'};
+/* Nov 2 (Prashant 6:03 PM): only files that can really be previewed get a preview button.
+   Audio -> play in the mini player; jpg/png/webp -> image preview; LUT/CC/presets/txt/pdf/zip/video -> name + size + Download only. */
+var AUD=/^(mp3|wav|m4a|ogg|oga|aac|flac)$/,IMG=/^(jpe?g|png|webp)$/;
+function extOf(t){return ((/\.([a-z0-9]{2,5})$/i.exec(t.f||'')||[])[1]||'').toLowerCase()}
+function kind(t){if(t.k!==undefined)return t.k;var e=extOf(t),m=String(t.m||'').toLowerCase(),k='';
+ if(AUD.test(e)||(!e&&/^audio\//.test(m)))k='a';else if(IMG.test(e)&&(!m||/^image\/(jpeg|png|webp)$/.test(m)||/octet/.test(m)))k='i';else if(!e&&/^image\/(jpeg|png|webp)$/.test(m))k='i';
+ t.k=k;return k}
+function allAudio(list){return list.every(function(t){return kind(t)==='a'})}
+function word(list,n){var a=allAudio(list);return n===1?(a?'track':'file'):(a?'tracks':'files')}
+function allTracks(){var a=[];L.cats.forEach(function(c){a=a.concat(c.tracks)});return a}
 function nR(n){n=+n||0;return n>=100?Math.floor(n/100)*100+'+':''+n}
 function sizeR(b){b=+b||0;return b>=1e9?'~'+Math.round(b/1e9)+' GB':size(b)}
 function size(b){b=+b||0;if(b>=1e9)return (b/1e9).toFixed(1)+' GB';if(b>=1e6)return Math.round(b/1e6)+' MB';if(b>=1e3)return Math.round(b/1e3)+' KB';return b+' B'}
@@ -36,7 +48,7 @@ function trackById(id){for(var i=0;i<L.cats.length;i++){var t=L.cats[i].tracks.f
 
 function view(app,ctx){
  var q=new URLSearchParams(location.search);PID=+q.get('p')||0;
- app.innerHTML='<div class="lb wrap" id="lb"><div class="lb-load"><span class="lb-spin"></span>Loading your music\u2026</div></div>';
+ app.innerHTML='<div class="lb wrap" id="lb"><div class="lb-load"><span class="lb-spin"></span>Loading your files\u2026</div></div>';
  root=$('#lb',app);D.body.classList.add('lb-on');
  if(!ctx.user){root.innerHTML='<a class="lb-back" href="/orders">'+SV.back+'<span>My Downloads</span></a><div class="lb-empty">'+I('lock')+'<p>Sign in to open your pack.</p><button class="btn btn-primary" id="lbSi">Sign in</button></div>';$('#lbSi').onclick=function(){var m=$('#loginModal');m&&JC_UI.open(m)};return}
  if(!PID){location.replace('/orders');return}
@@ -52,25 +64,36 @@ function upHTML(){var n=L&&L.next;if(!n)return '';var T={free:'Free',starter:'St
 function route(){var h=/[#&]c=([\w-]+)/.exec(location.hash);var c=h&&catById(h[1]);if(c)showCat(c);else showHome()}
 function goCat(c){history.pushState({lb:1},'','#c='+c.id);showCat(c);window.scrollTo(0,0)}
 
+var FLAT_MAX=80; // small packs (free packs): every file listed right under Download All, no category step
+function flat(){return L.n<=FLAT_MAX}
+function rowHTML(t,done){var k=kind(t),on=cur&&cur.i===t.i,e=extOf(t);
+ var lead=k==='a'?'<button class="lb-pl" aria-label="Preview '+esc(t.n)+'">'+(on&&au&&!au.paused?SV.pause:SV.play)+'</button>':k==='i'?'<button class="lb-pl lb-pv" aria-label="Preview '+esc(t.f)+'">'+SV.eye+'</button>':'<span class="lb-ft" aria-hidden="true">'+(e&&e.length<=4?esc(e.toUpperCase()):SV.file)+'</span>';
+ return '<div class="lb-tr'+(k?'':' nopv')+(on?' on':'')+'" data-t="'+esc(t.i)+'">'+lead+'<span class="lb-tt"><b>'+esc(t.n||t.f)+'</b><small>'+(k==='a'&&t.b?t.b+' BPM \u00b7 ':'')+size(t.s)+(done.has(t.i)?' \u00b7 <em>'+SV.check+'saved</em>':'')+'</small></span>'+(k==='a'?'<span class="lb-eq" aria-hidden="true"><i></i><i></i><i></i></span>':'')+'<button class="lb-dl" data-td="'+esc(t.i)+'" aria-label="Download '+esc(t.f)+'">'+SV.dl+'</button></div>'}
+function bindRows(){
+ $$('.lb-tr',root).forEach(function(el){el.onclick=function(e){if(e.target.closest('.lb-dl'))return;var x=trackById(el.dataset.t),k=kind(x.t);if(k==='a'){if(cur&&cur.i===x.t.i)toggle();else play(x.t,x.c)}else if(k==='i')cardImg(x.t,x.c);else cardTrack(x.t,x.c)}});
+ $$('[data-td]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();var x=trackById(b.dataset.td);cardTrack(x.t,x.c)}});
+}
 function showHome(){curCat=null;
- var p=L.product;
- root.innerHTML='<section class="lb-hero"><div class="lb-cover">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':SV.note)+'</div><div class="lb-hi"><span class="eyebrow">'+(p.free?'Free pack':'Your pack')+'</span><h1>'+esc(p.title)+'</h1><p>'+L.cats.length+(L.cats.length===1?' category':' categories')+' \u00b7 '+L.n+' tracks \u00b7 '+size(L.bytes)+'</p></div></section>'+
+ var p=L.product,all=allTracks(),fl=flat(),done=fl?doneSet():null,pv=all.some(function(t){return kind(t)}),aud=all.some(function(t){return kind(t)==='a'});
+ root.innerHTML='<section class="lb-hero"><div class="lb-cover">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':SV.note)+'</div><div class="lb-hi"><span class="eyebrow">'+(p.free?'Free pack':'Your pack')+'</span><h1>'+esc(p.title)+'</h1><p>'+(fl&&L.cats.length===1?'':L.cats.length+(L.cats.length===1?' category':' categories')+' \u00b7 ')+L.n+' '+word(all,L.n)+' \u00b7 '+size(L.bytes)+'</p></div></section>'+
  '<button class="btn btn-primary lb-all" id="lbAll">'+SV.dl+' Download All</button>'+
- '<p class="lb-tip">Tap a category to play any track. Every '+'<b class="lb-dlm">'+SV.dl+'</b> shows the size before it downloads.</p>'+
- '<div class="lb-cats">'+L.cats.map(function(c,i){return '<div class="lb-cat" data-c="'+esc(c.id)+'" role="button" tabindex="0"><span class="lb-ci">'+(i<9?'0':'')+(i+1)+'</span><span class="lb-ct"><b>'+esc(c.name)+'</b><small>'+c.n+' tracks \u00b7 '+size(c.bytes)+'</small></span><button class="lb-dl" data-cd="'+esc(c.id)+'" aria-label="Download '+esc(c.name)+'">'+SV.dl+'</button><span class="lb-chev">'+SV.chev+'</span></div>'}).join('')+'</div>'+upHTML();
+ '<p class="lb-tip">'+(fl?(pv?'Tap '+(aud?'<b class="lb-dlm">'+SV.play+'</b>':'<b class="lb-dlm">'+SV.eye+'</b>')+' to preview. ':''):'Tap a category to play any track. ')+'Every <b class="lb-dlm">'+SV.dl+'</b> shows the size before it downloads.</p>'+
+ (fl?L.cats.map(function(c){return (L.cats.length>1?'<div class="lb-sec"><span class="lb-ct"><b>'+esc(c.name)+'</b><small>'+c.n+' '+word(c.tracks,c.n)+' \u00b7 '+size(c.bytes)+'</small></span><button class="lb-dl" data-cd="'+esc(c.id)+'" aria-label="Download '+esc(c.name)+'">'+SV.dl+'</button></div>':'')+'<div class="lb-tracks">'+c.tracks.map(function(t){return rowHTML(t,done)}).join('')+'</div>'}).join(''):
+ '<div class="lb-cats">'+L.cats.map(function(c,i){return '<div class="lb-cat" data-c="'+esc(c.id)+'" role="button" tabindex="0"><span class="lb-ci">'+(i<9?'0':'')+(i+1)+'</span><span class="lb-ct"><b>'+esc(c.name)+'</b><small>'+c.n+' '+word(c.tracks,c.n)+' \u00b7 '+size(c.bytes)+'</small></span><button class="lb-dl" data-cd="'+esc(c.id)+'" aria-label="Download '+esc(c.name)+'">'+SV.dl+'</button><span class="lb-chev">'+SV.chev+'</span></div>'}).join('')+'</div>')+upHTML();
  $('#lbAll').onclick=function(){cardAll()};
  $$('.lb-cat',root).forEach(function(el){el.onclick=function(e){if(e.target.closest('.lb-dl'))return;goCat(catById(el.dataset.c))};el.onkeydown=function(e){if(e.key==='Enter')el.click()}});
  $$('[data-cd]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();cardCat(catById(b.dataset.cd))}});
+ if(fl)bindRows();
  bars();
 }
+function redraw(){if(curCat)showCat(curCat);else if(L&&flat())showHome()}
 function showCat(c){curCat=c;
  var done=doneSet();
- root.innerHTML='<section class="lb-chead"><div><button class="lb-crumb" id="lbUp">All categories</button><h1>'+esc(c.name)+'</h1><p>'+c.n+' tracks \u00b7 '+size(c.bytes)+'</p></div><button class="btn btn-ghost btn-s lb-cdl" id="lbCdl">'+SV.dl+' Download</button></section>'+
- '<div class="lb-tracks">'+c.tracks.map(function(t,i){return '<div class="lb-tr'+(cur&&cur.i===t.i?' on':'')+'" data-t="'+esc(t.i)+'"><button class="lb-pl" aria-label="Play '+esc(t.n)+'">'+(cur&&cur.i===t.i&&au&&!au.paused?SV.pause:SV.play)+'</button><span class="lb-tt"><b>'+esc(t.n)+'</b><small>'+(t.b?t.b+' BPM \u00b7 ':'')+size(t.s)+(done.has(t.i)?' \u00b7 <em>'+SV.check+'saved</em>':'')+'</small></span><span class="lb-eq" aria-hidden="true"><i></i><i></i><i></i></span><button class="lb-dl" data-td="'+esc(t.i)+'" aria-label="Download '+esc(t.n)+'">'+SV.dl+'</button></div>'}).join('')+'</div>';
+ root.innerHTML='<section class="lb-chead"><div><button class="lb-crumb" id="lbUp">All categories</button><h1>'+esc(c.name)+'</h1><p>'+c.n+' '+word(c.tracks,c.n)+' \u00b7 '+size(c.bytes)+'</p></div><button class="btn btn-ghost btn-s lb-cdl" id="lbCdl">'+SV.dl+' Download</button></section>'+
+ '<div class="lb-tracks">'+c.tracks.map(function(t){return rowHTML(t,done)}).join('')+'</div>';
  $('#lbUp').onclick=function(){if(history.state&&history.state.lb)history.back();else{history.replaceState(null,'',location.pathname+location.search);showHome()}};
  $('#lbCdl').onclick=function(){cardCat(c)};
- $$('.lb-tr',root).forEach(function(el){el.onclick=function(e){if(e.target.closest('.lb-dl'))return;var x=trackById(el.dataset.t);if(cur&&cur.i===x.t.i){toggle()}else play(x.t,x.c)}});
- $$('[data-td]',root).forEach(function(b){b.onclick=function(e){e.stopPropagation();var x=trackById(b.dataset.td);cardTrack(x.t,x.c)}});
+ bindRows();
  bars();
 }
 
@@ -95,10 +118,10 @@ function play(t,c){player();cur=t;cur.c=c.id;
   if('mediaSession' in navigator){try{navigator.mediaSession.metadata=new MediaMetadata({title:t.n,artist:'Jangid Cuts',album:c.name,artwork:L.product.image?[{src:L.product.image,sizes:'512x512'}]:[]});navigator.mediaSession.setActionHandler('nexttrack',function(){step(1)});navigator.mediaSession.setActionHandler('previoustrack',function(){step(-1)})}catch(e){}}});
 }
 function toggle(){if(!au||!cur)return;if(au.paused)au.play().catch(function(){});else au.pause()}
-function step(d){if(!cur)return;var c=catById(cur.c);if(!c)return;var i=c.tracks.findIndex(function(x){return x.i===cur.i});var n=c.tracks[i+d];if(n)play(n,c);else if(d>0){au.pause();bars()}}
+function step(d){if(!cur)return;var c=catById(cur.c);if(!c)return;var i=c.tracks.findIndex(function(x){return x.i===cur.i});var n=c.tracks[i+d];while(n&&kind(n)!=='a'){i+=d;n=c.tracks[i+d]}if(n)play(n,c);else if(d>0){au.pause();bars()}}
 function bars(){
  var playing=au&&cur&&!au.paused;
- $$('.lb-tr').forEach(function(el){var on=cur&&el.dataset.t===cur.i;el.classList.toggle('on',!!on);el.classList.toggle('playing',!!(on&&playing));var b=$('.lb-pl',el);if(b)b.innerHTML=on&&playing?SV.pause:SV.play});
+ $$('.lb-tr').forEach(function(el){var on=cur&&el.dataset.t===cur.i;el.classList.toggle('on',!!on);el.classList.toggle('playing',!!(on&&playing));var b=$('.lb-pl:not(.lb-pv)',el);if(b)b.innerHTML=on&&playing?SV.pause:SV.play});
  var pb=$('#lbPlay');if(pb)pb.innerHTML=playing?SV.pause:SV.play;
 }
 
@@ -111,28 +134,34 @@ function sheet(html,onReady){
  $$('[data-x]',w).forEach(function(b){b.onclick=close});
  onReady&&onReady(w,close);return close;
 }
+function dlOne(t,close){fresh().then(function(){var x=D.createElement('a');x.href=url(t,true);x.download=t.f;x.rel='noopener';D.body.appendChild(x);x.click();x.remove();markDone(t.i);toast('Download started \u2014 check your Downloads folder.');close();setTimeout(redraw,300)})}
 function cardTrack(t,c){
- var ext=((/\.([a-z0-9]{2,5})$/i.exec(t.f)||[])[1]||'').toUpperCase();
- sheet('<span class="lb-ico">'+SV.note+'</span><h3>'+esc(t.n)+'</h3><p class="lb-sub">'+esc(c.name)+'</p>'+
-  '<div class="lb-facts"><div><small>Size</small><b>'+size(t.s)+'</b></div><div><small>Duration</small><b id="lbDur">\u2026</b></div>'+(t.b?'<div><small>BPM</small><b>'+t.b+'</b></div>':'')+(ext?'<div><small>Format</small><b>'+esc(ext)+'</b></div>':'')+'</div>'+
-  '<p class="lb-fn">'+esc(t.f)+'</p><button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download \u00b7 '+size(t.s)+'</button>',
+ var ext=extOf(t).toUpperCase(),isA=kind(t)==='a';
+ sheet('<span class="lb-ico">'+(isA?SV.note:SV.file)+'</span><h3>'+esc(t.n||t.f)+'</h3><p class="lb-sub">'+esc(c.name)+'</p>'+
+  '<div class="lb-facts"><div><small>Size</small><b>'+size(t.s)+'</b></div>'+(isA?'<div><small>Duration</small><b id="lbDur">\u2026</b></div>':'')+(isA&&t.b?'<div><small>BPM</small><b>'+t.b+'</b></div>':'')+(ext?'<div><small>Format</small><b>'+esc(ext)+'</b></div>':'')+'</div>'+
+  '<p class="lb-fn">'+esc(t.f)+'</p>'+'<button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download \u00b7 '+size(t.s)+'</button>',
  function(w,close){
-  var a=new Audio();a.preload='metadata';a.onloadedmetadata=function(){var d=$('#lbDur',w);if(d)d.textContent=tm(a.duration);a.onerror=null;a.removeAttribute('src');try{a.load()}catch(e){}};a.onerror=function(){var d=$('#lbDur',w);if(d)d.textContent='\u2014'};
-  if(cur&&cur.i===t.i&&au&&au.duration){$('#lbDur',w).textContent=tm(au.duration)}else fresh().then(function(){a.src=url(t)});
-  $('#lbGo',w).onclick=function(){fresh().then(function(){var x=D.createElement('a');x.href=url(t,true);x.download=t.f;x.rel='noopener';D.body.appendChild(x);x.click();x.remove();markDone(t.i);toast('Download started \u2014 check your Downloads folder.');close();if(curCat)setTimeout(function(){showCat(curCat)},300)})};
+  if(isA){var a=new Audio();a.preload='metadata';a.onloadedmetadata=function(){var d=$('#lbDur',w);if(d)d.textContent=tm(a.duration);a.onerror=null;a.removeAttribute('src');try{a.load()}catch(e){}};a.onerror=function(){var d=$('#lbDur',w);if(d)d.textContent='\u2014'};
+  if(cur&&cur.i===t.i&&au&&au.duration){$('#lbDur',w).textContent=tm(au.duration)}else fresh().then(function(){a.src=url(t)});}
+  $('#lbGo',w).onclick=function(){dlOne(t,close)};
  });
 }
-function cardCat(c){cardMany(c.name,c.tracks,c.n+' tracks \u00b7 <b>'+size(c.bytes)+'</b>',c.bytes,false)}
-function cardAll(){var all=[];L.cats.forEach(function(c){all=all.concat(c.tracks)});cardMany('Download All',all,L.n+' tracks \u00b7 <b>'+size(L.bytes)+'</b>',L.bytes,true)}
+/* image preview (jpg/png/webp only) */
+function cardImg(t,c){
+ sheet('<h3>'+esc(t.n||t.f)+'</h3><p class="lb-sub">'+esc(t.f)+' \u00b7 '+size(t.s)+'</p><div class="lb-img"><span class="lb-spin"></span><img id="lbImg" alt=""></div><button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download \u00b7 '+size(t.s)+'</button>',
+ function(w,close){var im=$('#lbImg',w);im.onload=function(){im.parentNode.classList.add('ok')};im.onerror=function(){im.parentNode.classList.add('bad')};fresh().then(function(){im.src=url(t)});$('#lbGo',w).onclick=function(){dlOne(t,close)}});
+}
+function cardCat(c){cardMany(c.name,c.tracks,c.n+' '+word(c.tracks,c.n)+' \u00b7 <b>'+size(c.bytes)+'</b>',c.bytes,false)}
+function cardAll(){var all=[];L.cats.forEach(function(c){all=all.concat(c.tracks)});cardMany('Download All',all,L.n+' '+word(all,L.n)+' \u00b7 <b>'+size(L.bytes)+'</b>',L.bytes,true)}
 function cardMany(title,tracks,line,bytes,isAll){
  if(job){toast('A download is already running. Stop it first.');return}
  var done=doneSet(),have=tracks.filter(function(t){return done.has(t.i)}),haveB=have.reduce(function(x,t){return x+t.s},0);
  sheet('<span class="lb-ico">'+SV.dl+'</span><h3>'+esc(title)+'</h3><p class="lb-big">'+line+'</p>'+
   '<p class="lb-warn">Make sure your phone has at least <b>'+size(bytes)+'</b> of free space.</p>'+
-  (have.length?'<label class="lb-skip"><input type="checkbox" id="lbSkip" checked> Skip '+have.length+' track'+(have.length>1?'s':'')+' already downloaded on this phone ('+size(haveB)+')</label>':'')+
+  (have.length?'<label class="lb-skip"><input type="checkbox" id="lbSkip" checked> Skip '+have.length+' '+word(tracks,have.length)+' already downloaded on this phone ('+size(haveB)+')</label>':'')+
   '<ul class="lb-how"><li>Files download one after another (no zip).</li><li>Keep this page open until it finishes. You can stop any time.</li>'+(IOS?'<li>iPhone: tap <b>Download</b> when Safari asks for each file. Files go to the Files app \u2192 Downloads.</li>':'<li>If your phone asks <b>\u201cAllow multiple downloads?\u201d</b>, tap Allow.</li>')+'</ul>'+
-  '<button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download '+(isAll?'all ':'')+tracks.length+' tracks</button>',
- function(w,close){var sk0=$('#lbSkip',w),lab=function(){var n=sk0&&sk0.checked?tracks.length-have.length:tracks.length;$('#lbGo',w).innerHTML=SV.dl+' Download '+(isAll&&!(sk0&&sk0.checked)?'all ':'')+n+' track'+(n===1?'':'s')};if(sk0){sk0.onchange=lab;lab()}
+  '<button class="btn btn-primary lb-go" id="lbGo">'+SV.dl+' Download '+(isAll?'all ':'')+tracks.length+' '+word(tracks,tracks.length)+'</button>',
+ function(w,close){var sk0=$('#lbSkip',w),lab=function(){var n=sk0&&sk0.checked?tracks.length-have.length:tracks.length;$('#lbGo',w).innerHTML=SV.dl+' Download '+(isAll&&!(sk0&&sk0.checked)?'all ':'')+n+' '+word(tracks,n)};if(sk0){sk0.onchange=lab;lab()}
   $('#lbGo',w).onclick=function(){var sk=$('#lbSkip',w);var list=sk&&sk.checked?tracks.filter(function(t){return !done.has(t.i)}):tracks.slice();close();if(!list.length){toast('Everything here is already downloaded.');return}run(title,list)}});
 }
 
@@ -164,7 +193,7 @@ function run(title,list){
  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(function(w){wake=w}).catch(function(){})}catch(e){}
  var i=0,retry=0;
  (function next(){
-  if(job.stopped||i>=list.length){job.end=true;job.cur=null;try{wake&&wake.release()}catch(e){}wake=null;drawJob();if(curCat)showCat(curCat);if(!job.stopped)toast(job.k+' files downloaded.');return}
+  if(job.stopped||i>=list.length){job.end=true;job.cur=null;try{wake&&wake.release()}catch(e){}wake=null;drawJob();redraw();if(!job.stopped)toast(job.k+' files downloaded.');return}
   var t=list[i];job.cur=t;drawJob();
   fresh().then(function(){return getOne(t)}).then(function(){job.k++;markDone(t.i);i++;retry=0;drawJob();setTimeout(next,IOS?900:350)})
   .catch(function(e){if(job.stopped){next();return}if(retry<2){retry++;setTimeout(next,2500*retry);return}job.fail++;i++;retry=0;setTimeout(next,600)});

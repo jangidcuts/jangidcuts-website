@@ -115,3 +115,15 @@ body.lb-has-job .lb{padding-bottom:230px}
 .lb-up-tx b{font-size:16px;line-height:1.3}
 .lb-up-tx i{font-style:normal;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lb-up-go{flex:0 0 auto;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,#2BF5C0,#0DBC94);color:#00110D;font-weight:800;font-size:14px;white-space:nowrap}
+
+/* Nov 2: file rows that can't be previewed (LUT, presets, CC, txt...) show the file type instead of a play button */
+.lb-ft{flex:0 0 44px;height:44px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(180deg,#182825,#0f1a18);border:1px solid rgba(43,245,192,.18);color:var(--mint);font-family:var(--body);font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;overflow:hidden}
+.lb-ft svg{width:20px;height:20px}
+.lb-sec{display:flex;align-items:center;gap:12px;margin:18px 2px 8px}
+.lb-sec:first-of-type{margin-top:4px}
+.lb-sec .lb-dl{flex-basis:38px;height:38px}
+.lb-img{position:relative;margin:14px 0;border-radius:16px;overflow:hidden;background:var(--panel);border:1px solid rgba(43,245,192,.12);min-height:180px;display:grid;place-items:center}
+.lb-img img{display:block;max-width:100%;max-height:58svh;width:auto;height:auto;margin:0 auto;opacity:0;transition:opacity .2s}
+.lb-img.ok img{opacity:1}.lb-img.ok .lb-spin,.lb-img.bad .lb-spin{display:none}
+.lb-img .lb-spin{position:absolute}
+.lb-img.bad::after{content:'Preview not available';color:var(--muted);font-size:13px}
