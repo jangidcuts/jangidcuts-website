@@ -3,6 +3,11 @@
 .jv svg{display:block;width:100%;height:100%}
 .jv-media,.jv-media video,.jv-media iframe,.jv-media>div{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000101}
 .jv-media iframe{pointer-events:none}
+/* Nov 2: YouTube iframe clipped to the picture; it is taller than the picture by --e at top and bottom so YouTube's own title bar,
+   copy-link button and logo sit outside the visible box (the video itself stays fully visible) */
+.jv .jv-media>.jv-ytc{right:auto;bottom:auto;overflow:hidden;background:#000101}
+.jv .jv-ytc iframe{position:absolute;left:0;right:auto;bottom:auto;top:calc(-1 * var(--e,72px));width:100%;height:calc(100% + 2 * var(--e,72px));pointer-events:none}
+.jv.yt.started .jv-pp{background:rgba(0,1,1,.86);box-shadow:0 0 0 1px rgba(43,245,192,.3),0 0 0 6px rgba(0,1,1,.35)}
 .jv.native .jv-media iframe{pointer-events:auto}.jv.native .jv-ui,.jv.native .jv-spin{display:none}
 .jv-poster{position:absolute;inset:0;z-index:1;background:#000101 center/cover no-repeat;display:grid;place-items:center}
 .jv-poster[hidden]{display:none}
@@ -26,6 +31,8 @@
 /* centre: big play / pause exactly in the middle, 10 s each side */
 .jv-mid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;gap:clamp(22px,9cqw,64px);pointer-events:none}
 .jv-mid .jv-b{pointer-events:auto}
+/* Nov 2: while the controls are hidden the centre buttons must not catch taps (a tap there only brings the controls back, like YouTube) */
+.jv.started.playing:not(.ui) .jv-mid .jv-b{pointer-events:none}
 .jv-pp{width:68px;height:68px;padding:19px;background:rgba(0,1,1,.42);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);filter:none;box-shadow:0 0 0 1px rgba(43,245,192,.25)}
 .jv:not(.started) .jv-pp{width:76px;height:76px;padding:22px 20px 22px 24px;background:linear-gradient(135deg,#4DCBB0,#0DBC94 55%,#196453);box-shadow:0 0 36px rgba(43,245,192,.45)}
 .jv.ended .jv-pp{padding:18px}

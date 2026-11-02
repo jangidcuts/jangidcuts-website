@@ -26,6 +26,8 @@ function qName(h){return h+'p'}
 function qTag(h){return h>=4320?'8K':h>=2160?'4K':h>=1440?'2K':h>=1080?'HD':''}
 function ytId(u){var m=String(u||'').match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);return m?m[1]:''}
 var ALL=[],ACTIVE=null;
+/* Nov 2: on a portfolio watch page start fetching YouTube's player script at once (it used to wait for the page data) */
+try{if(/^\/watch\//.test(location.pathname)&&!(window.YT&&YT.Player)&&!D.querySelector('script[src*="youtube.com/iframe_api"]')){var _ys=D.createElement('script');_ys.src='https://www.youtube.com/iframe_api';_ys.async=true;D.head.appendChild(_ys)}}catch(e){}
 
 /* opts: {src:'/v/p9' (file stream), yt:'<url or id>', poster:'', title:'', q:[1080,720,...] (real renditions, the first is the original), fb:'<drive id>'} */
 function mount(host,opts){opts=opts||{};var yid=opts.yt?(ytId(opts.yt)||(/^[\w-]{11}$/.test(opts.yt)?opts.yt:'')):'';
@@ -46,24 +48,41 @@ function mount(host,opts){opts=opts||{};var yid=opts.yt?(ytId(opts.yt)||(/^[\w-]
  function setPlaying(on){cls('playing',on);ppB.innerHTML=on?IC.pause:IC.play;ppB.setAttribute('aria-label',on?'Pause':'Play');if(on){cls('buf',false);cls('ended',false)}showUi()}
  function tick(){if(!api)return;var d=api.dur()||0,t=api.cur()||0;q('.jv-cur').textContent=fmt(t);q('.jv-dur').textContent=fmt(d);if(!dragging&&d){seek.value=Math.round(t/d*1000);pl.style.width=(t/d*100)+'%'}var b=api.buffered?api.buffered():0;if(d&&b)ld.style.width=Math.min(100,b/d*100)+'%'}
  /* ---- controls visibility ---- */
- function hideLater(){clearTimeout(uiT);uiT=setTimeout(function(){if(api&&!api.paused()&&!dragging&&menu.hidden&&!root.__hover)cls('ui',false)},3000)}
+ function hideLater(){clearTimeout(uiT);uiT=setTimeout(function(){if(api&&!api.paused()&&!dragging&&menu.hidden&&!root.__hover)cls('ui',false)},Math.max(3000,api&&api.hold?api.hold():0))}
  function showUi(){cls('ui',true);hideLater()}
- function hideUi(){clearTimeout(uiT);if(api&&!api.paused()&&menu.hidden)cls('ui',false)}
+ function hideUi(){clearTimeout(uiT);var h=api&&api.hold?api.hold():0;if(h){/* YouTube is still flashing its own centre button: keep ours on top of it */uiT=setTimeout(function(){if(api&&!api.paused()&&!dragging&&menu.hidden&&!root.__hover)cls('ui',false)},h);return}if(api&&!api.paused()&&menu.hidden)cls('ui',false)}
  function flipUi(){if(root.classList.contains('ui')&&api&&!api.paused())hideUi();else showUi()}
  function start(){if(!api)return;started=true;cls('started',true);poster.hidden=true;api.play()}
  function toggle(){if(!api)return;if(!started){start();return}if(api.paused())api.play();else api.pause();showUi()}
- function skip(d){if(!api||!started)return;var dur=api.dur()||0,t=(api.cur()||0)+d;t=dur?Math.min(Math.max(0,t),Math.max(0,dur-0.25)):Math.max(0,t);api.seekTo(t);tick();var f=q(d<0?'.jv-flash.l':'.jv-flash.r');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}
+ function skip(d){if(!api||!started)return;var dur=api.dur()||0,t=(api.cur()||0)+d;t=dur?Math.min(Math.max(0,t),Math.max(0,dur-0.25)):Math.max(0,t);api.seekTo(t);tick();var f=q(d<0?'.jv-flash.l':'.jv-flash.r');f.classList.remove('on');void f.offsetWidth;f.classList.add('on');if(yid)showUi()/* YouTube flashes its own centre button after a seek: ours covers it */}
  function setMuteIcon(){var m=api&&api.muted();muteB.innerHTML=m?IC.mute:IC.vol;muteB.setAttribute('aria-label',m?'Unmute':'Mute');vol.value=m?0:Math.round((api&&api.vol?api.vol():1)*100)}
  /* ---- sources ---- */
- if(yid){var y=null;api={ready:false,want:false,
-   play:function(){if(y&&api.ready){cls('buf',true);y.playVideo();clearTimeout(api.chk);api.chk=setTimeout(function(){var s=y.getPlayerState?y.getPlayerState():-1;if(s!==1&&s!==3&&!api.userPaused){y.mute();y.playVideo();setMuteIcon()}},1500)}else api.want=true;api.userPaused=false},
-   pause:function(){api.userPaused=true;clearTimeout(api.chk);y&&y.pauseVideo&&y.pauseVideo()},cur:function(){return y&&y.getCurrentTime?y.getCurrentTime():0},dur:function(){return y&&y.getDuration?y.getDuration():0},
-   buffered:function(){return y&&y.getVideoLoadedFraction?y.getVideoLoadedFraction()*(y.getDuration()||0):0},seekTo:function(s){y&&y.seekTo&&y.seekTo(s,true)},
+ if(yid){var y=null,warm=0,warmT=0,wMuted=false,zero=false,ytBusy=0,ar=opts.ar||(host.classList.contains('v')?9/16:16/9);cls('yt',true);if(!opts.poster){poster.classList.remove('nop');poster.style.backgroundImage="url('https://i.ytimg.com/vi/"+yid+"/hqdefault.jpg')"}
+  /* Nov 2 (Prashant 7:22 AM): ONE control set + instant start.
+     - YouTube's own chrome (title bar, copy-link, YouTube logo, its transient centre pause) is drawn inside its iframe; we clip the iframe to the
+       picture and make it taller than the picture so its top / bottom chrome sits outside the visible box, and while YouTube flashes its own
+       centre button (~4 s after play / pause / seek, measured Nov 2) our opaque centre control stays up exactly on top of it.
+     - Warm start: as soon as the player is ready it buffers the first seconds silently (muted, hidden under the poster), then pauses at 0:00;
+       a tap then only unmutes + plays an already-buffered video. Skipped on Data Saver. */
+  var busy=function(){ytBusy=Date.now()+4600};api={ready:false,want:false,
+   play:function(){busy();if(y&&api.ready){cls('buf',true);if(warm){warm=0;clearTimeout(warmT);zero=true}if(wMuted){wMuted=false;try{y.unMute()}catch(e){}}if(zero&&(y.getCurrentTime()||0)>0.05){y.seekTo(0,true)}y.playVideo();clearTimeout(api.chk);api.chk=setTimeout(function(){var s=y.getPlayerState?y.getPlayerState():-1;if(s!==1&&s!==3&&!api.userPaused){y.mute();y.playVideo();setMuteIcon()}},1500)}else api.want=true;api.userPaused=false},
+   pause:function(){busy();api.userPaused=true;clearTimeout(api.chk);y&&y.pauseVideo&&y.pauseVideo()},cur:function(){return y&&y.getCurrentTime?y.getCurrentTime():0},dur:function(){return y&&y.getDuration?y.getDuration():0},
+   buffered:function(){return y&&y.getVideoLoadedFraction?y.getVideoLoadedFraction()*(y.getDuration()||0):0},seekTo:function(s){busy();y&&y.seekTo&&y.seekTo(s,true)},
    muted:function(){return !!(y&&y.isMuted&&y.isMuted())},mute:function(on){y&&(on?y.mute():y.unMute())},vol:function(){return y&&y.getVolume?y.getVolume()/100:1},setVol:function(x){y&&y.setVolume&&y.setVolume(Math.round(x*100));if(x>0&&api.muted())api.mute(false)},
-   paused:function(){return !y||!y.getPlayerState||[1,3].indexOf(y.getPlayerState())<0},destroy:function(){try{y&&y.destroy()}catch(e){}}};
-  var hid='jvyt'+Math.random().toString(36).slice(2,8);media.innerHTML='<div id="'+hid+'"></div>';
-  var mk=function(){y=new YT.Player(hid,{host:'https://www.youtube-nocookie.com',videoId:yid,playerVars:{controls:0,modestbranding:1,rel:0,iv_load_policy:3,disablekb:1,fs:0,playsinline:1,cc_load_policy:0,autoplay:0},
-    events:{onReady:function(){api.ready=true;if(api.want){api.want=false;api.play()}},onStateChange:function(e){cls('buf',e.data===3);if(e.data===1||e.data===2)setPlaying(e.data===1);if(e.data===1){try{ytQ=y.getPlaybackQuality()}catch(x){}}if(e.data===0){setPlaying(false);cls('ended',true);ppB.innerHTML=IC.replay;ppB.setAttribute('aria-label','Replay')}},onPlaybackQualityChange:function(e){ytQ=e.data}}})};
+   paused:function(){return !y||!y.getPlayerState||[1,3].indexOf(y.getPlayerState())<0},destroy:function(){clearTimeout(warmT);ro&&ro.disconnect();try{y&&y.destroy()}catch(e){}},
+   hold:function(){return Math.max(0,ytBusy-Date.now())}};
+  var hid='jvyt'+Math.random().toString(36).slice(2,8);media.innerHTML='<div class="jv-ytc"><div id="'+hid+'"></div></div>';var clip=media.firstChild;
+  var lay=function(){var W=root.clientWidth,H=root.clientHeight;if(!W||!H)return;var w=W,h=W/ar,l=0,t=0;if(h>H){h=H;w=H*ar;l=(W-w)/2}else t=(H-h)/2;
+   clip.style.cssText='left:'+l.toFixed(1)+'px;top:'+t.toFixed(1)+'px;width:'+(w===W?'100%':w.toFixed(1)+'px')+';height:'+(h===H?'100%':h.toFixed(1)+'px')+';--e:'+Math.max(72,Math.round(h*.22))+'px'};
+  lay();var ro=window.ResizeObserver?new ResizeObserver(lay):null;ro?ro.observe(root):window.addEventListener('resize',lay);
+  var saveData=!!(navigator.connection&&navigator.connection.saveData);
+  var warmUp=function(){if(started||saveData||opts.warm===false)return;warm=1;wMuted=!y.isMuted();try{y.mute();y.playVideo()}catch(e){warm=0}
+   warmT=setTimeout(function(){if(warm){warm=0;try{y.pauseVideo()}catch(e){}}},12000)};
+  var mk=function(){y=new YT.Player(hid,{host:'https://www.youtube-nocookie.com',videoId:yid,playerVars:{controls:0,modestbranding:1,rel:0,iv_load_policy:3,disablekb:1,fs:0,playsinline:1,cc_load_policy:0,autoplay:0,showinfo:0,enablejsapi:1,origin:location.origin,widget_referrer:location.href},
+    events:{onReady:function(){api.ready=true;try{var f=y.getIframe&&y.getIframe();f&&f.setAttribute('tabindex','-1');f&&f.setAttribute('aria-hidden','true')}catch(e){}if(api.want){api.want=false;api.play()}else warmUp()},
+     onStateChange:function(e){
+      if(warm){/* silent pre-buffer: nothing shows, the poster stays on top */if(e.data===1&&warm===1){warm=2;clearTimeout(warmT);try{y.pauseVideo();y.seekTo(0,true)}catch(x){}warmT=setTimeout(function(){warm=0},1200)}return}
+      if(e.data===1||e.data===2)busy();cls('buf',e.data===3);if(e.data===1||e.data===2)setPlaying(e.data===1);if(e.data===1){zero=false;try{ytQ=y.getPlaybackQuality()}catch(x){}}if(e.data===0){setPlaying(false);cls('ended',true);ppB.innerHTML=IC.replay;ppB.setAttribute('aria-label','Replay')}},onPlaybackQualityChange:function(e){ytQ=e.data}}})};
   if(window.YT&&YT.Player)mk();else{var prev=window.onYouTubeIframeAPIReady;window.onYouTubeIframeAPIReady=function(){prev&&prev();mk()};if(!D.querySelector('script[src*="youtube.com/iframe_api"]')){var s=D.createElement('script');s.src='https://www.youtube.com/iframe_api';D.head.appendChild(s)}}
  }else if(opts.src){
   quals=(opts.q||[]).filter(function(h){return h>0});
