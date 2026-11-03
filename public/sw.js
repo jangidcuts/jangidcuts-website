@@ -1,5 +1,5 @@
-const V='jc-v91';
-const CORE=['/','/portfolio','/services','/help','/soon','/styles.css?v=36','/script.js?v=15','/live.js?v=38','/brands.js?v=2','/store','/store.css?v=17','/store.js?v=26','/library.css?v=5','/library.js?v=8','/page','/pages.css?v=9','/player.css?v=3','/player.js?v=3','/pages.js?v=15','/prefs.js?v=10','/i18n.js?v=12','/pwmeter.js?v=2','/fonts/Anton-400.woff2','/fonts/BebasNeue-400.woff2','/fonts/Inter-400.woff2','/icon-192.png'];
+const V='jc-v92';
+const CORE=['/','/portfolio','/services','/help','/soon','/styles.css?v=36','/script.js?v=15','/live.js?v=38','/brands.js?v=2','/store','/store.css?v=17','/store.js?v=26','/library.css?v=5','/library.js?v=9','/page','/pages.css?v=9','/player.css?v=3','/player.js?v=3','/pages.js?v=15','/prefs.js?v=10','/i18n.js?v=12','/pwmeter.js?v=2','/fonts/Anton-400.woff2','/fonts/BebasNeue-400.woff2','/fonts/Inter-400.woff2','/icon-192.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const r=e.request,u=new URL(r.url);

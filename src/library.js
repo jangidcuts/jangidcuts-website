@@ -32,19 +32,59 @@ export function normDriveLinks(v) {
   return out.join('\n');
 }
 
-async function listChildren(tok, id) {
+// Nov 3: the listing is built level by level. One Drive query lists the children of up to PCHUNK folders at once
+// ("'a' in parents or 'b' in parents ..."), and shortcut-target sizes come from Drive batch requests (100 lookups per call),
+// so a 500-shortcut tier pack or the 4-link 2000+ pack stays at ~10-20 Google calls per build (Workers cap: 50 on Free).
+const PCHUNK = 25, BATCH = 100;
+const LIST_FIELDS = 'nextPageToken,files(id,name,mimeType,size,parents,shortcutDetails(targetId,targetMimeType))';
+async function driveList(tok, q) {
   const out = []; let pt = '', pages = 0;
   do {
-    const q = encodeURIComponent(`'${id}' in parents and trashed = false`);
-    const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=nextPageToken,files(id,name,mimeType,size,shortcutDetails)&pageSize=1000&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true${pt ? '&pageToken=' + encodeURIComponent(pt) : ''}`, { headers: { authorization: 'Bearer ' + tok } });
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(LIST_FIELDS)}&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true${pt ? '&pageToken=' + encodeURIComponent(pt) : ''}`;
+    let r;
+    for (let a = 0; ; a++) { // Drive answers a heavy query with a passing 500/503/429 now and then: two retries
+      r = await fetch(url, { headers: { authorization: 'Bearer ' + tok } });
+      if (r.ok || a >= 2 || !(r.status >= 500 || r.status === 429)) break;
+      await r.body?.cancel(); await new Promise(x => setTimeout(x, 800 * (a + 1)));
+    }
     if (!r.ok) { const t = (await r.text()).slice(0, 200); const e = new Error('Drive list ' + r.status + ' ' + t); e.status = r.status; throw e; }
     const j = await r.json(); for (const f of j.files || []) out.push(f); pt = j.nextPageToken || '';
-  } while (pt && ++pages < 20);
-  const list = out.map(f => f.mimeType === SHORTCUT && f.shortcutDetails ? { id: f.shortcutDetails.targetId, name: f.name, mimeType: f.shortcutDetails.targetMimeType, size: f.size, sc: 1 } : f);
-  // Nov 1: tier packs can be built from Drive SHORTCUTS to files of a bigger pack (no second copy); a shortcut has no size of its own -> read the target's
-  const need = list.filter(f => f.sc && !(+f.size) && f.mimeType !== DRIVE_FOLDER);
-  for (let i = 0; i < need.length; i += 10) await Promise.all(need.slice(i, i + 10).map(async f => { try { const m = await fileMeta(tok, f.id); f.size = m.size; } catch { } }));
-  return list;
+  } while (pt && ++pages < 30);
+  return out;
+}
+const resolve = f => f.mimeType === SHORTCUT && f.shortcutDetails ? { id: f.shortcutDetails.targetId, name: f.name, mimeType: f.shortcutDetails.targetMimeType, size: f.size, sc: 1 } : f;
+// Children of many folders: Map folderId -> [items] (shortcuts already swapped for their targets; sizes filled later).
+async function listMany(tok, ids) {
+  ids = [...new Set(ids)]; const by = new Map(ids.map(id => [id, []]));
+  const chunks = []; for (let i = 0; i < ids.length; i += PCHUNK) chunks.push(ids.slice(i, i + PCHUNK));
+  await Promise.all(chunks.map(async ch => {
+    const set = new Set(ch);
+    const q = (ch.length > 1 ? '(' + ch.map(id => `'${id}' in parents`).join(' or ') + ')' : `'${ch[0]}' in parents`) + ' and trashed = false';
+    for (const f of await driveList(tok, q)) { const it = resolve(f); for (const p of f.parents || []) if (set.has(p)) by.get(p).push(it); }
+  }));
+  return by;
+}
+// Sizes of shortcut targets (a shortcut has no size of its own) through Drive's batch endpoint: <= 100 lookups per call.
+async function fillSizes(tok, items) {
+  const need = new Map();
+  for (const f of items) if (f.sc && !(+f.size) && f.mimeType !== DRIVE_FOLDER) { if (!need.has(f.id)) need.set(f.id, []); need.get(f.id).push(f); }
+  const ids = [...need.keys()]; if (!ids.length) return;
+  const got = new Map(), chunks = [];
+  for (let i = 0; i < ids.length; i += BATCH) chunks.push(ids.slice(i, i + BATCH));
+  await Promise.all(chunks.map(async ch => {
+    const b = 'jcbatch' + Math.random().toString(36).slice(2);
+    const body = ch.map((id, k) => `--${b}\r\nContent-Type: application/http\r\nContent-ID: <s${k}>\r\n\r\nGET /drive/v3/files/${encodeURIComponent(id)}?fields=id%2Csize&supportsAllDrives=true\r\n\r\n`).join('') + `--${b}--\r\n`;
+    try {
+      const r = await fetch('https://www.googleapis.com/batch/drive/v3', { method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'multipart/mixed; boundary=' + b }, body });
+      if (!r.ok) return;
+      const t = await r.text();
+      for (const m of t.matchAll(/\{[^{}]*"id"\s*:\s*"[\w-]+"[^{}]*\}/g)) { try { const j = JSON.parse(m[0]); if (j.id && j.size) got.set(j.id, j.size); } catch { } }
+    } catch { }
+  }));
+  // anything the batch did not answer: a few single lookups at most (the rest keeps size 0; the file itself still streams)
+  const miss = ids.filter(id => !got.has(id)).slice(0, 8);
+  await Promise.all(miss.map(async id => { try { const m = await fileMeta(tok, id); if (m.size) got.set(id, m.size); } catch { } }));
+  for (const [id, arr] of need) if (got.has(id)) for (const f of arr) f.size = got.get(id);
 }
 async function fileMeta(tok, id) {
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=id,name,mimeType,size&supportsAllDrives=true`, { headers: { authorization: 'Bearer ' + tok } });
@@ -64,54 +104,68 @@ export function trackInfo(name) {
   const title = rest.replace(/[_]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Za-z])(\d)/g, '$1 $2').replace(/\s{2,}/g, ' ').trim() || base;
   return { title, no, bpm };
 }
-const cleanCat = s => String(s || '').replace(/^\d{1,3}[\s._-]+/, '').replace(/_/g, ' ').trim() || String(s || '');
+// Nov 3: CamelCase folder names read as words ("ChillHouse" -> "Chill House", "GamingEDM" -> "Gaming EDM", "LiquidDnB" stays "Liquid DnB")
+const cleanCat = s => String(s || '').replace(/^\d{1,3}[\s._-]+/, '').replace(/_/g, ' ').replace(/([a-z])([A-Z][a-z]|[A-Z]{2,}\b)/g, '$1 $2').replace(/\s{2,}/g, ' ').trim() || String(s || '');
 
-// Walk one category folder (files in nested folders included, depth <= 3).
-async function walk(tok, id, depth) {
-  const kids = await listChildren(tok, id);
-  const files = kids.filter(isFile);
-  const subs = depth < 3 ? kids.filter(f => f.mimeType === DRIVE_FOLDER && !HIDDEN.test(f.name || '')) : [];
-  const nested = await Promise.all(subs.map(s => walk(tok, s.id, depth + 1)));
-  return files.concat(...nested);
-}
 const trackOf = f => { const t = trackInfo(f.name); return { i: f.id, n: t.title, f: f.name, s: +f.size || 0, m: f.mimeType || '', b: t.bpm }; };
 
 export async function buildManifest(env, links) {
   const tok = await googleToken(env, 'main');
   if (!tok) { const e = new Error('Google Drive is not connected'); e.status = 503; throw e; }
-  const cats = new Map(); const order = []; const roots = [];
+  const metas = await Promise.all(links.map(lid => fileMeta(tok, lid)));
+  const roots = metas.map(m => ({ name: m.name, id: m.id, meta: m, folder: m.mimeType === DRIVE_FOLDER }));
+  const top = await listMany(tok, roots.filter(r => r.folder).map(r => r.id));
+  const all = [];          // every file item (for the shortcut size pass)
+  let frontier = [];       // [{ g, id }]: folders to list at the next level, g = the category group they feed
+  for (const r of roots) {
+    if (!r.folder) { r.files = [r.meta]; continue; }
+    const kids = top.get(r.id) || [];
+    r.loose = kids.filter(isFile); all.push(...r.loose);
+    r.folders = kids.filter(f => f.mimeType === DRIVE_FOLDER && !HIDDEN.test(f.name || '')).sort((a, b) => natural(a.name, b.name))
+      .map(f => { const g = { f, files: [] }; frontier.push({ g, id: f.id }); return g; });
+  }
+  // category folder = depth 1; files in nested folders are included down to depth 3 (same as before)
+  for (let depth = 1; depth <= 3 && frontier.length; depth++) {
+    const m = await listMany(tok, frontier.map(x => x.id));
+    const next = [];
+    for (const { g, id } of frontier) {
+      const kids = m.get(id) || [];
+      const files = kids.filter(isFile); g.files.push(...files); all.push(...files);
+      if (depth < 3) for (const s of kids) if (s.mimeType === DRIVE_FOLDER && !HIDDEN.test(s.name || '')) next.push({ g, id: s.id });
+    }
+    frontier = next;
+  }
+  await fillSizes(tok, all);
+  const cats = new Map(); const order = [];
   const add = (key, name, id, files) => {
     const k = key.toLowerCase();
     if (!cats.has(k)) { cats.set(k, { id, name, tracks: [] }); order.push(k); }
     const c = cats.get(k); const seen = new Set(c.tracks.map(t => t.i));
     for (const f of files) if (!seen.has(f.id)) { c.tracks.push(trackOf(f)); seen.add(f.id); }
   };
-  await Promise.all(links.map(async (lid, li) => {
-    const meta = await fileMeta(tok, lid);
-    roots[li] = { name: meta.name };
-    if (meta.mimeType !== DRIVE_FOLDER) { roots[li].files = [meta]; return; }
-    const kids = await listChildren(tok, lid);
-    const folders = kids.filter(f => f.mimeType === DRIVE_FOLDER && !HIDDEN.test(f.name || '')).sort((a, b) => natural(a.name, b.name));
-    roots[li].loose = kids.filter(isFile);
-    roots[li].folders = await Promise.all(folders.map(async f => ({ f, files: await walk(tok, f.id, 1) })));
-  }));
-  for (const r of roots) {
-    if (!r) continue;
-    if (r.files) { add('__files', 'Files', 'files', r.files); continue; }
+  roots.forEach((r, ri) => {
+    if (r.files) { add('__files', 'Files', 'files', r.files); return; }
     for (const { f, files } of r.folders) if (files.length) add(cleanCat(f.name), cleanCat(f.name), f.id, files);
-    if (r.loose.length) add(cleanCat(r.name || 'More'), cleanCat(r.name || 'More'), 'root' + roots.indexOf(r), r.loose);
-  }
+    if (r.loose.length) add(cleanCat(r.name || 'More'), cleanCat(r.name || 'More'), 'root' + ri, r.loose);
+  });
   const list = order.map(k => cats.get(k));
   for (const c of list) { c.tracks.sort((a, b) => natural(a.f, b.f)); c.n = c.tracks.length; c.bytes = c.tracks.reduce((x, t) => x + t.s, 0); }
   list.sort((a, b) => natural(a.name, b.name));
   return { v: 1, at: now(), cats: list, n: list.reduce((x, c) => x + c.n, 0), bytes: list.reduce((x, c) => x + c.bytes, 0) };
+}
+// Totals of several per-link manifests merged the way buildManifest merges links (categories by name, tracks by file id).
+function mergedTotals(mans) {
+  const cats = new Map();
+  for (const man of mans) for (const c of man.cats) { const k = c.name.toLowerCase(); if (!cats.has(k)) cats.set(k, new Map()); const m = cats.get(k); for (const t of c.tracks) if (!m.has(t.i)) m.set(t.i, t.s); }
+  let n = 0, bytes = 0; for (const m of cats.values()) for (const s of m.values()) { n++; bytes += s; }
+  return { cats: [...cats.values()].filter(m => m.size).length, n, bytes };
 }
 
 const MEM = new Map(); // isolate-local cache: pid -> { at, key, man, ids }
 async function linksKey(links) { const d = await crypto.subtle.digest('SHA-1', enc.encode(links.join('|'))); return [...new Uint8Array(d)].slice(0, 6).map(b => b.toString(16).padStart(2, '0')).join(''); }
 export async function getManifest(env, p, { fresh = false } = {}) {
   const links = driveLinks(p); if (!links.length) { const e = new Error('No Drive link on this product'); e.status = 404; throw e; }
-  const key = 'lib2:' + p.id + ':' + (await linksKey(links));
+  const key = 'lib3:' + p.id + ':' + (await linksKey(links));
   const mem = MEM.get(p.id);
   if (!fresh && mem && mem.key === key && Date.now() - mem.at < 120e3) return mem.man;
   let man = null;
@@ -235,10 +289,11 @@ export async function libraryPreview(env, links) {
   const ids = driveLinks({ drive_id: Array.isArray(links) ? links.join('\n') : String(links || '') });
   if (!ids.length) fail('Paste at least one Google Drive folder link');
   const res = [];
+  const mans = [];
   for (const id of ids) {
-    try { const man = await buildManifest(env, [id]); res.push({ id, ok: true, cats: man.cats.length, n: man.n, bytes: man.bytes }); }
+    try { const man = await buildManifest(env, [id]); mans.push(man); res.push({ id, ok: true, cats: man.cats.length, n: man.n, bytes: man.bytes }); }
     catch (e) { res.push({ id, ok: false, error: e.status === 404 || e.status === 403 ? 'jangidcuts@gmail.com cannot open this link. Share the folder with jangidcuts@gmail.com (Editor) and try again.' : (e.status === 503 ? 'Google Drive is not connected. Reconnect jangidcuts@gmail.com in Emails.' : 'Could not read this folder (' + (e.status || 'error') + ').') }); }
   }
-  let all = null; try { all = await buildManifest(env, ids); } catch { }
-  return J({ ok: true, links: res, total: all ? { cats: all.cats.length, n: all.n, bytes: all.bytes } : null });
+  const all = mans.length === ids.length ? mergedTotals(mans) : null; // Nov 3: merged from the per-link builds (no second full listing)
+  return J({ ok: true, links: res, total: all });
 }
