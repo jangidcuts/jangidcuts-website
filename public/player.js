@@ -51,7 +51,8 @@ function mount(host,opts){opts=opts||{};var yid=opts.yt?(ytId(opts.yt)||(/^[\w-]
  function hideLater(){clearTimeout(uiT);uiT=setTimeout(function(){if(api&&!api.paused()&&!dragging&&menu.hidden&&!root.__hover)cls('ui',false)},Math.max(3000,api&&api.hold?api.hold():0))}
  function showUi(){cls('ui',true);hideLater()}
  function hideUi(){clearTimeout(uiT);var h=api&&api.hold?api.hold():0;if(h){/* YouTube is still flashing its own centre button: keep ours on top of it */uiT=setTimeout(function(){if(api&&!api.paused()&&!dragging&&menu.hidden&&!root.__hover)cls('ui',false)},h);return}if(api&&!api.paused()&&menu.hidden)cls('ui',false)}
- function flipUi(){if(root.classList.contains('ui')&&api&&!api.paused())hideUi();else showUi()}
+ /* Nov 3 (Prashant 9:41 PM): a tap on the picture hides / shows the controls while PAUSED too (a tap never starts playback; only the play button does) */
+ function flipUi(){if(root.classList.contains('ui')&&api){if(api.paused()){if(started&&menu.hidden){clearTimeout(uiT);cls('ui',false)}else showUi()}else hideUi()}else showUi()}
  function start(){if(!api)return;started=true;cls('started',true);poster.hidden=true;api.play()}
  function toggle(){if(!api)return;if(!started){start();return}if(api.paused())api.play();else api.pause();showUi()}
  function skip(d){if(!api||!started)return;var dur=api.dur()||0,t=(api.cur()||0)+d;t=dur?Math.min(Math.max(0,t),Math.max(0,dur-0.25)):Math.max(0,t);api.seekTo(t);tick();var f=q(d<0?'.jv-flash.l':'.jv-flash.r');f.classList.remove('on');void f.offsetWidth;f.classList.add('on');if(yid)showUi()/* YouTube flashes its own centre button after a seek: ours covers it */}
