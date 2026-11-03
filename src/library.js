@@ -107,31 +107,54 @@ export function trackInfo(name) {
 // Nov 3: CamelCase folder names read as words ("ChillHouse" -> "Chill House", "GamingEDM" -> "Gaming EDM", "LiquidDnB" stays "Liquid DnB")
 const cleanCat = s => String(s || '').replace(/^\d{1,3}[\s._-]+/, '').replace(/_/g, ' ').replace(/([a-z])([A-Z][a-z]|[A-Z]{2,}\b)/g, '$1 $2').replace(/\s{2,}/g, ' ').trim() || String(s || '');
 
-const trackOf = f => { const t = trackInfo(f.name); return { i: f.id, n: t.title, f: f.name, s: +f.size || 0, m: f.mimeType || '', b: t.bpm }; };
+const trackOf = f => { const t = trackInfo(f.name); const o = { i: f.id, n: t.title, f: f.name, s: +f.size || 0, m: f.mimeType || '', b: t.bpm }; if (f.p) o.p = f.p; return o; };
+
+// Nov 3 (Prashant 8:32 PM): Mobile / PC split. A folder whose name says Mobile or PC (Mobile_33pt, PC_65pt, Mobile_DNG, PC_XMP,
+// LUTs_33pt_Mobile..., After_Effects ...) tags every file under it; a top-level platform folder that holds category folders is
+// "unwrapped" (PC_XMP/Moody + Mobile_DNG/Moody -> one category "Moody" with both platforms). Without a folder word a file's own
+// name decides (_33.cube / .dng -> mobile, _65.cube / .xmp -> PC). The library shows the switch only when both platforms exist.
+const PLAT_M = new Set(['mobile', 'mobiles', 'dng', '33pt', '33point', 'capcut', 'lumafusion', 'vn', 'alight', 'inshot', 'kinemaster']);
+const PLAT_P = new Set(['pc', 'desktop', 'xmp', '65pt', '65point', 'premiere', 'resolve', 'davinci', 'fcpx', 'fcp']);
+export function platOf(name) {
+  const s = String(name || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase(), toks = s.split(/[^a-z0-9]+/);
+  const m = toks.some(t => PLAT_M.has(t)) || /33[\s_-]*(pt|point)/.test(s);
+  const p = toks.some(t => PLAT_P.has(t)) || /65[\s_-]*(pt|point)|after[\s_-]*effects|final[\s_-]*cut/.test(s);
+  return m && !p ? 'm' : p && !m ? 'p' : '';
+}
+export function filePlat(name) {
+  const s = String(name || '').toLowerCase();
+  if (/[_\s-]33(pt)?\.cube$/.test(s) || /\.dng$/.test(s)) return 'm';
+  if (/[_\s-]65(pt)?([_\s-]ae)?\.cube$/.test(s) || /\.xmp$/.test(s)) return 'p';
+  return '';
+}
 
 export async function buildManifest(env, links) {
   const tok = await googleToken(env, 'main');
   if (!tok) { const e = new Error('Google Drive is not connected'); e.status = 503; throw e; }
   const metas = await Promise.all(links.map(lid => fileMeta(tok, lid)));
-  const roots = metas.map(m => ({ name: m.name, id: m.id, meta: m, folder: m.mimeType === DRIVE_FOLDER }));
+  const roots = metas.map(m => ({ name: m.name, id: m.id, meta: m, folder: m.mimeType === DRIVE_FOLDER, plat: platOf(m.name) }));
   const top = await listMany(tok, roots.filter(r => r.folder).map(r => r.id));
   const all = [];          // every file item (for the shortcut size pass)
-  let frontier = [];       // [{ g, id }]: folders to list at the next level, g = the category group they feed
+  const tag = (files, plat) => { for (const f of files) f.p = plat || filePlat(f.name); return files; };
+  let frontier = [];       // [{ g, id, plat, d }]: folders to list next; g = the category group they feed, d = depth inside g
   for (const r of roots) {
-    if (!r.folder) { r.files = [r.meta]; continue; }
+    if (!r.folder) { r.files = tag([r.meta], r.plat); continue; }
     const kids = top.get(r.id) || [];
-    r.loose = kids.filter(isFile); all.push(...r.loose);
+    r.loose = tag(kids.filter(isFile), r.plat); all.push(...r.loose);
     r.folders = kids.filter(f => f.mimeType === DRIVE_FOLDER && !HIDDEN.test(f.name || '')).sort((a, b) => natural(a.name, b.name))
-      .map(f => { const g = { f, files: [] }; frontier.push({ g, id: f.id }); return g; });
+      .map(f => { const pl = platOf(f.name); const g = { f, files: [], unwrap: !!pl, r }; frontier.push({ g, id: f.id, plat: pl || r.plat, d: 1 }); return g; });
   }
   // category folder = depth 1; files in nested folders are included down to depth 3 (same as before)
-  for (let depth = 1; depth <= 3 && frontier.length; depth++) {
+  for (let level = 0; level < 5 && frontier.length; level++) {
     const m = await listMany(tok, frontier.map(x => x.id));
     const next = [];
-    for (const { g, id } of frontier) {
+    for (const { g, id, plat, d } of frontier) {
       const kids = m.get(id) || [];
-      const files = kids.filter(isFile); g.files.push(...files); all.push(...files);
-      if (depth < 3) for (const s of kids) if (s.mimeType === DRIVE_FOLDER && !HIDDEN.test(s.name || '')) next.push({ g, id: s.id });
+      const files = tag(kids.filter(isFile), plat); g.files.push(...files); all.push(...files);
+      const subs = kids.filter(s => s.mimeType === DRIVE_FOLDER && !HIDDEN.test(s.name || '')).sort((a, b) => natural(a.name, b.name));
+      if (g.unwrap && d === 1 && subs.length) { // PC_XMP/<Category>/...: each category folder becomes its own group
+        for (const s of subs) { const ng = { f: s, files: [] }; g.r.folders.push(ng); next.push({ g: ng, id: s.id, plat: platOf(s.name) || plat, d: 1 }); }
+      } else if (d < 3) for (const s of subs) next.push({ g, id: s.id, plat: platOf(s.name) || plat, d: d + 1 });
     }
     frontier = next;
   }
@@ -151,7 +174,7 @@ export async function buildManifest(env, links) {
   const list = order.map(k => cats.get(k));
   for (const c of list) { c.tracks.sort((a, b) => natural(a.f, b.f)); c.n = c.tracks.length; c.bytes = c.tracks.reduce((x, t) => x + t.s, 0); }
   list.sort((a, b) => natural(a.name, b.name));
-  return { v: 1, at: now(), cats: list, n: list.reduce((x, c) => x + c.n, 0), bytes: list.reduce((x, c) => x + c.bytes, 0) };
+  return { v: 2, at: now(), cats: list, n: list.reduce((x, c) => x + c.n, 0), bytes: list.reduce((x, c) => x + c.bytes, 0) };
 }
 // Totals of several per-link manifests merged the way buildManifest merges links (categories by name, tracks by file id).
 function mergedTotals(mans) {
@@ -165,7 +188,7 @@ const MEM = new Map(); // isolate-local cache: pid -> { at, key, man, ids }
 async function linksKey(links) { const d = await crypto.subtle.digest('SHA-1', enc.encode(links.join('|'))); return [...new Uint8Array(d)].slice(0, 6).map(b => b.toString(16).padStart(2, '0')).join(''); }
 export async function getManifest(env, p, { fresh = false } = {}) {
   const links = driveLinks(p); if (!links.length) { const e = new Error('No Drive link on this product'); e.status = 404; throw e; }
-  const key = 'lib3:' + p.id + ':' + (await linksKey(links));
+  const key = 'lib4:' + p.id + ':' + (await linksKey(links));
   const mem = MEM.get(p.id);
   if (!fresh && mem && mem.key === key && Date.now() - mem.at < 120e3) return mem.man;
   let man = null;
@@ -219,6 +242,13 @@ async function owns(env, uid, pid, fresh = false) {
 }
 export const isBundle = p => !!p && p.delivery === 'drive' && driveLinks(p).length > 0;
 
+// Nov 3 (Prashant 8:32 PM, "har jagah + hi dikhana hai"): buyers never see an exact item count. The pack's marketed "N+" comes
+// from its title ("500+ Royalty-Free ..." -> "500+"); without one, 100 or more rounds down to a "+" figure; a small pack shows no count.
+export function countLabel(title, n) {
+  const m = /(\d[\d,]*)\s*\+/.exec(String(title || ''));
+  if (m) return m[1].replace(/,/g, '') + '+';
+  n = +n || 0; return n >= 100 ? (n >= 1000 ? Math.floor(n / 500) * 500 : Math.floor(n / 50) * 50) + '+' : ''; // small packs: no count, just size
+}
 /* GET /api/lib/<pid>  (signed-in owner) -> categories + tracks + a 12 h token */
 export async function libraryData(env, s, pid, { fresh = false } = {}) {
   if (!s) fail('Please sign in first', 401);
@@ -234,8 +264,8 @@ export async function libraryData(env, s, pid, { fresh = false } = {}) {
   // Nov 1: upgrade suggestion (each tier points only to the next one up)
   let next = null;
   if (p.next_id) { const n = await env.DB.prepare('SELECT id, title, short, size_text, price, tier, image FROM products WHERE id = ?1 AND visible = 1').bind(p.next_id).first(); if (n && n.id !== p.id) next = { ...n, up_text: p.up_text || '' }; }
-  return J({ ok: true, product: { id: p.id, title: p.title, image: p.image, free: !(p.price > 0), tier: p.tier || '' }, next, token, exp, at: man.at, n: man.n, bytes: man.bytes, stale: !!man.stale,
-    cats: man.cats.map(c => ({ id: c.id, name: c.name, n: c.n, bytes: c.bytes, tracks: c.tracks.map(t => ({ i: t.i, n: t.n, f: t.f, s: t.s, b: t.b, a: /^audio\//.test(t.m) || /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(t.f) ? 1 : 0 })) })) });
+  return J({ ok: true, product: { id: p.id, title: p.title, image: p.image, free: !(p.price > 0), tier: p.tier || '' }, next, token, exp, at: man.at, nl: countLabel(p.title, man.n), n: man.n, bytes: man.bytes, stale: !!man.stale,
+    cats: man.cats.map(c => ({ id: c.id, name: c.name, n: c.n, bytes: c.bytes, tracks: c.tracks.map(t => { const o = { i: t.i, n: t.n, f: t.f, s: t.s, b: t.b, a: /^audio\//.test(t.m) || /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(t.f) ? 1 : 0 }; if (t.p) o.p = t.p; return o; }) })) });
 }
 
 /* GET|HEAD /api/lf/<token>/<fileId>/<name>[?dl=1]  -> the file, proxied from Drive with Range support */
@@ -253,7 +283,7 @@ export async function libraryFile(req, env, ctx, url) {
   const range = req.headers.get('range');
   const first = !range || /^bytes=0-/.test(range);
   if (first && req.method === 'GET') {
-    const ok = await rateLimit(env, (dl ? 'lfd:' : 'lfs:') + tk.uid, dl ? 1500 : 3000, 3600e3);
+    const ok = await rateLimit(env, (dl ? 'lfd:' : 'lfs:') + tk.uid, dl ? 4000 : 4000, 3600e3); // Nov 3: Download All of a 2000+ pack is 2000+ file requests (ZIP built in the browser)
     if (!ok) return new Response('Too many downloads in a short time. Please wait a little and try again.', { status: 429, headers: { 'retry-after': '600' } });
   }
   const tok = await googleToken(env, 'main');

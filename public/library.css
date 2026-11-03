@@ -127,3 +127,17 @@ body.lb-has-job .lb{padding-bottom:230px}
 .lb-img.ok img{opacity:1}.lb-img.ok .lb-spin,.lb-img.bad .lb-spin{display:none}
 .lb-img .lb-spin{position:absolute}
 .lb-img.bad::after{content:'Preview not available';color:var(--muted);font-size:13px}
+
+/* Nov 3: Mobile / PC switch + ZIP download */
+.lb-pls{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel);border:1px solid rgba(43,245,192,.14);border-radius:16px;padding:5px;margin:0 0 8px}
+.lb-plt{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:0;border-radius:12px;background:transparent;color:var(--muted);font:700 15px/1 var(--body);cursor:pointer;transition:background .2s,color .2s;-webkit-tap-highlight-color:transparent}
+.lb-plt svg{width:20px;height:20px}
+.lb-plt.on{background:#2BF5C0;color:#00110D;box-shadow:0 4px 16px rgba(13,188,148,.25)}
+@media (hover:hover) and (pointer:fine){.lb-plt:not(.on):hover{color:var(--mint)}}
+.lb-plh{color:var(--muted);font-size:13px;line-height:1.5;margin:0 2px 14px}
+.lb-plh b{color:var(--mint);font-weight:700}
+.lb-chead+.lb-pls{margin-top:-4px}
+.lb-alt{display:block;margin:10px auto 0;background:none;border:0;color:var(--muted);font:600 13.5px/1.4 var(--body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px}
+@media (hover:hover) and (pointer:fine){.lb-alt:hover{color:var(--mint)}}
+.lb-jsv{background:#2BF5C0!important;color:#00110D!important;border-color:#2BF5C0!important}
+.lb-jf a{color:var(--mint)}
