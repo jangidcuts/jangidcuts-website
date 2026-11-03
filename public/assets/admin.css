@@ -325,3 +325,10 @@ body.aic-kb .aic-in{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 .seg.pcs{display:grid;grid-template-columns:repeat(3,1fr);width:100%}
 .li .t span b{display:inline}
 .li .t .pwh i.off{color:var(--amber)}
+
+/* Nov 3: Gift Access */
+.gacts{text-align:right}.gacts .btn{margin:0 0 6px 6px;white-space:nowrap}
+#gRes textarea{font-size:13.5px;line-height:1.45;resize:vertical}
+@media (max-width:700px){.gtbl,.gtbl tbody,.gtbl tr,.gtbl td{display:block;width:100%}.gtbl tr:first-child{display:none}
+ .gtbl tr{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.015)}
+ .gtbl td{border:0;padding:3px 0}.gacts{text-align:left;padding-top:8px!important;display:flex!important;flex-wrap:wrap;gap:6px}.gacts .btn{margin:0}}

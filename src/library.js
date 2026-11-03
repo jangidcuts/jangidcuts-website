@@ -157,8 +157,8 @@ async function checkToken(env, t) {
 }
 
 const OWN = new Map(); // isolate-local: "uid:pid" -> checked-at
-async function owns(env, uid, pid) {
-  const k = uid + ':' + pid, c = OWN.get(k); if (c && Date.now() - c < 60e3) return true;
+async function owns(env, uid, pid, fresh = false) {
+  const k = uid + ':' + pid, c = OWN.get(k); if (!fresh && c && Date.now() - c < 60e3) return true;
   const r = await env.DB.prepare('SELECT 1 FROM owned WHERE user_id = ?1 AND product_id = ?2').bind(uid, pid).first();
   if (r) OWN.set(k, Date.now()); else OWN.delete(k);
   return !!r;
@@ -170,7 +170,7 @@ export async function libraryData(env, s, pid, { fresh = false } = {}) {
   if (!s) fail('Please sign in first', 401);
   const p = await env.DB.prepare('SELECT id, title, image, delivery, drive_id, link_url, size_text, price, tier, next_id, up_text FROM products WHERE id = ?1').bind(pid).first();
   if (!p || !isBundle(p)) fail('This item has no music library', 404);
-  if (!(await owns(env, s.user.id, pid))) fail('Buy this pack first to open it', 403);
+  if (!(await owns(env, s.user.id, pid, true))) fail('Buy this pack first to open it', 403); // Nov 3: fresh check, so a revoked gift / refund closes the pack at once
   await limitOrFail(env, 'lib:' + s.user.id, 240, 3600e3);
   let man;
   try { man = await getManifest(env, p, { fresh: fresh && s.isAdmin }); }

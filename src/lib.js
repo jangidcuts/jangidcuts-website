@@ -99,9 +99,9 @@ export async function setKey(env, k, v) { await env.DB.prepare('INSERT INTO kv (
 // Oct 27c (Prashant + Tab): new numbers are RANDOM 5-digit (10000-99999) from ONE pool shared by every type, so a number
 // never belongs to two live requests at all. A number is freed only when its request is closed/completed AND 30 days have
 // passed (refs.closed_at); on reuse the old record keeps its history under "<ref>~<created>". Old 6-digit refs keep working.
-export const REF_TYPES = { ORD: 'order', DL: 'free download', TKT: 'support ticket', HIRE: 'project request', REF: 'refund' };
+export const REF_TYPES = { ORD: 'order', DL: 'free download', TKT: 'support ticket', HIRE: 'project request', REF: 'refund', GIFT: 'gift' };
 export const REF_REUSE_DAYS = 30;
-const REF_TABLE = { ORD: ['orders', 'number'], DL: ['orders', 'number'], TKT: ['tickets', 'number'], HIRE: ['hire', 'number'] };
+const REF_TABLE = { ORD: ['orders', 'number'], DL: ['orders', 'number'], GIFT: ['orders', 'number'], TKT: ['tickets', 'number'], HIRE: ['hire', 'number'] };
 export async function newRef(env, type) {
   if (!REF_TYPES[type]) throw new Error('bad ref type ' + type);
   const free = now() - REF_REUSE_DAYS * 864e5;

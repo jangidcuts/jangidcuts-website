@@ -71,8 +71,8 @@ async function meData(env, s) {
   const [cart, wish, owned, orders, tickets, hires, dld, myRev] = await Promise.all([
     env.DB.prepare('SELECT c.product_id FROM cart c JOIN products p ON p.id = c.product_id WHERE c.user_id = ?1 AND p.visible = 1 ORDER BY c.added').bind(uid).all(),
     env.DB.prepare('SELECT product_id FROM wishlist WHERE user_id = ?1 ORDER BY added').bind(uid).all(),
-    env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle, CASE WHEN (w.order_id IS NULL AND COALESCE(p.price, 0) = 0) OR (w.order_id IS NOT NULL AND COALESCE(o.total, 0) = 0) THEN 1 ELSE 0 END free FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1").bind(uid).all(),
-    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta, proof FROM orders WHERE user_id = ?1 ORDER BY id DESC LIMIT 100').bind(uid).all(),
+    env.DB.prepare("SELECT w.product_id, w.downloads, w.created, p.title, p.image, p.delivery, p.size_text, CASE WHEN p.delivery = 'drive' AND (instr(p.drive_id, '/folders/') > 0 OR instr(p.drive_id, char(10)) > 0) THEN 1 ELSE 0 END bundle, CASE WHEN (w.order_id IS NULL AND COALESCE(p.price, 0) = 0) OR (w.order_id IS NOT NULL AND COALESCE(o.total, 0) = 0 AND COALESCE(o.provider, '') != 'gift') THEN 1 ELSE 0 END free FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1").bind(uid).all(),
+    env.DB.prepare('SELECT id, number, items, subtotal, discount, total, coupon, status, provider, payment_id, events, created, paid_at, delivered_at, meta, proof FROM orders WHERE user_id = ?1 AND NOT (COALESCE(provider, \'\') = \'gift\' AND status = \'cancelled\') ORDER BY id DESC LIMIT 100').bind(uid).all(),
     env.DB.prepare('SELECT number, topic, message, status, created, solved_at, read_at, events, solution, type FROM tickets WHERE user_id = ?1 OR email = ?2 ORDER BY id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT h.id, h.number, h.data, h.status, h.kind, h.events, h.created, h.approved_at, h.review_open, h.name, r.rating rv_rating, r.text rv_text, r.name rv_name, r.status rv_status FROM hire h LEFT JOIN reviews r ON r.hire_id = h.id WHERE h.user_id = ?1 OR h.email = ?2 ORDER BY h.id DESC LIMIT 100').bind(uid, s.user.email).all(),
     env.DB.prepare('SELECT DISTINCT order_id FROM owned WHERE user_id = ?1 AND downloads > 0').bind(uid).all(),
@@ -169,9 +169,9 @@ export async function handlePublic(req, env, ctx, url, s) {
   /* ----- My Downloads: remove a FREE item (paid items stay; Nov 1) ----- */
   if (p === '/api/owned/remove' && m === 'POST') {
     needUser(s); const b = await readJson(req); const pid = Math.round(+b.product_id || 0);
-    const row = await env.DB.prepare('SELECT w.order_id, p.price, o.total FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(s.user.id, pid).first();
+    const row = await env.DB.prepare('SELECT w.order_id, p.price, o.total, o.provider FROM owned w LEFT JOIN products p ON p.id = w.product_id LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(s.user.id, pid).first();
     if (!row) fail('This item is not in your downloads', 404);
-    const freeItem = row.order_id ? !(row.total > 0) : !(row.price > 0);
+    const freeItem = row.provider === 'gift' ? false : (row.order_id ? !(row.total > 0) : !(row.price > 0)); // Nov 3: a gifted paid pack stays like a purchase
     if (!freeItem) fail('Purchased items stay in your downloads for life and cannot be removed');
     await env.DB.prepare('DELETE FROM owned WHERE user_id = ?1 AND product_id = ?2').bind(s.user.id, pid).run();
     return J({ ok: true });

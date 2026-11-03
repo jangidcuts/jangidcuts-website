@@ -1,4 +1,4 @@
-import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef, refClosed, ownerEmails } from './lib.js';
+import { J, err, fail, now, rand, clean, readJson, getContent, getKey, setKey, encrypt, decrypt, totpOk, b32enc, dayStr, logEvent, isEmail, setCookie, newRef, refClosed, ownerEmails, findOrCreateUser } from './lib.js';
 import { setHireStatus, HIRE_LABELS, hireKind, hireStatus } from './hire.js';
 import { rankTop, homeSet, reviewOpen, reviewInvite } from './reviews.js';
 import { DEFAULTS } from './defaults.js';
@@ -8,7 +8,7 @@ import { fulfil, money } from './shop.js';
 import { upiDecide, upiExtraDone, proofOf, expireHours, UPI_DEFAULT_ID, UPI_DEFAULT_NAME } from './upi.js';
 import { serveFile } from './storage.js';
 import { handleAssistant } from './assistant.js';
-import { normDriveLinks, libraryPreview } from './library.js';
+import { normDriveLinks, libraryPreview, isBundle } from './library.js';
 import { setStatus, addThread, aiDraft, sendSolution, aiSettings, AI_DEFAULTS, timeline, threadOf, norm, LABELS } from './tickets.js';
 
 const TABLES = {
@@ -76,14 +76,14 @@ export async function handleAdmin(req, env, ctx, url, s) {
       q("SELECT day, COUNT(*) n FROM hitlog WHERE day >= ?1 AND flag = '' GROUP BY day ORDER BY day", d30),
       q("SELECT day, COUNT(DISTINCT vid) n FROM hitlog WHERE day >= ?1 AND flag = '' GROUP BY day ORDER BY day", d30),
       q("SELECT path, COUNT(*) n FROM hitlog WHERE day >= ?1 AND flag = '' GROUP BY path ORDER BY n DESC LIMIT 10", d30),
-      qo(`SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?3 THEN total END),0) today FROM orders WHERE status IN ('delivered','completed','processing','paid') AND total > 0 AND COALESCE(paid_at, created) >= ?1 AND ${notOwner}`, [revFrom, now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()]),
-      qo(`SELECT status, COUNT(*) n FROM orders WHERE created >= ?1 AND ${notOwner} GROUP BY status`, [revFrom]),
+      qo(`SELECT COALESCE(SUM(total),0) total, COUNT(*) n, COALESCE(SUM(CASE WHEN paid_at >= ?2 THEN total END),0) total30, COALESCE(SUM(CASE WHEN paid_at >= ?3 THEN total END),0) today FROM orders WHERE status IN ('delivered','completed','processing','paid') AND total > 0 AND COALESCE(provider, '') != 'gift' AND COALESCE(paid_at, created) >= ?1 AND ${notOwner}`, [revFrom, now() - 30 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()]),
+      qo(`SELECT status, COUNT(*) n FROM orders WHERE created >= ?1 AND COALESCE(provider, '') != 'gift' AND ${notOwner} GROUP BY status`, [revFrom]),
       q('SELECT COUNT(*) n, SUM(CASE WHEN created >= ?1 THEN 1 ELSE 0 END) new7, SUM(CASE WHEN last_login >= ?2 THEN 1 ELSE 0 END) today, SUM(CASE WHEN last_login >= ?1 THEN 1 ELSE 0 END) active7 FROM users', now() - 7 * 864e5, new Date(today + 'T00:00:00+05:30').getTime()),
       q("SELECT COUNT(*) n FROM tickets WHERE status = 'pending'"),
       q("SELECT COUNT(*) n FROM hire WHERE status IN ('new','received')"),
       q('SELECT COALESCE(SUM(downloads),0) n FROM products'),
       q("SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status = 'visible'"),
-      qo(`SELECT number, email, total, status, created FROM orders WHERE created >= ?1 AND ${notOwner} ORDER BY id DESC LIMIT 8`, [revFrom]),
+      qo(`SELECT number, email, total, status, created FROM orders WHERE created >= ?1 AND COALESCE(provider, '') != 'gift' AND ${notOwner} ORDER BY id DESC LIMIT 8`, [revFrom]),
       q("SELECT SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) sent, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM outbox WHERE created >= ?1", now() - 864e5),
       q('SELECT at, kind, msg FROM events ORDER BY id DESC LIMIT 15'),
       q('SELECT COUNT(*) n, SUM(CASE WHEN price = 0 THEN 1 ELSE 0 END) free FROM products'),
@@ -91,7 +91,7 @@ export async function handleAdmin(req, env, ctx, url, s) {
       q("SELECT flag, COUNT(*) n, COUNT(DISTINCT vid) v FROM hitlog WHERE day >= ?1 AND flag != '' GROUP BY flag", d30),
       q("SELECT COALESCE((SELECT SUM(n) FROM pv WHERE day < COALESCE((SELECT MIN(day) FROM hitlog), '9999')), 0) pv, COALESCE((SELECT COUNT(*) FROM visitors WHERE day < COALESCE((SELECT MIN(day) FROM hitlog), '9999')), 0) uv, (SELECT MIN(day) FROM hitlog) since"),
       q('SELECT COUNT(*) n FROM feedback WHERE read_at IS NULL'),
-      qo(`SELECT COUNT(*) n, COALESCE(SUM(total),0) total FROM orders WHERE status IN ('delivered','completed','processing','paid') AND NOT (${notOwner})`)
+      qo(`SELECT COUNT(*) n, COALESCE(SUM(total),0) total FROM orders WHERE status IN ('delivered','completed','processing','paid') AND COALESCE(provider, '') != 'gift' AND NOT (${notOwner})`)
     ]);
     const mailMain = await getKey(env, '_mail_main'), mailSup = await getKey(env, '_mail_support');
     return J({ ok: true, pv: pv.results, uv: uv.results, top: top.results, revenue: rev.results[0], orders: ordersBy.results, users: users.results[0],
@@ -296,6 +296,78 @@ export async function handleAdmin(req, env, ctx, url, s) {
     return J({ ok: true, items: results, used: tot.n, storage: storageInfo(env) });
   }
   if (p === '/api/admin/media' && m === 'DELETE') { const b = await readJson(req); await deleteFile(env, clean(b.key, 300)); return J({ ok: true }); }
+
+  /* ----- Nov 3 (Prashant 2:26 PM): Gift access — give any email a paid pack for free, exactly like a purchase.
+     A gift is an orders row (number JC-GIFT-xxxxx, provider 'gift', total 0, status 'delivered') + the usual owned row,
+     so the person signs in with the normal email-code flow and finds the pack in My Downloads / the library.
+     Gifts never count as sales (total 0, provider 'gift' is left out of every stat). Revoke = owned row removed, order cancelled. */
+  if (p === '/api/admin/gifts' && m === 'GET') {
+    const [g, pr] = await env.DB.batch([
+      env.DB.prepare("SELECT o.id, o.number, o.email, o.items, o.status, o.created, o.note, o.meta, o.user_id, (SELECT COUNT(*) FROM owned w WHERE w.order_id = o.id) has_access, (SELECT MAX(w.downloads) FROM owned w WHERE w.order_id = o.id) downloads, (SELECT MAX(w.last_dl) FROM owned w WHERE w.order_id = o.id) last_dl, (SELECT u.last_login FROM users u WHERE u.id = o.user_id) last_login FROM orders o WHERE o.provider = 'gift' ORDER BY o.id DESC LIMIT 500"),
+      env.DB.prepare('SELECT id, title, price, visible, tier, image, delivery FROM products WHERE COALESCE(price, 0) > 0 ORDER BY sort, id DESC')
+    ]);
+    return J({ ok: true, items: g.results.map(o => { let meta = {}; try { meta = JSON.parse(o.meta || '{}') || {}; } catch { } let items = []; try { items = JSON.parse(o.items || '[]'); } catch { } return { ...o, meta, items }; }), products: pr.results });
+  }
+  if (p === '/api/admin/gifts' && m === 'POST') {
+    const b = await readJson(req);
+    const email = clean(b.email, 200).toLowerCase().trim(); const pid = +b.product_id; const note = clean(b.note, 500);
+    if (!isEmail(email)) fail('Please enter a valid email');
+    const prod = await env.DB.prepare('SELECT * FROM products WHERE id = ?1').bind(pid).first();
+    if (!prod) fail('Pick a pack', 400);
+    if (!(prod.price > 0)) fail('This pack is already free for everyone. Pick a paid pack.');
+    const user = await findOrCreateUser(env, email, '');
+    if (user.disabled) fail('This account is blocked. Unblock it in Users first.');
+    const has = await env.DB.prepare('SELECT w.order_id, o.number, o.provider FROM owned w LEFT JOIN orders o ON o.id = w.order_id WHERE w.user_id = ?1 AND w.product_id = ?2').bind(user.id, pid).first();
+    if (has) fail(email + ' already has ' + prod.title + (has.number ? ' (' + has.number + (has.provider === 'gift' ? ', a gift' : '') + ')' : '') + '.');
+    const number = await newRef(env, 'GIFT'); const t = now();
+    const items = [{ id: prod.id, title: prod.title, price: 0, was: prod.price, image: prod.image, delivery: prod.delivery, slug: prod.slug, gift: true }];
+    const meta = { gift: true, by: s.user.email, value: prod.price, product_id: prod.id, mail: b.send_mail === false ? 'off' : 'pending' };
+    const ins = await env.DB.prepare("INSERT INTO orders (number, user_id, email, items, subtotal, discount, total, coupon, status, provider, provider_order, payment_id, events, created, paid_at, delivered_at, note, meta) VALUES (?1, ?2, ?3, ?4, 0, 0, 0, NULL, 'delivered', 'gift', '', 'GIFT', ?5, ?6, ?6, ?6, ?7, ?8) RETURNING id")
+      .bind(number, user.id, email, JSON.stringify(items), JSON.stringify([{ s: 'Order confirmed', at: t }, { s: 'Delivered', at: t, by: 'admin' }]), t, note, JSON.stringify(meta)).first();
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO owned (user_id, product_id, order_id, created) VALUES (?1, ?2, ?3, ?4)').bind(user.id, pid, ins.id, t),
+      env.DB.prepare('DELETE FROM cart WHERE user_id = ?1 AND product_id = ?2').bind(user.id, pid)
+    ]);
+    const link = origin + (isBundle(prod) ? '/library?p=' + prod.id : '/orders');
+    const name = (!user._new && user.name && user.name !== email.split('@')[0]) ? user.name : 'there';
+    const access = `Hi! I've given you free access to ${prod.title} on Jangid Cuts.\n\n1. Open ${link}\n2. Sign in with ${email} (choose "Email code", you'll get a 6-digit code)\n3. Your pack is in My Downloads.`;
+    let mailed = null, mailErr = '';
+    if (b.send_mail !== false) {
+      const r = await sendTemplate(env, 'gift_access', email, { name, product: prod.title, link, email, number, note: note && b.note_in_mail ? '\n\nNote from Prashant: ' + note : '' }, { ref: number });
+      mailed = !!r.ok; mailErr = r.ok ? '' : (r.error || 'failed');
+      meta.mail = r.ok ? 'sent' : 'failed';
+      await env.DB.prepare('UPDATE orders SET meta = ?1 WHERE id = ?2').bind(JSON.stringify(meta), ins.id).run();
+    }
+    await logEvent(env, 'admin', `${s.user.email} gifted ${prod.title} to ${email} (${number})`);
+    return J({ ok: true, id: ins.id, number, email, product: prod.title, new_account: !!user._new, mailed, mail_error: mailErr, link, access });
+  }
+  if ((mm = p.match(/^\/api\/admin\/gifts\/(\d+)$/)) && m === 'POST') {
+    const b = await readJson(req);
+    const o = await env.DB.prepare("SELECT * FROM orders WHERE id = ?1 AND provider = 'gift'").bind(+mm[1]).first(); if (!o) fail('Gift not found', 404);
+    if (b.action === 'revoke') {
+      const ev = JSON.parse(o.events || '[]'); ev.push({ s: 'cancelled', at: now(), by: 'admin', gift: 'revoked' });
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM owned WHERE order_id = ?1').bind(o.id),
+        env.DB.prepare("UPDATE orders SET status = 'cancelled', events = ?1 WHERE id = ?2").bind(JSON.stringify(ev), o.id)
+      ]);
+      try { await refClosed(env, o.number, true); } catch { }
+      await logEvent(env, 'admin', `${s.user.email} revoked gift ${o.number} (${o.email})`);
+      return J({ ok: true });
+    }
+    if (b.action === 'resend') {
+      if (o.status === 'cancelled') fail('This gift was revoked');
+      let items = []; try { items = JSON.parse(o.items || '[]'); } catch { }
+      const prod = items[0] && await env.DB.prepare('SELECT * FROM products WHERE id = ?1').bind(items[0].id).first(); if (!prod) fail('The pack no longer exists');
+      const link = origin + (isBundle(prod) ? '/library?p=' + prod.id : '/orders');
+      const r = await sendTemplate(env, 'gift_access', o.email, { name: 'there', product: prod.title, link, email: o.email, number: o.number, note: '' }, { ref: o.number });
+      let meta = {}; try { meta = JSON.parse(o.meta || '{}') || {}; } catch { } meta.mail = r.ok ? 'sent' : 'failed';
+      await env.DB.prepare('UPDATE orders SET meta = ?1 WHERE id = ?2').bind(JSON.stringify(meta), o.id).run();
+      if (!r.ok) fail('Email could not be sent: ' + (r.error || 'failed'), 502);
+      return J({ ok: true });
+    }
+    if (b.action === 'note') { await env.DB.prepare('UPDATE orders SET note = ?1 WHERE id = ?2').bind(clean(b.note, 500), o.id).run(); return J({ ok: true }); }
+    fail('Unknown action');
+  }
 
   /* ----- orders ----- */
   if (p === '/api/admin/upi-proof' && m === 'GET') { // Nov 1: buyer's payment screenshot (private)
