@@ -48,7 +48,7 @@ export const DEFAULTS = {
   footer: { about: 'Video editing and graphic design by Prashant Jangid: reels, YouTube, weddings, ads, colour grading and thumbnails.', copyright: '© {year} Jangid Cuts. All rights reserved.', made_in: 'Made in Jaipur, India', show_location: false },
   socials: [
     { name: 'Instagram', icon: 'instagram', url: 'https://www.instagram.com/jangidcuts/', handle: '@jangidcuts', show: true },
-    { name: 'YouTube', icon: 'youtube', url: 'https://www.youtube.com/@jangidcutsofficial', handle: '@jangidcutsofficial', show: true },
+    { name: 'YouTube', icon: 'youtube', url: 'https://www.youtube.com/@jangidcuts', handle: '@jangidcuts', show: true },
     { name: 'Facebook', icon: 'facebook', url: 'https://www.facebook.com/jangidcutss/', handle: 'Jangid Cuts', show: true },
     { name: 'X', icon: 'x', url: 'https://x.com/jangidcuts', handle: '@jangidcuts', show: true },
     { name: 'Telegram', icon: 'telegram', url: 'https://t.me/jangidcuts', handle: 't.me/jangidcuts', show: true },

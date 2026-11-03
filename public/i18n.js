@@ -41,7 +41,7 @@ function observe(){if(obs||!window.MutationObserver)return;obs=new MutationObser
  obs.observe(D.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:ATTRS});
  var te=D.querySelector('title');te&&new MutationObserver(function(){if(!busy){busy=true;try{title()}finally{busy=false}}}).observe(te,{childList:true,characterData:true,subtree:true})}
 function done(){H.classList.remove('i18n-wait')}
-var DICTS={},SEQ=0,DV=9;
+var DICTS={},SEQ=0,DV=10;
 function fetchDict(l){if(DICTS[l])return DICTS[l];DICTS[l]=fetch('/i18n/'+l+'.json?v='+DV,{credentials:'same-origin'}).then(function(r){if(!r.ok)throw 0;return r.json()}).catch(function(){delete DICTS[l];return null});return DICTS[l]}
 function load(l,cb){var my=++SEQ;if(l==='en'){dict=null;cb();return}
  fetchDict(l).then(function(d){if(my!==SEQ)return;dict=d;cb()})}
